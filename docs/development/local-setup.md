@@ -53,7 +53,7 @@ INNGEST_SIGNING_KEY=
 OPENAI_API_KEY=your-openai-api-key
 ```
 
-For simulation alone, leave `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, and both template names empty. `WHATSAPP_API_VERSION` can retain its default. `NEXT_PUBLIC_WHATSAPP_NUMBER` only controls the marketing link and is not needed by the simulator. Without an OpenAI key, initial greetings, interactive welcome controls, and fallback replies still work; natural conversations and booking/management tools require it.
+For simulation alone, leave `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET`, and `WHATSAPP_WEBHOOK_VERIFY_TOKEN` empty. Approved technician template names are optional and are configured in **Admin | Settings**, not environment variables. `WHATSAPP_API_VERSION` can retain its default. `NEXT_PUBLIC_WHATSAPP_NUMBER` only controls the marketing link and is not needed by the simulator. Without an OpenAI key, initial greetings, interactive welcome controls, and fallback replies still work; natural conversations and booking/management tools require it.
 
 Restart `pnpm dev` after changing environment values, run `pnpm inngest:dev` in a second terminal, and sign in at `http://localhost:3000/admin`. Complete the initial password change if prompted, then open **WhatsApp simulator** (`/admin/simulator`).
 

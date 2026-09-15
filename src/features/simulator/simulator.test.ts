@@ -298,8 +298,16 @@ describe("coexisting real and simulated conversations", () => {
   });
   it("routes technician notifications according to the originating tool call", async () => {
     setTable("tool_executions", { id: "tool", state: "started", result: null });
-    setTable("bookings", { technician_ref: "bfa0a100-6a99-47ad-9735-9d38b1299adc" });
+    setTable("bookings", {
+      technician_ref: "bfa0a100-6a99-47ad-9735-9d38b1299adc",
+      local_time_label: "2026-09-16 14:00 CEST",
+      salon: [{ name: "Mitte" }],
+    });
     setTable("technicians", { wa_id: "4915999999999" });
+    setTable("contacts", { display_name: "Test Ada", wa_id: input.identity.waId });
+    setTable("platform_settings", {
+      technician_booking_cancelled_template: "technician_booking_cancelled",
+    });
     setTable("message_outbox", { id: "notification", state: "pending" });
     mocks.rpc.mockResolvedValue({ data: true, error: null });
     const actor: ConversationActor = {
@@ -323,7 +331,18 @@ describe("coexisting real and simulated conversations", () => {
     expect(writes("message_outbox")[0]).toMatchObject({
       recipient_wa_id: "4915999999999",
       conversation_id: null,
-      payload: { transport: "simulator" },
+      payload: {
+        transport: "simulator",
+        kind: "template",
+        name: "technician_booking_cancelled",
+        bodyParameters: [
+          "Mitte",
+          "Test Ada",
+          input.identity.waId,
+          "2026-09-16 14:00 CEST",
+          "bab0a100-6a99-47ad-9735-9d38b1299adc",
+        ],
+      },
     });
   });
   it.each([true, false])(

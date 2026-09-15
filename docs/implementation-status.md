@@ -6,7 +6,7 @@ Last reviewed: 2026-09-15.
 
 - Next.js App Router scaffold with a German responsive landing page and English Ant Design admin shell.
 - Supabase Auth login, protected admin routes, migration-created initial account, UI-required first password change, and authenticated later password changes.
-- Admin SWR APIs and Ant Design CRUD screens for businesses, owners, salons, services, technicians, settings, bookings, analytics, and CSV export.
+- Admin SWR APIs and Ant Design CRUD screens for businesses, owners, salons, services, technicians, settings, bookings, analytics, and CSV export. Settings explain and store the optional approved technician WhatsApp notification-template names, including the Meta body placeholders.
 - Salon create/edit forms normalize time defaults and saved values for Ant Design pickers, serialize `HH:mm` API payloads, and restore defaults when adding after editing.
 - Supabase migration with multi-business tables, snapshots, RLS, transactional inbound/booking/cancellation/preview functions, audit data, and durable queues. Local and production contain no salon/customer seed data.
 - WhatsApp verification/signature handling, normalization, duplicate-safe inbox registration, text/image/button/list transport, delivery tracking, and a signed local simulator.

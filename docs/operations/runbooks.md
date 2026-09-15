@@ -14,7 +14,7 @@ Compare unique provider event/message IDs, conversation/tool call IDs, and booki
 
 ## Technician notification failure
 
-Check recipient WA ID and service window. Outside the window, configure the approved confirmed/cancelled template with the documented parameter order. Missing/unreachable technicians must not alter the customer booking.
+Check recipient WA ID and service window. Outside the window, create the approved confirmed/cancelled Meta templates shown in **Admin | Settings** and save their exact names there. Missing/unreachable technicians must not alter the customer booking.
 
 ## Image unavailable or quota mismatch
 

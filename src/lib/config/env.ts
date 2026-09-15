@@ -16,8 +16,6 @@ const serverEnvSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
-  WHATSAPP_TEMPLATE_BOOKING_CONFIRMED: z.string().optional(),
-  WHATSAPP_TEMPLATE_BOOKING_CANCELLED: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_CHAT_MODEL: z.string().default("gpt-5-mini"),
   OPENAI_IMAGE_MODEL: z.string().default("gpt-image-1"),
@@ -100,7 +98,5 @@ export function requireWhatsAppConfig() {
     accessToken: env.WHATSAPP_ACCESS_TOKEN!,
     appSecret: env.WHATSAPP_APP_SECRET!,
     verifyToken: env.WHATSAPP_WEBHOOK_VERIFY_TOKEN!,
-    bookingConfirmedTemplate: env.WHATSAPP_TEMPLATE_BOOKING_CONFIRMED,
-    bookingCancelledTemplate: env.WHATSAPP_TEMPLATE_BOOKING_CANCELLED,
   };
 }

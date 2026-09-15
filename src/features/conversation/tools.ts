@@ -353,17 +353,33 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     .eq("conversation_id", actor.conversationId);
 
   if (technicianWaId) {
-    const config = getServerEnv();
-    const notification = config.WHATSAPP_TEMPLATE_BOOKING_CONFIRMED
+    const [settings, contact] = await Promise.all([
+      supabase
+        .from("platform_settings")
+        .select("technician_booking_confirmed_template")
+        .eq("singleton", true)
+        .single(),
+      supabase.from("contacts").select("display_name,wa_id").eq("id", actor.contactId).single(),
+    ]);
+    if (settings.error) throw settings.error;
+    if (contact.error) throw contact.error;
+    const bodyParameters = [
+      salon.name,
+      contact.data.display_name || "Customer",
+      contact.data.wa_id,
+      localLabel,
+      String(bookingId),
+    ];
+    const notification = settings.data.technician_booking_confirmed_template
       ? {
           kind: "template" as const,
-          name: config.WHATSAPP_TEMPLATE_BOOKING_CONFIRMED,
-          languageCode: config.BOT_LOCALE === "de" ? "de" : "en_US",
-          bodyParameters: [salon.name, localLabel, String(bookingId)],
+          name: settings.data.technician_booking_confirmed_template,
+          languageCode: getServerEnv().BOT_LOCALE === "de" ? "de" : "en_US",
+          bodyParameters,
         }
       : {
           kind: "text" as const,
-          text: `New booking at ${salon.name}: ${localLabel}. Booking ${bookingId}.`,
+          text: `New booking at ${salon.name}. Customer: ${bodyParameters[1]} (${bodyParameters[2]}). Appointment: ${localLabel}. Booking reference: ${bookingId}.`,
         };
     await queueWhatsAppMessage({
       transport: actor.transport,
@@ -415,15 +431,35 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
       .eq("id", before.data.technician_ref)
       .maybeSingle();
     if (technician.data?.wa_id) {
-      const config = getServerEnv();
-      const notification = config.WHATSAPP_TEMPLATE_BOOKING_CANCELLED
+      const [settings, contact] = await Promise.all([
+        supabase
+          .from("platform_settings")
+          .select("technician_booking_cancelled_template")
+          .eq("singleton", true)
+          .single(),
+        supabase.from("contacts").select("display_name,wa_id").eq("id", actor.contactId).single(),
+      ]);
+      if (settings.error) throw settings.error;
+      if (contact.error) throw contact.error;
+      const salonName = before.data.salon[0]?.name ?? "the salon";
+      const bodyParameters = [
+        salonName,
+        contact.data.display_name || "Customer",
+        contact.data.wa_id,
+        before.data.local_time_label,
+        values.bookingId,
+      ];
+      const notification = settings.data.technician_booking_cancelled_template
         ? {
             kind: "template" as const,
-            name: config.WHATSAPP_TEMPLATE_BOOKING_CANCELLED,
-            languageCode: config.BOT_LOCALE === "de" ? "de" : "en_US",
-            bodyParameters: [values.bookingId],
+            name: settings.data.technician_booking_cancelled_template,
+            languageCode: getServerEnv().BOT_LOCALE === "de" ? "de" : "en_US",
+            bodyParameters,
           }
-        : { kind: "text" as const, text: `Booking ${values.bookingId} was cancelled.` };
+        : {
+            kind: "text" as const,
+            text: `Booking cancelled at ${salonName}. Customer: ${bodyParameters[1]} (${bodyParameters[2]}). Appointment: ${before.data.local_time_label}. Booking reference: ${values.bookingId}.`,
+          };
       await queueWhatsAppMessage({
         transport: actor.transport,
         recipientWaId: technician.data.wa_id,

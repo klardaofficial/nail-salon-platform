@@ -14,6 +14,16 @@ const settingsSchema = z.object({
   previewsPerRequest: z.coerce.number().int().min(1).max(3),
   greetingEn: z.string().trim().min(1).max(1000),
   greetingDe: z.string().trim().min(1).max(1000),
+  technicianBookingConfirmedTemplate: z
+    .string()
+    .trim()
+    .max(512)
+    .transform((value) => value || null),
+  technicianBookingCancelledTemplate: z
+    .string()
+    .trim()
+    .max(512)
+    .transform((value) => value || null),
 });
 
 function mapSettings(row: Record<string, unknown> | null) {
@@ -31,6 +41,10 @@ function mapSettings(row: Record<string, unknown> | null) {
     previewsPerRequest: Number(row?.previews_per_request ?? defaults.PREVIEWS_PER_REQUEST),
     greetingEn: String(row?.greeting_en ?? "Hello! How can I help you today?"),
     greetingDe: String(row?.greeting_de ?? "Hallo! Wie kann ich dir heute helfen?"),
+    technicianBookingConfirmedTemplate:
+      (row?.technician_booking_confirmed_template as string | null) ?? null,
+    technicianBookingCancelledTemplate:
+      (row?.technician_booking_cancelled_template as string | null) ?? null,
     botLocale: getBotLocale(),
   };
 }
@@ -68,6 +82,8 @@ export async function PATCH(request: Request) {
         previews_per_request: values.previewsPerRequest,
         greeting_en: values.greetingEn,
         greeting_de: values.greetingDe,
+        technician_booking_confirmed_template: values.technicianBookingConfirmedTemplate,
+        technician_booking_cancelled_template: values.technicianBookingCancelledTemplate,
       })
       .eq("singleton", true)
       .select("*")

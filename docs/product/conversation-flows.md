@@ -71,7 +71,11 @@ When a salon has services, they are suggestions and several may be selected. `Ot
 
 ## Cancellation
 
-The bot lists only the contact's own bookings. `cancel_booking` calls a transactional function that succeeds only while the confirmed booking starts in the future. A valid technician recipient receives a deduplicated cancellation message. Cancelled records remain visible.
+The bot lists only the contact's own bookings. `cancel_booking` calls a transactional function that succeeds only while the confirmed booking starts in the future. A valid technician recipient receives a deduplicated cancellation message containing salon, customer name and WhatsApp number, appointment, and booking reference. Cancelled records remain visible.
+
+## Technician notification templates
+
+When a technician has no open 24-hour WhatsApp service window, Meta permits this notification only through an approved template. An administrator creates the confirmed and cancelled templates in Meta using the exact examples in **Admin | Settings**, then saves each approved template name on that page. For both types, the body parameters are: `{{1}}` salon name, `{{2}}` customer name, `{{3}}` customer WhatsApp number, `{{4}}` local appointment time, and `{{5}}` booking reference. Leaving a name empty uses an ordinary message, which Meta can deliver only during the technician's own open service window.
 
 ## Image preview
 
