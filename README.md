@@ -21,15 +21,19 @@ pnpm db:types
 Copy the local API URL, publishable/anon key, and secret/service-role key reported by `supabase status` into `.env.local`.
 
 Serve the Local service with
+
 ```bash
 pnpm dev
 ```
+
 Open `http://localhost:3000` for the German landing page and `/admin` for the dashboard. The migration creates `admin@gmail.com` with initial password `Pass1234`; the UI requires an immediate password change.
 
 In a second terminal run
+
 ```bash
 pnpm inngest:dev
 ```
+
 then open `http://localhost:8288`. Local `.env.local` should contain `INNGEST_DEV=1`; cloud Inngest keys stay empty. See the [local Inngest instructions](docs/development/local-setup.md#local-inngest).
 
 Provider-backed WhatsApp/OpenAI flows require the credentials listed in `.env.example`. Use `pnpm whatsapp:simulate <wa-id> "message"` against a running app to submit a signed synthetic webhook. It still requires a working database, Inngest dev server/cloud connection, and outbound provider configuration to complete replies.
