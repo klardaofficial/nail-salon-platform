@@ -180,6 +180,7 @@ export function ResourceManager({ resource }: { resource: ResourceName }) {
         onOk={() => form.submit()}
         confirmLoading={isMutating}
         destroyOnHidden
+        forceRender
       >
         <Form form={form} layout="vertical" requiredMark="optional" onFinish={save}>
           {definition.fields.map((field) => (

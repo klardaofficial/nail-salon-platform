@@ -451,6 +451,7 @@ export function SimulatorClient() {
         }}
         onOk={() => form.submit()}
         okText="Add customer"
+        forceRender
       >
         <Form form={form} layout="vertical" onFinish={addCustomer}>
           <Form.Item
