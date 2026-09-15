@@ -6,6 +6,18 @@ import prettier from "eslint-config-prettier/flat";
 export default defineConfig([
   ...nextVitals,
   ...nextTypescript,
+  {
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-deprecated": "error",
+    },
+  },
   prettier,
   globalIgnores([".next/**", "node_modules/**", "coverage/**", "src/generated/**"]),
 ]);

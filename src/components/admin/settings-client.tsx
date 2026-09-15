@@ -42,7 +42,7 @@ export function SettingsClient() {
         description="Defaults for new salons, bot greetings, and preview usage. Bot language changes only on redeploy."
       />
       {(error || mutationError) && (
-        <Alert type="error" showIcon message={(error || mutationError)?.message} />
+        <Alert type="error" showIcon title={(error || mutationError)?.message} />
       )}
       {isLoading ? (
         <Skeleton active paragraph={{ rows: 10 }} />

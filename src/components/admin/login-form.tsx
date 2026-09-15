@@ -1,6 +1,6 @@
 "use client";
 
-import { LockKey, User } from "@phosphor-icons/react";
+import { LockKeyIcon, UserIcon } from "@phosphor-icons/react";
 import { Alert, Button, Form, Input } from "antd";
 import { useRouter } from "next/navigation";
 import useSWRMutation from "swr/mutation";
@@ -30,16 +30,16 @@ export function LoginForm({ disabled = false }: { disabled?: boolean }) {
         <Alert
           type="error"
           showIcon
-          message={error instanceof Error ? error.message : "Sign in failed"}
+          title={error instanceof Error ? error.message : "Sign in failed"}
           style={{ marginBottom: 20 }}
         />
       ) : null}
       <Form.Item name="email" label="Email address" rules={[{ required: true }, { type: "email" }]}>
-        <Input prefix={<User size={18} />} autoComplete="username" size="large" />
+        <Input prefix={<UserIcon size={18} />} autoComplete="username" size="large" />
       </Form.Item>
       <Form.Item name="password" label="Password" rules={[{ required: true }]}>
         <Input.Password
-          prefix={<LockKey size={18} />}
+          prefix={<LockKeyIcon size={18} />}
           autoComplete="current-password"
           size="large"
         />

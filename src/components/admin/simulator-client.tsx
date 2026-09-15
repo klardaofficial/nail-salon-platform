@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowClockwise, ChatCircleDots, PaperPlaneRight, Plus, X } from "@phosphor-icons/react";
+import {
+  ArrowClockwiseIcon,
+  ChatCircleDotsIcon,
+  PaperPlaneRightIcon,
+  PlusIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import {
   Alert,
   App,
@@ -200,7 +206,7 @@ function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: 
         {onRemove ? (
           <Button
             type="text"
-            icon={<X size={17} />}
+            icon={<XIcon size={17} />}
             aria-label={`Remove customer ${actor.name}`}
             onClick={onRemove}
           />
@@ -247,7 +253,7 @@ function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: 
         {isLoading ? <Skeleton active paragraph={{ rows: 5 }} /> : null}
         {!isLoading && !error && !messages?.length ? (
           <div className={styles.emptyChat}>
-            <ChatCircleDots size={32} />
+            <ChatCircleDotsIcon size={32} />
             <p>Send a message to start this conversation.</p>
           </div>
         ) : null}
@@ -286,7 +292,7 @@ function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: 
           <Button
             type="primary"
             htmlType="submit"
-            icon={<PaperPlaneRight size={16} />}
+            icon={<PaperPlaneRightIcon size={16} />}
             loading={isMutating}
             disabled={!draft.trim()}
           >
@@ -375,7 +381,7 @@ export function SimulatorClient() {
         />
         <Space>
           <Button
-            icon={<ArrowClockwise size={16} />}
+            icon={<ArrowClockwiseIcon size={16} />}
             loading={isValidating}
             onClick={() => void mutate().catch(() => undefined)}
           >
@@ -383,7 +389,7 @@ export function SimulatorClient() {
           </Button>
           <Button
             type="primary"
-            icon={<Plus size={16} />}
+            icon={<PlusIcon size={16} />}
             disabled={!data || Boolean(error)}
             onClick={() => setAdding(true)}
           >

@@ -12,6 +12,10 @@ pnpm build
 
 `pnpm check` runs these in order. Application tests cover WhatsApp signature verification/normalization, analytics cohorts/timezone grouping, simulator routing/authorization, and UI behavior. They do not execute or inspect Supabase migration SQL. Do not add or maintain automated migration tests; the quality workflow runs application checks only.
 
+`pnpm lint` enables type-aware `@typescript-eslint/no-deprecated` as an error for TypeScript source and tests. This makes `pnpm check` and the quality workflow reject deprecated APIs identified by dependency declarations; TypeScript compilation alone does not reject these editor diagnostics. Runtime-only deprecations without type annotations still require runtime verification.
+
+Resource form regression tests render the real Ant Design controls and cover salon default times, saved times, `HH:mm` create/update payloads, business search by label, and restoring defaults after editing.
+
 Simulator tests cover admin/flag gates, identity grouping and spoof rejection, signed ingestion and duplicate/recovery behavior, channel separation, technician notification routing, durable simulated delivery after disabling, and real delivery while enabled. UI acceptance covers customer add/remove/reopen, database staff windows, independent message composers, interactive replies, polling/error states, and browser persistence. Use [the browser simulator](local-setup.md#browser-whatsapp-simulator) for manual booking/owner/technician scenarios; these mutate the configured development database and use OpenAI for natural conversations.
 
 When intentionally rebuilding the local database after a schema change, the operational commands are:

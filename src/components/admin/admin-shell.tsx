@@ -1,17 +1,17 @@
 "use client";
 
 import {
-  Buildings,
-  CalendarDots,
-  ChartLineUp,
-  ChatCircleDots,
-  GearSix,
-  HouseLine,
-  Scissors,
-  SignOut,
-  Storefront,
-  UserCircle,
-  UsersThree,
+  BuildingsIcon,
+  CalendarDotsIcon,
+  ChartLineUpIcon,
+  ChatCircleDotsIcon,
+  GearSixIcon,
+  HouseLineIcon,
+  ScissorsIcon,
+  SignOutIcon,
+  StorefrontIcon,
+  UserCircleIcon,
+  UsersThreeIcon,
 } from "@phosphor-icons/react";
 import { Alert, Avatar, Button, Dropdown, Layout, Menu, Space, Typography } from "antd";
 import Link from "next/link";
@@ -25,45 +25,45 @@ import { apiMutation } from "@/lib/api/client";
 const { Header, Content, Sider } = Layout;
 
 const navigation = [
-  { key: "/admin", icon: <HouseLine size={18} />, label: <Link href="/admin">Overview</Link> },
+  { key: "/admin", icon: <HouseLineIcon size={18} />, label: <Link href="/admin">Overview</Link> },
   {
     key: "/admin/bookings",
-    icon: <CalendarDots size={18} />,
+    icon: <CalendarDotsIcon size={18} />,
     label: <Link href="/admin/bookings">Bookings</Link>,
   },
   {
     key: "/admin/businesses",
-    icon: <Buildings size={18} />,
+    icon: <BuildingsIcon size={18} />,
     label: <Link href="/admin/businesses">Businesses</Link>,
   },
   {
     key: "/admin/salons",
-    icon: <Storefront size={18} />,
+    icon: <StorefrontIcon size={18} />,
     label: <Link href="/admin/salons">Salons</Link>,
   },
   {
     key: "/admin/services",
-    icon: <Scissors size={18} />,
+    icon: <ScissorsIcon size={18} />,
     label: <Link href="/admin/services">Services</Link>,
   },
   {
     key: "/admin/technicians",
-    icon: <UsersThree size={18} />,
+    icon: <UsersThreeIcon size={18} />,
     label: <Link href="/admin/technicians">Technicians</Link>,
   },
   {
     key: "/admin/analytics",
-    icon: <ChartLineUp size={18} />,
+    icon: <ChartLineUpIcon size={18} />,
     label: <Link href="/admin/analytics">Analytics</Link>,
   },
   {
     key: "/admin/simulator",
-    icon: <ChatCircleDots size={18} />,
+    icon: <ChatCircleDotsIcon size={18} />,
     label: <Link href="/admin/simulator">WhatsApp simulator</Link>,
   },
   {
     key: "/admin/settings",
-    icon: <GearSix size={18} />,
+    icon: <GearSixIcon size={18} />,
     label: <Link href="/admin/settings">Settings</Link>,
   },
 ];
@@ -104,13 +104,13 @@ export function AdminShell({
   const accountItems = [
     {
       key: "account",
-      icon: <UserCircle size={17} />,
+      icon: <UserCircleIcon size={17} />,
       label: <Link href="/admin/account">Account settings</Link>,
     },
     { type: "divider" as const },
     {
       key: "logout",
-      icon: <SignOut size={17} />,
+      icon: <SignOutIcon size={17} />,
       label: "Sign out",
       danger: true,
       onClick: handleLogout,
@@ -153,7 +153,7 @@ export function AdminShell({
             <Alert
               type="warning"
               showIcon
-              message="Redirecting to the required initial password change"
+              title="Redirecting to the required initial password change"
             />
           ) : (
             children

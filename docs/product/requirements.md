@@ -30,4 +30,6 @@ These IDs are the stable source for acceptance work.
 | SIM-01    | An env-gated, admin-authenticated web simulator works locally and when hosted, alongside real WhatsApp. Admins add/remove customer windows requiring name and WA ID; owner/technician windows use stored mappings.                                                  | `/admin/simulator`, `/api/admin/simulator/*`, `WHATSAPP_SIMULATOR_ENABLED`                    |
 | SIM-02    | Simulation uses the normal signed ingestion, durable jobs, role checks, tools, and database. Its histories/drafts are separate from real WhatsApp; replies and cross-recipient notifications are captured without Meta. Text and interactive replies are supported. | simulator ingress, `whatsapp_simulator` channel, durable outbox transport                     |
 
+ADMIN-01 acceptance: salon create/edit forms display opening and closing times, restore defaults for a new salon, and submit times as `HH:mm`. Resource selectors search by their displayed labels.
+
 Deferred: owner/technician web dashboards (the simulator is an admin testing tool), payment collection, deposits, strict scheduling, attendance/no-show tracking, runtime locale switching, arbitrary WhatsApp avatar lookup, persistent customer image galleries, and simulator image uploads.

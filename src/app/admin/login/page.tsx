@@ -25,7 +25,7 @@ export default async function AdminLoginPage() {
             <Alert
               type="warning"
               showIcon
-              message="Local configuration required"
+              title="Local configuration required"
               description="Copy .env.example to .env.local and add your Supabase values before signing in."
               style={{ marginBottom: 24 }}
             />

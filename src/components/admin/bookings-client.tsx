@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadSimple } from "@phosphor-icons/react";
+import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import { Alert, Button, Select, Skeleton, Table, Tag } from "antd";
 import { useState } from "react";
 import useSWR from "swr";
@@ -44,13 +44,13 @@ export function BookingsClient() {
           style={{ width: 180 }}
         />
         <Button
-          icon={<DownloadSimple size={17} />}
+          icon={<DownloadSimpleIcon size={17} />}
           href={`/api/admin/reports/bookings.csv${status ? `?status=${status}` : ""}`}
         >
           Export CSV
         </Button>
       </div>
-      {error ? <Alert type="error" showIcon message={error.message} /> : null}
+      {error ? <Alert type="error" showIcon title={error.message} /> : null}
       {isLoading ? (
         <Skeleton active paragraph={{ rows: 9 }} />
       ) : (

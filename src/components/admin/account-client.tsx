@@ -41,12 +41,12 @@ export function AccountClient({
           <Alert
             type="warning"
             showIcon
-            message="Change the initial password before continuing"
+            title="Change the initial password before continuing"
             style={{ marginBottom: 18 }}
           />
         ) : null}
         {error ? (
-          <Alert type="error" showIcon message={error.message} style={{ marginBottom: 18 }} />
+          <Alert type="error" showIcon title={error.message} style={{ marginBottom: 18 }} />
         ) : null}
         <Form<PasswordValues>
           form={form}

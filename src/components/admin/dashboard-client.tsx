@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, CalendarCheck, Users } from "@phosphor-icons/react";
+import {
+  ArrowDownRightIcon,
+  ArrowUpRightIcon,
+  CalendarCheckIcon,
+  UsersIcon,
+} from "@phosphor-icons/react";
 import {
   Alert,
   Card,
@@ -82,7 +87,7 @@ export function DashboardClient() {
       </Space>
 
       {error ? (
-        <Alert type="error" showIcon message={error.message} style={{ marginBottom: 20 }} />
+        <Alert type="error" showIcon title={error.message} style={{ marginBottom: 20 }} />
       ) : null}
       {isLoading ? (
         <Skeleton active paragraph={{ rows: 10 }} />
@@ -94,7 +99,7 @@ export function DashboardClient() {
                 <Statistic
                   title="Total bookings"
                   value={data.totals.total}
-                  prefix={<CalendarCheck size={22} />}
+                  prefix={<CalendarCheckIcon size={22} />}
                 />
               </Card>
             </Col>
@@ -103,8 +108,8 @@ export function DashboardClient() {
                 <Statistic
                   title="Confirmed"
                   value={data.totals.confirmed}
-                  valueStyle={{ color: "#317159" }}
-                  prefix={<ArrowUpRight size={22} />}
+                  styles={{ content: { color: "#317159" } }}
+                  prefix={<ArrowUpRightIcon size={22} />}
                 />
               </Card>
             </Col>
@@ -113,8 +118,8 @@ export function DashboardClient() {
                 <Statistic
                   title="Cancelled"
                   value={data.totals.cancelled}
-                  valueStyle={{ color: "#a33a4a" }}
-                  prefix={<ArrowDownRight size={22} />}
+                  styles={{ content: { color: "#a33a4a" } }}
+                  prefix={<ArrowDownRightIcon size={22} />}
                 />
               </Card>
             </Col>
@@ -124,7 +129,7 @@ export function DashboardClient() {
                   title="Returning customers"
                   value={data.totals.returningCustomers}
                   suffix={data.totals.uniqueCustomers ? ` / ${data.totals.uniqueCustomers}` : ""}
-                  prefix={<Users size={22} />}
+                  prefix={<UsersIcon size={22} />}
                 />
               </Card>
             </Col>
@@ -193,7 +198,7 @@ export function DashboardClient() {
             </Col>
             <Col xs={24} xl={8}>
               <Card title="Operations">
-                <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                <Space orientation="vertical" size="large" style={{ width: "100%" }}>
                   <Statistic title="Failed jobs" value={data.health.failedJobs} />
                   <Statistic title="Pending messages" value={data.health.pendingMessages} />
                   <Statistic title="Preview failures" value={data.health.previewFailures} />

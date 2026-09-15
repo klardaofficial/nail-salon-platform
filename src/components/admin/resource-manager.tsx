@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "@phosphor-icons/react";
+import { PlusIcon } from "@phosphor-icons/react";
 import {
   Alert,
   App,
@@ -18,6 +18,7 @@ import {
   TimePicker,
 } from "antd";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import useSWRMutation from "swr/mutation";
@@ -32,15 +33,19 @@ import { apiMutation } from "@/lib/api/client";
 import { apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
+dayjs.extend(customParseFormat);
+
 function endpoint(resource: ResourceName) {
   return apiKeys[resource];
 }
 
-function formValues(item: AdminResourceItem) {
+function formValues(item: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(item).map(([key, value]) => [
       key,
-      key.endsWith("_time") && typeof value === "string" ? dayjs(value, "HH:mm") : value,
+      key.endsWith("_time") && typeof value === "string"
+        ? dayjs(value, ["HH:mm", "HH:mm:ss"], true)
+        : value,
     ]),
   );
 }
@@ -72,7 +77,7 @@ export function ResourceManager({ resource }: { resource: ResourceName }) {
   function showCreate() {
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue(definition.defaults);
+    form.setFieldsValue(formValues(definition.defaults ?? {}));
     setOpen(true);
   }
 
@@ -110,13 +115,13 @@ export function ResourceManager({ resource }: { resource: ResourceName }) {
         <Alert
           type="error"
           showIcon
-          message={(error || mutationError)?.message}
+          title={(error || mutationError)?.message}
           style={{ marginBottom: 16 }}
         />
       )}
       <div className="admin-table-toolbar">
         <span />
-        <Button type="primary" icon={<Plus size={17} />} onClick={showCreate}>
+        <Button type="primary" icon={<PlusIcon size={17} />} onClick={showCreate}>
           Add {definition.singular}
         </Button>
       </div>
@@ -189,7 +194,10 @@ export function ResourceManager({ resource }: { resource: ResourceName }) {
               {field.kind === "textarea" ? (
                 <Input.TextArea rows={4} />
               ) : field.kind === "select" ? (
-                <Select showSearch optionFilterProp="label" options={options(field.optionSource)} />
+                <Select
+                  showSearch={{ optionFilterProp: "label" }}
+                  options={options(field.optionSource)}
+                />
               ) : field.kind === "switch" ? (
                 <Switch />
               ) : field.kind === "time" ? (

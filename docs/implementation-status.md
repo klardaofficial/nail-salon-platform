@@ -7,6 +7,7 @@ Last reviewed: 2026-09-15.
 - Next.js App Router scaffold with a German responsive landing page and English Ant Design admin shell.
 - Supabase Auth login, protected admin routes, migration-created initial account, UI-required first password change, and authenticated later password changes.
 - Admin SWR APIs and Ant Design CRUD screens for businesses, owners, salons, services, technicians, settings, bookings, analytics, and CSV export.
+- Salon create/edit forms normalize time defaults and saved values for Ant Design pickers, serialize `HH:mm` API payloads, and restore defaults when adding after editing.
 - Supabase migration with multi-business tables, snapshots, RLS, transactional inbound/booking/cancellation/preview functions, audit data, and durable queues. Local and production contain no salon/customer seed data.
 - WhatsApp verification/signature handling, normalization, duplicate-safe inbox registration, text/image/button/list transport, delivery tracking, and a signed local simulator.
 - App-owned conversation history, fixed deployment locale, active catalog context, OpenAI Responses API loop, strict function tools, server-side role checks, and idempotent tool execution.
@@ -15,6 +16,7 @@ Last reviewed: 2026-09-15.
 - Confirmed/cancelled, unique customer, returning customer, repeat-rate, trends, recent activity, health counts, and CSV reporting.
 - GitHub quality workflow. Vercel application deployment and Supabase migration deployment are handled by their respective GitHub integrations.
 - Repository Prettier, ESLint, EditorConfig, WebStorm guidance, tests, and agent documentation.
+- Type-aware ESLint rejects deprecated TypeScript API usage as part of `pnpm lint`, `pnpm check`, and the existing quality workflow.
 - Pinned Inngest dev-server CLI and a documented keyless local workflow through `pnpm inngest:dev`.
 - Environment-gated admin web WhatsApp simulator for local and hosted use alongside real traffic: persistent browser customer windows, database-backed owner/technician windows, text/interactive chats, processing status, and captured replies/notifications. It shares real domain tools and data while isolating simulated histories and durable delivery routing. Meta credentials are unnecessary for browser simulation.
 
@@ -23,7 +25,7 @@ Last reviewed: 2026-09-15.
 - `pnpm format:check`
 - `pnpm lint`
 - `pnpm typecheck`
-- Application tests cover WhatsApp verification/normalization, analytics, simulator authorization/routing, and chat UI interactions. Supabase migration tests and the database-test CI job were removed by project decision; they must not be reintroduced.
+- Application tests cover WhatsApp verification/normalization, analytics, simulator authorization/routing, chat UI interactions, and salon form time defaults/save behavior. Supabase migration tests and the database-test CI job were removed by project decision; they must not be reintroduced.
 - `pnpm build`: production build and all routes compile.
 - Local Inngest dev server 1.44.0 syncs successfully; `/api/inngest` reports HTTP 200, dev mode, no cloud keys, and four registered functions.
 - Supabase CLI 2.117.0 starts. Local database rebuild/type-generation commands remain available for schema development, but migration execution/reset/lint is not part of the application quality workflow.
