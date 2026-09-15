@@ -1,0 +1,9 @@
+allowBuilds:
+  esbuild: true
+  inngest-cli: true
+  protobufjs: true
+  unrs-resolver: true
+minimumReleaseAgeExclude:
+  - antd@6.6.4
+  - "@vercel/build-utils@14.10.1"
+  - "@vercel/node@13.0.1"

@@ -1,0 +1,15 @@
+# Authorization
+
+## Platform admin
+
+Supabase Auth stores credentials. The initial migration inserts the one platform administrator as `admin@gmail.com` with password `Pass1234` and sets `platform_admins.must_change_password=true`. The protected admin shell redirects that account to Account settings and disables its other navigation until the password changes. `/api/admin/auth/password` verifies the current password, updates it through Supabase Auth, then clears the flag. This is a UI guard by requirement; admin APIs retain their normal authenticated-admin checks without an extra password-change query.
+
+Protected layouts use `requireAdminIdentity`. Every `/api/admin` handler independently calls `requireApiAdmin`; only then does server code use the service-role client. The service role never enters browser bundles. RLS remains enabled as defense in depth.
+
+## WhatsApp actors
+
+The webhook body must have a valid Meta HMAC before any identity is accepted. Its `from` WA ID resolves one platform contact. `business_owners` yields owned businesses and active technician rows yield technician IDs. The model receives this bounded context, but every owner/technician tool rechecks the requested entity against those IDs.
+
+Customer list/cancel operations always filter by the current contact. Owner mutations load a salon and compare `business_id` to stored memberships. Technician booking queries use only the matching technician IDs; time off checks the submitted technician ID belongs to the actor.
+
+Text such as “I am the owner” never grants access. A model-generated ID, stale interactive value, missing record, or cross-business target fails before mutation. Tool execution results contain safe codes for a friendly reply and never expose service keys or raw database errors intentionally.

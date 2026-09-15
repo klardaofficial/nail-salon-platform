@@ -1,0 +1,10 @@
+.next/
+.tool-home/
+.supabase-home/
+.idea/
+node_modules/
+coverage/
+pnpm-lock.yaml
+src/generated/
+supabase/.branches/
+supabase/.temp/

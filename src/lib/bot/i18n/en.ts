@@ -1,0 +1,20 @@
+export const en = {
+  greetingFallback: "Hello! How can I help you today?",
+  chooseSalon: "Which salon would you like to book? You can choose below or type its name.",
+  chooseService: "Which services would you like? You can choose below or describe them.",
+  chooseTechnician: "Do you have a preferred technician? You can also continue without one.",
+  askDateTime:
+    "When would you like to come? You can write it naturally, for example tomorrow at 3 pm.",
+  bookingConfirmed: "Your booking is confirmed.",
+  bookingCancelled: "Your booking has been cancelled.",
+  clarify: "I am not fully sure what you mean. Could you give me a little more detail?",
+  unavailable: "I cannot complete that right now. Please try again shortly.",
+  noTechnician: "No preference",
+  otherService: "Other",
+  addAnother: "Add another",
+  done: "Done",
+  book: "Book an appointment",
+  findSalon: "Find a salon",
+  tryStyle: "Try a nail style",
+  previewLimit: "You have reached today's photo preview limit.",
+} as const;

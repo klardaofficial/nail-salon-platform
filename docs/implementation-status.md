@@ -1,0 +1,38 @@
+# Implementation status
+
+Last reviewed: 2026-09-15.
+
+## Implemented
+
+- Next.js App Router scaffold with a German responsive landing page and English Ant Design admin shell.
+- Supabase Auth login, protected admin routes, migration-created initial account, UI-required first password change, and authenticated later password changes.
+- Admin SWR APIs and Ant Design CRUD screens for businesses, owners, salons, services, technicians, settings, bookings, analytics, and CSV export.
+- Supabase migration with multi-business tables, snapshots, RLS, transactional inbound/booking/cancellation/preview functions, audit data, and durable queues. Local and production contain no salon/customer seed data.
+- WhatsApp verification/signature handling, normalization, duplicate-safe inbox registration, text/image/button/list transport, delivery tracking, and a signed local simulator.
+- App-owned conversation history, fixed deployment locale, active catalog context, OpenAI Responses API loop, strict function tools, server-side role checks, and idempotent tool execution.
+- Customer booking/cancellation/preview tools, owner summary/catalog/salon tools, technician assigned-booking/time-off tools, and technician notifications.
+- In-memory image download, OpenAI edit, direct WhatsApp upload, quota reservation/reconciliation, retryable delivery by saved media ID, and stale-work recovery.
+- Confirmed/cancelled, unique customer, returning customer, repeat-rate, trends, recent activity, health counts, and CSV reporting.
+- GitHub quality workflow. Vercel application deployment and Supabase migration deployment are handled by their respective GitHub integrations.
+- Repository Prettier, ESLint, EditorConfig, WebStorm guidance, tests, and agent documentation.
+- Pinned Inngest dev-server CLI and a documented keyless local workflow through `pnpm inngest:dev`.
+
+## Verified locally
+
+- `pnpm format:check`
+- `pnpm lint`
+- `pnpm typecheck`
+- `pnpm test:run`: 5 files and 13 tests pass, including execution of the full migration in embedded PostgreSQL, verification of the initial admin password hash/first-login flag, and the empty business-data state.
+- `pnpm build`: production build and all routes compile.
+- Local Inngest dev server 1.44.0 syncs successfully; `/api/inngest` reports HTTP 200, dev mode, no cloud keys, and four registered functions.
+- Supabase CLI 2.117.0 starts, but this managed workspace denies the Docker named pipe. The full Docker reset/lint remains enforced in GitHub Actions and should be run on a normal developer machine.
+
+## Provider validation still required
+
+- Configure real dev Supabase, Meta WhatsApp, OpenAI, Inngest, and Vercel projects.
+- Generate and commit `src/generated/database.types.ts` from a running local Supabase stack.
+- Verify Meta webhook subscription, customer-service windows and approved technician notification templates with the real dev number.
+- Run a controlled OpenAI preview smoke test and confirm the configured model IDs are available to the account.
+- Exercise the complete signed webhook to delivered reply path, initial password-change flow/persistence, and cross-business access against dev infrastructure.
+
+These are deployment prerequisites and live integration checks. They require provider credentials; no salon owner setup is needed for them.
