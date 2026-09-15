@@ -26,3 +26,21 @@ pnpm whatsapp:simulate 4915112345678 "Hallo, morgen um 15 Uhr"
 ```
 
 Use synthetic IDs only. The simulator signs the payload with the local app secret and posts to `APP_URL`; it does not bypass normal verification.
+
+## Admin browser simulator
+
+Enable `WHATSAPP_SIMULATOR_ENABLED=1` locally or on a deployment and open `/admin/simulator`. This is a separate authenticated testing entry point; the public Meta webhook and real message delivery continue unchanged. See [setup and environment values](../development/local-setup.md#browser-whatsapp-simulator).
+
+All simulator routes call `requireApiAdmin` and reject requests with 404 while disabled. `GET /api/admin/simulator/actors` returns owner contacts grouped from `business_owners`, active non-deleted technicians, their business/salon labels, and whether OpenAI is configured. One WA ID may have both roles. It never accepts browser-claimed memberships.
+
+`POST /api/admin/simulator/messages` accepts `{ requestId, identity, message }`. `requestId` is a UUID retained when retrying the same send. `identity` is either `{ kind: "customer", waId, name }` or `{ kind: "staff", waId }`; the server resolves the current staff name/mappings and rejects stale staff or customer IDs that belong to staff (409). WA IDs require 5–32 digits and customer names require 1–120 trimmed characters. Messages are `{ kind: "text", text }` (1–4096 trimmed characters), or `{ kind: "interactive", replyType: "button_reply" | "list_reply", id, title }`. Unknown fields, empty values, invalid JSON, and image inputs fail validation (422).
+
+The server constructs a Meta-shaped webhook and signs it with a fresh server-only key for that internal invocation. It calls the shared HMAC-verifying ingestion function directly, without a loopback HTTP request, tunnel, or Meta credentials. This key is never exposed or accepted by the public webhook. A trusted `simulated: true` marker is attached only after verification. Real payloads cannot claim this marker. The provider event ID incorporates the WA ID and request UUID, so retries use the existing duplicate-safe registration transaction. A 202 response means accepted/previously accepted, not that processing is finished; failed dispatch remains in the durable outbox for recovery.
+
+`GET /api/admin/simulator/messages?waId=...` returns the latest 100 simulated messages, merging inbound events and outbound rows with processing/delivery state. It includes notifications addressed to the WA ID even without a conversation ID, and filters out real traffic. UI reads and writes use shared SWR fetchers. Customer window configuration stays in browser storage; removing a window makes no database deletion.
+
+Simulated conversations use `channel=whatsapp_simulator`, isolating their history, greetings, drafts, and tool idempotency from `channel=whatsapp`. Contacts, authorization mappings, catalog, and bookings are shared, so tools have real database side effects. The source transport is passed through replies, interactive controls, and technician notifications and persisted in `message_outbox.payload.transport`. Delivery of `simulator` rows creates a stable synthetic provider ID and writes normal outbound history without calling Meta. Real/default rows still call the provider even while the simulator is enabled. Disabling the feature pauses pending simulated inbound processing; durable simulated outbound rows remain captured on retries regardless of the flag.
+
+This simulator does not emulate Meta customer-service windows, template approval, delivery receipts, media upload, or image generation. Bot text still follows `BOT_LOCALE`; OpenAI-backed functions require the configured OpenAI key and incur normal usage.
+
+For debugging, the real and simulated paths share the webhook receiver, Supabase registration transaction, Inngest functions, conversation processor, OpenAI Responses calls, scoped tools, message queue, delivery-state/history updates, and outgoing provider payload builder. Simulated delivery runs the same button/list bounds and wire-format construction before capture. Only the external Meta connection is replaced; application behavior is not mocked at runtime. Ordinary unit tests use mocks without changing the simulator's runtime path.

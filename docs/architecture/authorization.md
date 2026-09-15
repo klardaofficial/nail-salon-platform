@@ -8,6 +8,8 @@ Protected layouts use `requireAdminIdentity`. Every `/api/admin` handler indepen
 
 ## WhatsApp actors
 
+The optional admin web simulator is an authenticated exception to the external Meta edge, not an owner/technician login surface. Every simulator API calls `requireApiAdmin` and checks the server-only enable flag. It creates an internally signed event, re-resolves staff mappings at send time, and invokes the same actor/tool scope checks as real WhatsApp. The public webhook cannot accept a browser-supplied simulated marker. Simulated histories are separate, but database actions use the same contacts and scoped business records.
+
 The webhook body must have a valid Meta HMAC before any identity is accepted. Its `from` WA ID resolves one platform contact. `business_owners` yields owned businesses and active technician rows yield technician IDs. The model receives this bounded context, but every owner/technician tool rechecks the requested entity against those IDs.
 
 Customer list/cancel operations always filter by the current contact. Owner mutations load a salon and compare `business_id` to stored memberships. Technician booking queries use only the matching technician IDs; time off checks the submitted technician ID belongs to the actor.

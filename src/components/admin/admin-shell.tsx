@@ -4,6 +4,7 @@ import {
   Buildings,
   CalendarDots,
   ChartLineUp,
+  ChatCircleDots,
   GearSix,
   HouseLine,
   Scissors,
@@ -56,6 +57,11 @@ const navigation = [
     label: <Link href="/admin/analytics">Analytics</Link>,
   },
   {
+    key: "/admin/simulator",
+    icon: <ChatCircleDots size={18} />,
+    label: <Link href="/admin/simulator">WhatsApp simulator</Link>,
+  },
+  {
     key: "/admin/settings",
     icon: <GearSix size={18} />,
     label: <Link href="/admin/settings">Settings</Link>,
@@ -69,7 +75,15 @@ function selectedNavigation(pathname: string) {
     .map((item) => item.key);
 }
 
-export function AdminShell({ admin, children }: { admin: AdminIdentity; children: ReactNode }) {
+export function AdminShell({
+  admin,
+  children,
+  simulatorEnabled = false,
+}: {
+  admin: AdminIdentity;
+  children: ReactNode;
+  simulatorEnabled?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { trigger: logout, isMutating } = useSWRMutation("/api/admin/auth/logout", apiMutation);
@@ -113,10 +127,12 @@ export function AdminShell({ admin, children }: { admin: AdminIdentity; children
         <Menu
           mode="inline"
           selectedKeys={selectedNavigation(pathname)}
-          items={navigation.map((item) => ({
-            ...item,
-            disabled: passwordChangeRequired,
-          }))}
+          items={navigation
+            .filter((item) => simulatorEnabled || item.key !== "/admin/simulator")
+            .map((item) => ({
+              ...item,
+              disabled: passwordChangeRequired,
+            }))}
         />
       </Sider>
       <Layout>

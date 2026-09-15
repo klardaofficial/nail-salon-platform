@@ -64,6 +64,11 @@ export function normalizeWhatsAppWebhook(input: unknown): NormalizedWhatsAppEven
           profileName: contact?.profile?.name ?? null,
           occurredAt: timestamp(message.timestamp),
           message: {
+            ...(typeof buttonReply.title === "string"
+              ? { interactiveTitle: buttonReply.title }
+              : typeof listReply.title === "string"
+                ? { interactiveTitle: listReply.title }
+                : {}),
             type:
               type === "text" || type === "interactive" || type === "image" ? type : "unsupported",
             text: typeof textObject.body === "string" ? textObject.body : null,

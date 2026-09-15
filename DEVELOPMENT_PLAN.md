@@ -534,7 +534,7 @@ The initial admin credential is fixed in the initial migration and is not an env
 
 ### 9.4 GitHub integration and validation
 
-**GitHub Actions:** install from the lockfile, check formatting, lint, typecheck, run relevant unit/integration tests, validate migrations/RLS against a fresh local Supabase stack, and build the app. Use fixtures for external providers.
+**GitHub Actions:** install from the lockfile, check formatting, lint, typecheck, run application unit/integration tests, and build the app. Use fixtures for external providers. Do not add or maintain automated Supabase migration tests or database-test CI jobs.
 
 **Vercel Git integration:** deploy connected branches and production `main` automatically. No Vercel deployment workflow or Vercel token is needed in GitHub Actions.
 

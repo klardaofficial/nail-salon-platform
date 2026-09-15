@@ -10,6 +10,7 @@ const serverEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   WHATSAPP_API_VERSION: z.string().default("v23.0"),
+  WHATSAPP_SIMULATOR_ENABLED: z.enum(["0", "1"]).default("0"),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional(),
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),
@@ -46,6 +47,10 @@ export function getServerEnv(): ServerEnv {
 
 export function getBotLocale(): BotLocale {
   return localeSchema.catch("de").parse(process.env.BOT_LOCALE);
+}
+
+export function isWhatsAppSimulatorEnabled(): boolean {
+  return getServerEnv().WHATSAPP_SIMULATOR_ENABLED === "1";
 }
 
 export function hasSupabaseConfig(): boolean {

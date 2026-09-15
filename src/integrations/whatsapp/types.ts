@@ -4,6 +4,7 @@ export type NormalizedWhatsAppEvent =
   | {
       providerEventId: string;
       kind: "message";
+      simulated?: boolean;
       contactWaId: string;
       profileName: string | null;
       occurredAt: string;
@@ -11,6 +12,7 @@ export type NormalizedWhatsAppEvent =
         type: WhatsAppMessageType;
         text: string | null;
         interactiveId: string | null;
+        interactiveTitle?: string;
         mediaId: string | null;
         mimeType: string | null;
         caption: string | null;

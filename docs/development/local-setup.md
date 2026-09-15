@@ -41,6 +41,33 @@ Open `http://localhost:8288`. The app `nail-salon-platform` should show these fo
 
 Start Next.js first. If the dashboard shows zero functions, confirm `http://localhost:3000/api/inngest` responds, then restart `pnpm inngest:dev`. Function execution needs the local Supabase service-role key. WhatsApp and image flows additionally need their provider credentials; basic registration does not.
 
+## Browser WhatsApp simulator
+
+No Meta account, phone, or public tunnel is needed for simulated chats. Keep the local Supabase values configured and add these values to `.env.local`:
+
+```dotenv
+WHATSAPP_SIMULATOR_ENABLED=1
+INNGEST_DEV=1
+INNGEST_EVENT_KEY=
+INNGEST_SIGNING_KEY=
+OPENAI_API_KEY=your-openai-api-key
+```
+
+For simulation alone, leave `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, and both template names empty. `WHATSAPP_API_VERSION` can retain its default. `NEXT_PUBLIC_WHATSAPP_NUMBER` only controls the marketing link and is not needed by the simulator. Without an OpenAI key, initial greetings, interactive welcome controls, and fallback replies still work; natural conversations and booking/management tools require it.
+
+Restart `pnpm dev` after changing environment values, run `pnpm inngest:dev` in a second terminal, and sign in at `http://localhost:3000/admin`. Complete the initial password change if prompted, then open **WhatsApp simulator** (`/admin/simulator`).
+
+- Add customers with a name and `wa_id` (5–32 digits, country code included, no plus or spaces). Each has an independent chat window. Customer windows are saved in this browser; removing one does not delete contact data, bookings, or history. Re-add the same ID to reopen its conversation.
+- Owners load from business owner mappings. Technicians load from active, non-deleted technician records. Configure these through Businesses and Technicians; refresh identities or wait for the ten-second refresh. Multiple mappings for the same WA ID share one window and show both roles when applicable.
+- Send text or click a delivered reply button/list option. Conversation windows poll every two seconds and display queued, processing, failed, and simulated-delivery states. A queued message that stays queued usually means Inngest is not running or synced; inspect `http://localhost:8288`.
+- Create an active salon to test bookings. Services and technicians remain optional. A simulated booking assigned to a technician produces its notification in that technician's simulator window, even before they have sent a message.
+
+Simulated and real WhatsApp use separate conversation histories/drafts but share the configured business and booking database. Simulated actions therefore really create/cancel bookings or change business records. Simulated replies and notifications never go to Meta. Real WhatsApp traffic continues through the normal provider path. Image upload/preview generation and Meta-specific delivery behavior are outside this text/interactive simulator.
+
+Set `WHATSAPP_SIMULATOR_ENABLED=0` and restart to hide the page and disable its API. Already queued simulated outbound messages remain captured, and pending simulated inbound work pauses until re-enabled.
+
+For a hosted development deployment, set the same simulator flag and use that environment's Supabase/OpenAI credentials. Configure cloud Inngest (`INNGEST_DEV=0`, event key, signing key, and synced `/api/inngest` functions), then redeploy. Meta credentials are only required if that deployment also handles real WhatsApp traffic.
+
 ## WebStorm and Prettier
 
 The repository includes `.prettierrc.json`, `.prettierignore`, `.editorconfig`, and an ESLint flat config compatible with Prettier.
@@ -58,4 +85,4 @@ pnpm check
 pnpm whatsapp:simulate 4915112345678 "Hallo"
 ```
 
-If Docker is unavailable, the embedded PGlite test still validates migration execution, but it does not replace `pnpm db:reset` and `supabase db lint` on a full local stack.
+The application tests do not start Supabase or execute migration SQL. Docker is needed when running the local Supabase stack, not for `pnpm check`.

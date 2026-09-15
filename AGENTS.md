@@ -7,7 +7,7 @@ Read these files before changing code:
 3. The relevant integration or architecture document under `docs/`
 4. Any affected ADR under `docs/adr/`
 
-Use Node.js 22 and pnpm 12.4.1. Run `pnpm install`, then `pnpm check` before handing off a completed change. For database work also run `pnpm db:reset`, `pnpm db:types`, and the migration tests. Never edit an applied migration; add a new timestamped migration.
+Use Node.js 22 and pnpm 12.4.1. Run `pnpm install`, then `pnpm check` before handing off a completed change. For schema changes, regenerate types with `pnpm db:types` against the updated local database. Do not add or maintain automated Supabase migration tests or migration-test CI jobs. Use `pnpm db:reset` only when intentionally rebuilding local data. Never edit an applied migration; add a new timestamped migration.
 
 ## Module map
 

@@ -10,6 +10,7 @@ import { getServerEnv } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type ConversationActor = {
+  transport?: "whatsapp" | "simulator";
   conversationId: string;
   contactId: string;
   waId: string;
@@ -365,6 +366,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
           text: `New booking at ${salon.name}: ${localLabel}. Booking ${bookingId}.`,
         };
     await queueWhatsAppMessage({
+      transport: actor.transport,
       recipientWaId: technicianWaId,
       payload: notification,
       deduplicationKey: `booking:${bookingId}:technician:confirmed`,
@@ -423,6 +425,7 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
           }
         : { kind: "text" as const, text: `Booking ${values.bookingId} was cancelled.` };
       await queueWhatsAppMessage({
+        transport: actor.transport,
         recipientWaId: technician.data.wa_id,
         payload: notification,
         deduplicationKey: `booking:${values.bookingId}:technician:cancelled`,

@@ -10,16 +10,17 @@ pnpm test:run
 pnpm build
 ```
 
-`pnpm check` runs these in order. Unit tests cover WhatsApp signature verification/normalization, analytics cohorts/timezone grouping, schema storage contracts, and full migration execution in embedded PostgreSQL. The embedded prelude emulates Supabase Auth roles; it cannot validate the entire managed Supabase stack.
+`pnpm check` runs these in order. Application tests cover WhatsApp signature verification/normalization, analytics cohorts/timezone grouping, simulator routing/authorization, and UI behavior. They do not execute or inspect Supabase migration SQL. Do not add or maintain automated migration tests; the quality workflow runs application checks only.
 
-With Docker Desktop, also run:
+Simulator tests cover admin/flag gates, identity grouping and spoof rejection, signed ingestion and duplicate/recovery behavior, channel separation, technician notification routing, durable simulated delivery after disabling, and real delivery while enabled. UI acceptance covers customer add/remove/reopen, database staff windows, independent message composers, interactive replies, polling/error states, and browser persistence. Use [the browser simulator](local-setup.md#browser-whatsapp-simulator) for manual booking/owner/technician scenarios; these mutate the configured development database and use OpenAI for natural conversations.
+
+When intentionally rebuilding the local database after a schema change, the operational commands are:
 
 ```bash
 pnpm db:reset
-pnpm exec supabase db lint --local --level error
 pnpm db:types
 ```
 
-Database acceptance scenarios should cover duplicate inbound events, replayed booking keys, customer-only cancellation before start, nullable/missing technician IDs, no services/staff, multi-service snapshots, concurrent quota reservations, and platform/business isolation. Use synthetic contacts and never image base64.
+`pnpm db:reset` erases local data; it is not part of the test suite. Keep application acceptance coverage for duplicate inbound events, replayed booking keys, customer-only cancellation before start, nullable/missing technician IDs, no services/staff, multi-service snapshots, and platform/business isolation. Use application-level tests or the simulator with synthetic contacts, never image base64.
 
 Live dev-provider tests are intentional and manual because they cost money and send messages: webhook challenge/signature, typed and interactive booking paths, template notification outside a service window, image edit/upload/delivery, OpenAI tool replay, and Inngest recovery. Do not run them against production customers.

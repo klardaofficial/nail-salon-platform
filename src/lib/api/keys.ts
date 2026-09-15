@@ -6,4 +6,8 @@ export const apiKeys = {
   services: "/api/admin/services",
   technicians: "/api/admin/technicians",
   settings: "/api/admin/settings",
+  simulatorActors: "/api/admin/simulator/actors",
+  simulatorSend: "/api/admin/simulator/messages",
+  simulatorMessages: (waId: string) =>
+    `/api/admin/simulator/messages?waId=${encodeURIComponent(waId)}`,
 } as const;

@@ -36,7 +36,9 @@ pnpm inngest:dev
 
 then open `http://localhost:8288`. Local `.env.local` should contain `INNGEST_DEV=1`; cloud Inngest keys stay empty. See the [local Inngest instructions](docs/development/local-setup.md#local-inngest).
 
-Provider-backed WhatsApp/OpenAI flows require the credentials listed in `.env.example`. Use `pnpm whatsapp:simulate <wa-id> "message"` against a running app to submit a signed synthetic webhook. It still requires a working database, Inngest dev server/cloud connection, and outbound provider configuration to complete replies.
+For browser testing without a Meta account or device, set `WHATSAPP_SIMULATOR_ENABLED=1`, restart the app, and open `/admin/simulator`. Add customer chat windows and use database-backed owner/technician windows; replies and notifications appear in the UI. Supabase and Inngest are required, plus an OpenAI key for natural conversations. Real WhatsApp can run alongside it. See [simulator setup and environment values](docs/development/local-setup.md#browser-whatsapp-simulator).
+
+The older `pnpm whatsapp:simulate <wa-id> "message"` CLI submits a signed webhook to the public Meta endpoint and still requires its WhatsApp configuration. Use the browser simulator for isolated simulated histories and provider-free delivery.
 
 Run all repository checks with:
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import { inngest } from "@/inngest/client";
 import { sendWhatsAppMessage } from "@/integrations/whatsapp/client";
+import { buildWhatsAppMessageBody } from "@/integrations/whatsapp/message-body";
 import type { OutboundWhatsAppPayload } from "@/integrations/whatsapp/types";
 import { getBotLocale } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -11,6 +12,7 @@ export async function queueWhatsAppMessage(input: {
   recipientWaId: string;
   payload: OutboundWhatsAppPayload;
   deduplicationKey: string;
+  transport?: "whatsapp" | "simulator";
 }) {
   const supabase = createSupabaseAdminClient();
   const { data: inserted, error } = await supabase
@@ -20,7 +22,7 @@ export async function queueWhatsAppMessage(input: {
         conversation_id: input.conversationId ?? null,
         recipient_wa_id: input.recipientWaId,
         message_kind: input.payload.kind,
-        payload: input.payload,
+        payload: { ...input.payload, transport: input.transport ?? "whatsapp" },
         deduplication_key: input.deduplicationKey,
       },
       { onConflict: "deduplication_key", ignoreDuplicates: true },
@@ -66,14 +68,24 @@ export async function deliverWhatsAppOutboxMessage(outboxId: string) {
   if (error) throw error;
   if (outbox.state === "sent" && outbox.provider_message_id) return outbox.provider_message_id;
 
-  await supabase
+  const simulated = outbox.payload.transport === "simulator";
+  const sending = await supabase
     .from("message_outbox")
-    .update({ state: "sending", attempt_count: outbox.attempt_count + 1, failure_code: null })
+    .update({
+      state: "sending",
+      attempt_count: outbox.attempt_count + 1,
+      failure_code: null,
+    })
     .eq("id", outbox.id);
+  if (sending.error) throw sending.error;
 
   try {
     const payload = outbox.payload as OutboundWhatsAppPayload;
-    const providerMessageId = await sendWhatsAppMessage(outbox.recipient_wa_id, payload);
+    // Exercise the same provider formatting/validation before capturing delivery.
+    if (simulated) buildWhatsAppMessageBody(outbox.recipient_wa_id, payload);
+    const providerMessageId = simulated
+      ? `wamid.simulator.outbox.${outbox.id}`
+      : await sendWhatsAppMessage(outbox.recipient_wa_id, payload);
     const { error: updateError } = await supabase
       .from("message_outbox")
       .update({
@@ -116,6 +128,7 @@ export async function queueInteractiveChoices(input: {
   body: string;
   options: { id: string; title: string; description?: string }[];
   deduplicationKey: string;
+  transport?: "whatsapp" | "simulator";
 }) {
   const options = input.options.slice(0, 10);
   if (!options.length) return null;

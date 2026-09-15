@@ -4,7 +4,7 @@ import { createNaturalReply } from "./respond";
 import type { ConversationActor } from "./tools";
 import { queueInteractiveChoices, queueWhatsAppMessage } from "@/features/messaging/outbox";
 import type { NormalizedWhatsAppEvent } from "@/integrations/whatsapp/types";
-import { getBotLocale } from "@/lib/config/env";
+import { getBotLocale, isWhatsAppSimulatorEnabled } from "@/lib/config/env";
 import { getBotMessages } from "@/lib/bot/i18n";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -48,6 +48,9 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   if (inboxResult.error) throw inboxResult.error;
   if (inboxResult.data.processed_at) return { duplicate: true };
   const event = inboxResult.data.payload as NormalizedWhatsAppEvent;
+  if (event.kind === "message" && event.simulated && !isWhatsAppSimulatorEnabled()) {
+    throw new Error("simulator_disabled");
+  }
 
   if (event.kind === "status") {
     await processStatus(event);
@@ -71,11 +74,16 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     .single();
   if (contactResult.error) throw contactResult.error;
   const contactId = contactResult.data.id;
+  const transport = event.simulated ? "simulator" : "whatsapp";
 
   const conversationResult = await supabase
     .from("conversations")
     .upsert(
-      { contact_id: contactId, channel: "whatsapp", last_activity_at: event.occurredAt },
+      {
+        contact_id: contactId,
+        channel: event.simulated ? "whatsapp_simulator" : "whatsapp",
+        last_activity_at: event.occurredAt,
+      },
       { onConflict: "contact_id,channel" },
     )
     .select("id,greeted_at")
@@ -172,6 +180,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
       .single();
     if (settings.error) throw settings.error;
     await queueWhatsAppMessage({
+      transport,
       conversationId,
       recipientWaId: event.contactWaId,
       payload: {
@@ -186,6 +195,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
 
   if (!existingDraft.data?.salon_id && salons.data.length > 1) {
     await queueInteractiveChoices({
+      transport,
       conversationId,
       recipientWaId: event.contactWaId,
       body: messages.chooseSalon,
@@ -198,6 +208,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     });
   } else if (greetedNow) {
     await queueInteractiveChoices({
+      transport,
       conversationId,
       recipientWaId: event.contactWaId,
       body: locale === "de" ? "Was möchtest du tun?" : "What would you like to do?",
@@ -223,6 +234,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
             .maybeSingle()
         ).data;
     const actor: ConversationActor = {
+      transport,
       conversationId,
       contactId,
       waId: event.contactWaId,
@@ -232,6 +244,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     };
     const reply = await createNaturalReply(actor);
     await queueWhatsAppMessage({
+      transport,
       conversationId,
       recipientWaId: event.contactWaId,
       payload: { kind: "text", text: reply ?? messages.unavailable },

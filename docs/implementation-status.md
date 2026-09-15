@@ -16,16 +16,17 @@ Last reviewed: 2026-09-15.
 - GitHub quality workflow. Vercel application deployment and Supabase migration deployment are handled by their respective GitHub integrations.
 - Repository Prettier, ESLint, EditorConfig, WebStorm guidance, tests, and agent documentation.
 - Pinned Inngest dev-server CLI and a documented keyless local workflow through `pnpm inngest:dev`.
+- Environment-gated admin web WhatsApp simulator for local and hosted use alongside real traffic: persistent browser customer windows, database-backed owner/technician windows, text/interactive chats, processing status, and captured replies/notifications. It shares real domain tools and data while isolating simulated histories and durable delivery routing. Meta credentials are unnecessary for browser simulation.
 
 ## Verified locally
 
 - `pnpm format:check`
 - `pnpm lint`
 - `pnpm typecheck`
-- `pnpm test:run`: 5 files and 13 tests pass, including execution of the full migration in embedded PostgreSQL, verification of the initial admin password hash/first-login flag, and the empty business-data state.
+- Application tests cover WhatsApp verification/normalization, analytics, simulator authorization/routing, and chat UI interactions. Supabase migration tests and the database-test CI job were removed by project decision; they must not be reintroduced.
 - `pnpm build`: production build and all routes compile.
 - Local Inngest dev server 1.44.0 syncs successfully; `/api/inngest` reports HTTP 200, dev mode, no cloud keys, and four registered functions.
-- Supabase CLI 2.117.0 starts, but this managed workspace denies the Docker named pipe. The full Docker reset/lint remains enforced in GitHub Actions and should be run on a normal developer machine.
+- Supabase CLI 2.117.0 starts. Local database rebuild/type-generation commands remain available for schema development, but migration execution/reset/lint is not part of the application quality workflow.
 
 ## Provider validation still required
 

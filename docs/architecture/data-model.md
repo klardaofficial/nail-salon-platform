@@ -10,7 +10,7 @@ erDiagram
   CONTACTS ||--o{ BOOKINGS : creates
   SALONS ||--o{ BOOKINGS : receives
   BOOKINGS ||--o{ BOOKING_SERVICES : snapshots
-  CONTACTS ||--|| CONVERSATIONS : chats
+  CONTACTS ||--o{ CONVERSATIONS : chats
   CONVERSATIONS ||--o{ CONVERSATION_MESSAGES : contains
   CONVERSATIONS ||--o| BOOKING_DRAFTS : builds
   CONVERSATIONS ||--o{ TOOL_EXECUTIONS : deduplicates
@@ -21,6 +21,8 @@ erDiagram
 ```
 
 Business ownership is explicit through `business_id` and `salon_id`. Contacts are platform-wide WhatsApp identities so preview quotas and cross-salon customer identity do not reset. `business_customers` keeps first/last booking markers per business.
+
+Conversations are unique per contact/channel: `whatsapp` for real messages and `whatsapp_simulator` for admin tests. Simulator ingress marks its existing inbox JSON payload; outgoing JSON payloads retain `transport=simulator` through durable retries. These use existing columns and need no schema migration.
 
 Booking services keep names even after catalog removal. Technician name is snapshotted; `technician_ref` is a nullable UUID without a foreign key by design, so missing/stale staff never invalidates history or flexible booking. Soft deletion uses `active` and `deleted_at` for mutable catalog records.
 

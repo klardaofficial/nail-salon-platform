@@ -103,6 +103,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 
 WHATSAPP_API_VERSION=v23.0
+WHATSAPP_SIMULATOR_ENABLED=0
 WHATSAPP_PHONE_NUMBER_ID=...
 WHATSAPP_BUSINESS_ACCOUNT_ID=...
 WHATSAPP_ACCESS_TOKEN=...
@@ -128,6 +129,8 @@ PREVIEWS_PER_REQUEST=3
 ```
 
 Use the current values from `.env.example` and [configuration reference](../development/configuration.md). Vercel must keep the service-role, WhatsApp, OpenAI, and Inngest keys server-only.
+
+For browser simulation on a hosted environment, set `WHATSAPP_SIMULATOR_ENABLED=1` and redeploy, then open `/admin/simulator` as an administrator. Use the same environment's Supabase/OpenAI and cloud Inngest setup. Simulated and real WhatsApp traffic run alongside each other with separate conversation histories; simulated replies/notifications are captured, while tools still change the configured database. Meta credentials are optional for simulation alone. Set the flag back to `0` and redeploy to disable access. See [browser simulator setup](../development/local-setup.md#browser-whatsapp-simulator).
 
 ## 6. First production rollout
 
