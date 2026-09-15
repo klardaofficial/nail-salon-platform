@@ -19,6 +19,7 @@ out/
 # Supabase local state
 supabase/.branches/
 supabase/.temp/
+src/generated/
 
 # test and build output
 coverage/

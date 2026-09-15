@@ -16,10 +16,15 @@ cp .env.example .env.local
 pnpm db:start
 pnpm db:reset
 pnpm db:types
-pnpm dev
 ```
 
-Copy the local API URL, publishable/anon key, and secret/service-role key reported by `supabase status` into `.env.local`. Open `http://localhost:3000` for the German landing page and `/admin` for the dashboard. The migration creates `admin@gmail.com` with initial password `Pass1234`; the UI requires an immediate password change.
+Copy the local API URL, publishable/anon key, and secret/service-role key reported by `supabase status` into `.env.local`.
+
+Serve the Local service with
+```bash
+pnpm dev
+```
+Open `http://localhost:3000` for the German landing page and `/admin` for the dashboard. The migration creates `admin@gmail.com` with initial password `Pass1234`; the UI requires an immediate password change.
 
 In a second terminal run
 ```bash
