@@ -11,9 +11,9 @@ describe("calculateAnalytics", () => {
         { contactId: "customer-b", createdAt: "2026-09-15T10:00:00Z", status: "confirmed" },
       ],
       new Set(["customer-a"]),
-      3,
+      "2026-09-13",
+      "2026-09-15",
       "Europe/Berlin",
-      new Date("2026-09-15T12:00:00Z"),
     );
 
     expect(result.totals).toEqual({
@@ -28,13 +28,7 @@ describe("calculateAnalytics", () => {
   });
 
   it("returns a zero repeat rate for an empty cohort", () => {
-    const result = calculateAnalytics(
-      [],
-      new Set(),
-      1,
-      "Europe/Berlin",
-      new Date("2026-09-15T12:00:00Z"),
-    );
+    const result = calculateAnalytics([], new Set(), "2026-09-15", "2026-09-15", "Europe/Berlin");
     expect(result.totals.repeatRate).toBe(0);
     expect(result.trends).toHaveLength(1);
   });

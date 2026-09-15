@@ -6,7 +6,7 @@ export type TrendPoint = {
 };
 
 export type DashboardData = {
-  period: { days: number; from: string; to: string; timezone: string };
+  period: { from: string; to: string; timezone: string };
   totals: {
     total: number;
     confirmed: number;
@@ -16,7 +16,6 @@ export type DashboardData = {
     repeatRate: number;
   };
   trends: TrendPoint[];
-  businesses: { id: string; name: string }[];
   recentBookings: {
     id: string;
     customerName: string;

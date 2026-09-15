@@ -150,6 +150,20 @@ body {
   gap: 12px;
 }
 
+.admin-business-card {
+  max-width: 860px;
+}
+
+.admin-business-owners {
+  white-space: pre-line;
+}
+
+.admin-date-range-presets {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 @media (max-width: 900px) {
   .admin-login-page {
     grid-template-columns: 1fr;

@@ -1,6 +1,6 @@
 export const apiKeys = {
-  dashboard: (days: number, businessId?: string) =>
-    `/api/admin/dashboard?days=${days}${businessId ? `&businessId=${businessId}` : ""}`,
+  dashboard: (from: string, to: string) =>
+    `/api/admin/dashboard?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
   businesses: "/api/admin/businesses",
   salons: "/api/admin/salons",
   services: "/api/admin/services",

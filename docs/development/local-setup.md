@@ -21,7 +21,7 @@ pnpm dev
 
 The publishable/anon key may be used by the browser. The secret/service-role key bypasses RLS and must remain server-only. Do not copy either value from a hosted project into local development.
 
-The migrations create the required platform setting and initial administrator (`admin@gmail.com` / `Pass1234`) but no salons, services, technicians, customers, bookings, or conversations. The admin UI requires a password change at first login. Use `pnpm db:reset` only when you intentionally want to erase local data and rebuild this same migration-only state.
+The migrations create the required platform setting, editable singleton business profile (`Nail Salon`), and initial administrator (`admin@gmail.com` / `Pass1234`) but no salons, services, technicians, customers, bookings, or conversations. The admin UI requires a password change at first login. Edit the business profile before adding salon locations. Use `pnpm db:reset` only when you intentionally want to erase local data and rebuild this same migration-only state.
 
 ## Local Inngest
 
@@ -58,7 +58,7 @@ For simulation alone, leave `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOU
 Restart `pnpm dev` after changing environment values, run `pnpm inngest:dev` in a second terminal, and sign in at `http://localhost:3000/admin`. Complete the initial password change if prompted, then open **WhatsApp simulator** (`/admin/simulator`).
 
 - Add customers with a name and `wa_id` (5–32 digits, country code included, no plus or spaces). Each has an independent chat window. Customer windows are saved in this browser; removing one does not delete contact data, bookings, or history. Re-add the same ID to reopen its conversation.
-- Owners load from business owner mappings. Technicians load from active, non-deleted technician records. Configure these through Businesses and Technicians; refresh identities or wait for the ten-second refresh. Multiple mappings for the same WA ID share one window and show both roles when applicable.
+- Owners load from the configured business's owner mappings. Technicians load from active, non-deleted technician records. Configure these through Business and Technicians; refresh identities or wait for the ten-second refresh. Multiple mappings for the same WA ID share one window and show both roles when applicable.
 - Send text or click a delivered reply button/list option. Conversation windows poll every two seconds and display queued, processing, failed, and simulated-delivery states. A queued message that stays queued usually means Inngest is not running or synced; inspect `http://localhost:8288`.
 - Create an active salon to test bookings. Services and technicians remain optional. A simulated booking assigned to a technician produces its notification in that technician's simulator window, even before they have sent a message.
 

@@ -10,9 +10,9 @@ import {
   Alert,
   Card,
   Col,
+  DatePicker,
   Empty,
   Row,
-  Select,
   Skeleton,
   Space,
   Statistic,
@@ -21,6 +21,7 @@ import {
   Typography,
 } from "antd";
 import dynamic from "next/dynamic";
+import dayjs, { type Dayjs } from "dayjs";
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 
@@ -36,9 +37,17 @@ const Column = dynamic(() => import("@ant-design/charts").then((module) => modul
 });
 
 export function DashboardClient() {
-  const [days, setDays] = useState(30);
-  const [businessId, setBusinessId] = useState<string>();
-  const { data, error, isLoading } = useSWR<DashboardData>(apiKeys.dashboard(days, businessId));
+  const [range, setRange] = useState<[Dayjs, Dayjs]>([
+    dayjs().startOf("month"),
+    dayjs().endOf("month"),
+  ]);
+  const { data, error, isLoading } = useSWR<DashboardData>(
+    apiKeys.dashboard(range[0].format("YYYY-MM-DD"), range[1].format("YYYY-MM-DD")),
+  );
+
+  function setPreset(start: Dayjs, end: Dayjs) {
+    setRange([start, end]);
+  }
 
   const lineData = useMemo(
     () =>
@@ -58,31 +67,46 @@ export function DashboardClient() {
   return (
     <>
       <PageHeading
-        title="Platform overview"
-        description="Booking activity and customer return signals across the platform."
+        title="Business overview"
+        description="Booking activity and customer return signals for your business."
       />
       <Space wrap style={{ marginBottom: 22 }}>
-        <Select
-          aria-label="Reporting period"
-          value={days}
-          onChange={setDays}
-          options={[
-            { value: 7, label: "Last 7 days" },
-            { value: 30, label: "Last 30 days" },
-            { value: 90, label: "Last 90 days" },
-          ]}
-        />
-        <Select
-          aria-label="Business filter"
-          value={businessId}
-          onChange={setBusinessId}
-          allowClear
-          placeholder="All businesses"
-          style={{ minWidth: 220 }}
-          options={data?.businesses.map((business) => ({
-            value: business.id,
-            label: business.name,
-          }))}
+        <DatePicker.RangePicker
+          aria-label="Reporting date range"
+          value={range}
+          format="DD MMM YYYY"
+          allowClear={false}
+          onChange={(values) => {
+            if (values?.[0] && values[1]) setRange([values[0], values[1]]);
+          }}
+          renderExtraFooter={() => {
+            const today = dayjs();
+            return (
+              <div className="admin-date-range-presets">
+                <Typography.Link
+                  onClick={() => setPreset(today.startOf("month"), today.endOf("month"))}
+                >
+                  This month
+                </Typography.Link>
+                <Typography.Link
+                  onClick={() =>
+                    setPreset(
+                      today.subtract(1, "month").startOf("month"),
+                      today.subtract(1, "month").endOf("month"),
+                    )
+                  }
+                >
+                  Last month
+                </Typography.Link>
+                <Typography.Link onClick={() => setPreset(today.subtract(29, "day"), today)}>
+                  Last 30 days
+                </Typography.Link>
+                <Typography.Link onClick={() => setPreset(today.subtract(89, "day"), today)}>
+                  Last 90 days
+                </Typography.Link>
+              </div>
+            );
+          }}
         />
       </Space>
 

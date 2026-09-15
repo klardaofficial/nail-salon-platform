@@ -10,4 +10,4 @@ Time fields use Day.js values inside Ant Design forms. Convert both create defau
 
 Use current component APIs: `Alert.title`, `Select.showSearch.optionFilterProp`, and Phosphor exports ending in `Icon`. Type-aware ESLint rejects APIs marked `@deprecated` by their declarations.
 
-Analytics use Ant Design Charts. Charts must have a textual/table equivalent, filters shared with the API/CSV definition, and visible loading/error/empty states. Keep the English dashboard separate from bot i18n and German marketing styles.
+Analytics use Ant Design Charts. Charts must have a textual/table equivalent, filters shared with the API/CSV definition where applicable, and visible loading/error/empty states. The dashboard has no business filter because each deployment has one configured business. Keep the English dashboard separate from bot i18n and German marketing styles.

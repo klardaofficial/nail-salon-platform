@@ -20,14 +20,14 @@ const actors = [
     waId: "4915000000001",
     name: "Test Owner",
     roles: ["owner"],
-    businesses: ["Test business"],
+    business: "Test business",
     salons: [],
   },
   {
     waId: "4915000000002",
     name: "Test Technician",
     roles: ["technician"],
-    businesses: [],
+    business: null,
     salons: ["Test salon"],
   },
 ];

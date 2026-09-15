@@ -29,7 +29,7 @@ export async function createNaturalReply(actor: ConversationActor) {
     supabase
       .from("salons")
       .select(
-        "id,name,location_label,timezone,default_open_time,default_close_time,customer_can_choose_technician,business_id,services(id,name,description,active),technicians(id,display_name,active,technician_time_off(starts_at,ends_at))",
+        "id,name,location_label,timezone,default_open_time,default_close_time,customer_can_choose_technician,services(id,name,description,active),technicians(id,display_name,active,technician_time_off(starts_at,ends_at))",
       )
       .eq("active", true)
       .is("deleted_at", null),
@@ -47,7 +47,6 @@ export async function createNaturalReply(actor: ConversationActor) {
   const language = locale === "de" ? "German" : "English";
   const catalog = (salons.data ?? []).map((salon) => ({
     id: salon.id,
-    businessId: salon.business_id,
     name: salon.name,
     location: salon.location_label,
     timezone: salon.timezone,
@@ -65,7 +64,7 @@ export async function createNaturalReply(actor: ConversationActor) {
     customerCanChooseTechnician: salon.customer_can_choose_technician,
   }));
 
-  const instructions = `You are the friendly WhatsApp assistant for a multi-salon nail booking platform.
+  const instructions = `You are the friendly WhatsApp assistant for one nail business with one WhatsApp Business Account and multiple salon locations.
 Always reply in ${language}. Keep replies warm, concise, and suitable for WhatsApp. Use plain text with short lines.
 Understand natural dates, times, salon names, locations, services, and technicians. Current time is ${new Date().toISOString()}.
 The supplied timestamps must include an offset. Use each salon's timezone when interpreting local time.
@@ -77,10 +76,10 @@ When only one active salon exists, use it without asking the customer to choose.
 Before create_booking, summarize the known details and obtain clear customer agreement. create_booking auto-confirms the appointment.
 For image previews, ask what style the customer wants, then call request_style_preview. Never claim that application storage keeps image bytes.
 Only cancel a customer's own booking before its start. Never describe a booking as attended or missed.
-Recognized owners may use owner tools only for their owned businesses. Recognized technicians may see only their assigned bookings and record their own time off.
+Recognized owners may use owner tools only for this business. Recognized technicians may see only their assigned bookings and record their own time off.
 If a tool returns an error, explain the recoverable next step without exposing internal details.
 Active catalog JSON: ${JSON.stringify(catalog)}
-Owner business IDs for this identity: ${JSON.stringify(actor.ownerBusinessIds)}
+This identity is a verified business owner: ${actor.isOwner}
 Technician record IDs for this identity: ${JSON.stringify(actor.technicianIds)}
 Current booking draft: ${JSON.stringify(draft.data ?? null)}
 Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.`;

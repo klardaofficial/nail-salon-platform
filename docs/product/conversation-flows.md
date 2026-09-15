@@ -46,7 +46,7 @@ flowchart TD
   Next --> Message
 ```
 
-The greeting may include salon choices before the customer expresses a booking intent. Only an active salon and a future start time are required to create a booking; services, technician, duration, capacity, and attendance do not block it. The assistant asks for customer agreement before calling the auto-confirming booking tool. Recorded time off only guides technician suggestions.
+The greeting may include salon-location choices before the customer expresses a booking intent; it never asks the customer to choose a business. Only an active salon and a future start time are required to create a booking; services, technician, duration, capacity, and attendance do not block it. The assistant asks for customer agreement before calling the auto-confirming booking tool. Recorded time off only guides technician suggestions.
 
 All replies and notifications use the durable message outbox. Provider failures follow normal job retries/recovery; an unavailable source photo or failed preview may require the customer to resend it. The browser simulator runs the same text/interactive conversation, OpenAI, and tool paths, with captured delivery; its UI does not support the photo-upload/preview branch. See [simulator setup](../development/local-setup.md#browser-whatsapp-simulator) and [shared processing details](../integrations/whatsapp.md#admin-browser-simulator).
 
@@ -83,7 +83,7 @@ After an image, the bot asks for the desired style. A later text answer may reus
 
 ## Owner flow
 
-A stored business owner can ask, for example, “How many confirmed bookings did we have this week?” or “Change Mitte closing time to 19:00.” The model receives owned business IDs, and the tool queries the mapping again before each mutation. Owners can create/update/deactivate services and technicians without an onboarding checklist.
+A stored business owner can ask, for example, “How many confirmed bookings did we have this week?” or “Change Mitte closing time to 19:00.” The model receives verified owner status, and each tool queries the mapping again before a mutation. Owners can create/update/deactivate services and technicians without an onboarding checklist.
 
 ## Technician flow
 

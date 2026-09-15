@@ -14,7 +14,7 @@ export type ConversationActor = {
   conversationId: string;
   contactId: string;
   waId: string;
-  ownerBusinessIds: string[];
+  isOwner: boolean;
   technicianIds: string[];
   currentMediaId: string | null;
 };
@@ -122,23 +122,19 @@ const ownerTools: FunctionTool[] = [
   {
     type: "function",
     name: "owner_booking_summary",
-    description:
-      "Show confirmed, cancelled, and customer counts for a business owned by this user.",
+    description: "Show confirmed, cancelled, and customer counts for this business.",
     strict: true,
     parameters: {
       type: "object",
-      properties: {
-        businessId: nullableUuid,
-        days: { type: "integer", minimum: 1, maximum: 366 },
-      },
-      required: ["businessId", "days"],
+      properties: { days: { type: "integer", minimum: 1, maximum: 366 } },
+      required: ["days"],
       additionalProperties: false,
     },
   },
   {
     type: "function",
     name: "owner_update_salon",
-    description: "Update optional salon information for a business owned by this user.",
+    description: "Update optional salon information for this business.",
     strict: true,
     parameters: {
       type: "object",
@@ -164,7 +160,7 @@ const ownerTools: FunctionTool[] = [
   {
     type: "function",
     name: "owner_manage_service",
-    description: "Create, update, or deactivate an optional service at an owned salon.",
+    description: "Create, update, or deactivate an optional service at this business's salon.",
     strict: true,
     parameters: {
       type: "object",
@@ -182,7 +178,7 @@ const ownerTools: FunctionTool[] = [
   {
     type: "function",
     name: "owner_manage_technician",
-    description: "Create, update, or deactivate an optional technician at an owned salon.",
+    description: "Create, update, or deactivate an optional technician at this business's salon.",
     strict: true,
     parameters: {
       type: "object",
@@ -230,7 +226,7 @@ const technicianTools: FunctionTool[] = [
 export function toolsForActor(actor: ConversationActor) {
   return [
     ...customerTools,
-    ...(actor.ownerBusinessIds.length ? ownerTools : []),
+    ...(actor.isOwner ? ownerTools : []),
     ...(actor.technicianIds.length ? technicianTools : []),
   ];
 }
@@ -252,14 +248,21 @@ const createSchema = draftSchema
   .extend({ salonId: z.uuid(), startsAt: z.iso.datetime() });
 
 async function ownedSalon(actor: ConversationActor, salonId: string) {
-  const result = await createSupabaseAdminClient()
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
     .from("salons")
     .select("id,business_id,name")
     .eq("id", salonId)
     .maybeSingle();
   if (result.error) throw result.error;
-  if (!result.data || !actor.ownerBusinessIds.includes(result.data.business_id))
-    throw new Error("not_authorized");
+  const owner = await supabase
+    .from("business_owners")
+    .select("business_id")
+    .eq("contact_id", actor.contactId)
+    .eq("business_id", result.data?.business_id ?? "")
+    .maybeSingle();
+  if (owner.error) throw owner.error;
+  if (!result.data || !owner.data) throw new Error("not_authorized");
   return result.data;
 }
 
@@ -504,22 +507,20 @@ async function requestPreview(actor: ConversationActor, raw: unknown, callId: st
   return { ok: true, previewId, status: "queued" };
 }
 
-function resolveOwnedBusiness(actor: ConversationActor, requested: string | null) {
-  if (requested && actor.ownerBusinessIds.includes(requested)) return requested;
-  if (!requested && actor.ownerBusinessIds.length === 1) return actor.ownerBusinessIds[0];
-  throw new Error("choose_an_owned_business");
-}
-
 async function ownerSummary(actor: ConversationActor, raw: unknown) {
-  const values = z
-    .object({ businessId: z.uuid().nullable(), days: z.number().int().min(1).max(366) })
-    .parse(raw);
-  const businessId = resolveOwnedBusiness(actor, values.businessId);
+  const values = z.object({ days: z.number().int().min(1).max(366) }).parse(raw);
+  const owner = await createSupabaseAdminClient()
+    .from("business_owners")
+    .select("business_id")
+    .eq("contact_id", actor.contactId)
+    .maybeSingle();
+  if (owner.error) throw owner.error;
+  if (!owner.data) throw new Error("not_authorized");
   const from = new Date(Date.now() - (values.days - 1) * 86_400_000).toISOString();
   const { data, error } = await createSupabaseAdminClient()
     .from("bookings")
     .select("status,contact_id")
-    .eq("business_id", businessId)
+    .eq("business_id", owner.data.business_id)
     .gte("created_at", from);
   if (error) throw error;
   return {

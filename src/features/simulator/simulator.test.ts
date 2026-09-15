@@ -102,12 +102,9 @@ beforeEach(() => {
 });
 
 describe("simulator identity and input boundaries", () => {
-  it("groups several memberships and both roles by stored WhatsApp identity", () => {
+  it("groups the configured business membership and both roles by stored WhatsApp identity", () => {
     const actors = groupSimulatorIdentities(
-      [
-        { contact: { wa_id: "4912345", display_name: null }, business: { name: "North" } },
-        { contact: { wa_id: "4912345", display_name: null }, business: { name: "South" } },
-      ],
+      [{ contact: { wa_id: "4912345", display_name: null }, business: { name: "South" } }],
       [{ wa_id: "4912345", display_name: "Test Owner", salon: { name: "Mitte" } }],
     );
     expect(actors).toEqual([
@@ -115,7 +112,7 @@ describe("simulator identity and input boundaries", () => {
         waId: "4912345",
         name: "Test Owner",
         roles: ["owner", "technician"],
-        businesses: ["North", "South"],
+        business: "South",
         salons: ["Mitte"],
       },
     ]);
@@ -314,7 +311,7 @@ describe("coexisting real and simulated conversations", () => {
       conversationId: "conversation",
       contactId: "contact",
       waId: input.identity.waId,
-      ownerBusinessIds: [],
+      isOwner: false,
       technicianIds: [],
       currentMediaId: null,
       transport: "simulator",

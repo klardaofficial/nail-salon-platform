@@ -11,7 +11,7 @@ export type ResourceField = {
   label: string;
   kind?: "text" | "textarea" | "select" | "switch" | "time";
   required?: boolean;
-  optionSource?: "businesses" | "salons";
+  optionSource?: "salons";
   help?: string;
 };
 
@@ -26,15 +26,12 @@ export type ResourceDefinition = {
 
 export const resourceDefinitions: Record<ResourceName, ResourceDefinition> = {
   businesses: {
-    title: "Businesses",
-    description: "Group salons, owners, and monthly reporting under one business account.",
+    title: "Business",
+    description: "Your business profile, WhatsApp owners, and reporting timezone.",
     singular: "business",
     columns: [
       { key: "name", label: "Name" },
       { key: "reporting_timezone", label: "Reporting timezone" },
-      { key: "salon_count", label: "Salons" },
-      { key: "owner_count", label: "Owners" },
-      { key: "active", label: "Active", kind: "boolean" },
     ],
     fields: [
       { name: "name", label: "Business name", required: true },
@@ -45,9 +42,8 @@ export const resourceDefinitions: Record<ResourceName, ResourceDefinition> = {
         kind: "textarea",
         help: "Enter one WhatsApp ID or international number per line.",
       },
-      { name: "active", label: "Active", kind: "switch" },
     ],
-    defaults: { reporting_timezone: "Europe/Berlin", active: true },
+    defaults: { reporting_timezone: "Europe/Berlin" },
   },
   salons: {
     title: "Salons",
@@ -55,19 +51,11 @@ export const resourceDefinitions: Record<ResourceName, ResourceDefinition> = {
     singular: "salon",
     columns: [
       { key: "name", label: "Salon" },
-      { key: "business_name", label: "Business" },
       { key: "location_label", label: "Location" },
       { key: "timezone", label: "Timezone" },
       { key: "active", label: "Active", kind: "boolean" },
     ],
     fields: [
-      {
-        name: "business_id",
-        label: "Business",
-        kind: "select",
-        optionSource: "businesses",
-        required: true,
-      },
       { name: "name", label: "Salon name", required: true },
       { name: "location_label", label: "Location", required: true },
       { name: "timezone", label: "Timezone", required: true },
