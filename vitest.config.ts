@@ -1,16 +1,17 @@
-import { defineConfig } from "vitest/config";
-import { fileURLToPath } from "node:url";
-
-export default defineConfig({
+const config = {
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@": new URL("./src", import.meta.url).pathname,
     },
   },
   test: {
     environment: "node",
+    pool: "threads",
+    singleThread: true,
     coverage: {
       reporter: ["text", "html"],
     },
   },
-});
+};
+
+export default config;
