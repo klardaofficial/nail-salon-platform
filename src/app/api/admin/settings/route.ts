@@ -18,11 +18,13 @@ const settingsSchema = z.object({
     .string()
     .trim()
     .max(512)
+    .nullable()
     .transform((value) => value || null),
   technicianBookingCancelledTemplate: z
     .string()
     .trim()
     .max(512)
+    .nullable()
     .transform((value) => value || null),
 });
 
