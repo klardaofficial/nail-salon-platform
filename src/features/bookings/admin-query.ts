@@ -6,7 +6,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const bookingFiltersSchema = z.object({
   status: z.enum(["confirmed", "cancelled"]).optional(),
-  businessId: z.uuid().optional(),
   from: z.iso.datetime().optional(),
   to: z.iso.datetime().optional(),
 });
@@ -32,7 +31,6 @@ export async function queryAdminBookings(filters: z.infer<typeof bookingFiltersS
     .limit(1000);
 
   if (filters.status) query = query.eq("status", filters.status);
-  if (filters.businessId) query = query.eq("business_id", filters.businessId);
   if (filters.from) query = query.gte("created_at", filters.from);
   if (filters.to) query = query.lte("created_at", filters.to);
 

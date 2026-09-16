@@ -13,10 +13,8 @@ const schemas = {
     name: z.string().trim().min(1).max(120),
     reporting_timezone: z.string().trim().min(1).max(80).default("Europe/Berlin"),
     owner_wa_ids: z.string().optional(),
-    active: z.boolean().default(true),
   }),
   salons: z.object({
-    business_id: z.uuid(),
     name: z.string().trim().min(1).max(120),
     location_label: z.string().trim().min(1).max(300),
     timezone: z.string().trim().min(1).max(80).default("Europe/Berlin"),
@@ -93,17 +91,24 @@ async function syncOwners(businessId: string, ownerText?: string) {
   }
 }
 
+async function singleBusinessId(requireActive = true) {
+  let query = createSupabaseAdminClient().from("businesses").select("id").limit(2);
+  if (requireActive) query = query.eq("active", true);
+  const { data, error } = await query;
+  if (error) throw error;
+  if (data.length !== 1) throw new Error("business_setup_required");
+  return data[0].id;
+}
+
 export async function listResource(resource: ResourceName) {
   const supabase = createSupabaseAdminClient();
 
   if (resource === "businesses") {
-    const [businesses, salons, owners] = await Promise.all([
+    const [businesses, owners] = await Promise.all([
       supabase.from("businesses").select("*").order("name"),
-      supabase.from("salons").select("id,business_id"),
       supabase.from("business_owners").select("business_id,contact:contacts(wa_id)"),
     ]);
     if (businesses.error) throw businesses.error;
-    if (salons.error) throw salons.error;
     if (owners.error) throw owners.error;
 
     return {
@@ -111,8 +116,6 @@ export async function listResource(resource: ResourceName) {
         const businessOwners = owners.data.filter((owner) => owner.business_id === business.id);
         return {
           ...business,
-          salon_count: salons.data.filter((salon) => salon.business_id === business.id).length,
-          owner_count: businessOwners.length,
           owner_wa_ids: businessOwners
             .map((owner) => {
               const contact = owner.contact as { wa_id?: string } | { wa_id?: string }[] | null;
@@ -127,15 +130,11 @@ export async function listResource(resource: ResourceName) {
   }
 
   if (resource === "salons") {
-    const result = await supabase
-      .from("salons")
-      .select("*,business:businesses(name)")
-      .order("name");
+    const result = await supabase.from("salons").select("*").order("name");
     if (result.error) throw result.error;
     return {
       items: result.data.map((item) => ({
         ...item,
-        business_name: relationName(item.business),
         open_time: item.default_open_time.slice(0, 5),
         close_time: item.default_close_time.slice(0, 5),
       })),
@@ -157,6 +156,9 @@ export async function createResource(resource: ResourceName, input: unknown) {
   const supabase = createSupabaseAdminClient();
 
   if (resource === "businesses") {
+    const existing = await supabase.from("businesses").select("id").limit(1);
+    if (existing.error) throw existing.error;
+    if (existing.data.length) throw new Error("single_business_already_exists");
     const { owner_wa_ids, ...business } = values as z.infer<typeof schemas.businesses>;
     const result = await supabase.from("businesses").insert(business).select("*").single();
     if (result.error) throw result.error;
@@ -171,6 +173,7 @@ export async function createResource(resource: ResourceName, input: unknown) {
       .from("salons")
       .insert({
         ...salon,
+        business_id: await singleBusinessId(),
         default_open_time: open_time || settings.DEFAULT_OPEN_TIME,
         default_close_time: close_time || settings.DEFAULT_CLOSE_TIME,
         booking_interval_minutes: settings.DEFAULT_BOOKING_INTERVAL_MINUTES,

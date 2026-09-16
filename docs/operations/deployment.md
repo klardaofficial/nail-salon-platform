@@ -138,7 +138,7 @@ Vercel and Supabase respond independently to a Git push. Follow this order for t
 4. Verify `https://YOUR_DOMAIN/api/health` returns `status: ok`, `environment: prod`, the intended bot locale, and `databaseConfigured: true`.
 5. Open `/admin/login` and sign in as `admin@gmail.com` with the initial password `Pass1234`.
 6. Complete the required **Account settings** password change before using the other dashboard pages. Sign out and verify the new password works while `Pass1234` fails.
-7. In the admin dashboard, create the real business, salon name/location, and owner WA IDs. Services and technicians may remain empty.
+7. In the admin dashboard, edit the migration-created business profile, then add salon name/location and owner WA IDs. Services and technicians may remain empty.
 8. Sync/check the Inngest endpoint and functions.
 
 Every migration must be backward compatible with the previous application revision because Vercel and Supabase deploy independently. Use expand, migrate, then contract across separate releases for breaking schema changes.

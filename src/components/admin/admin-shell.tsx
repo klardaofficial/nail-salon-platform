@@ -34,7 +34,7 @@ const navigation = [
   {
     key: "/admin/businesses",
     icon: <BuildingsIcon size={18} />,
-    label: <Link href="/admin/businesses">Businesses</Link>,
+    label: <Link href="/admin/businesses">Business</Link>,
   },
   {
     key: "/admin/salons",

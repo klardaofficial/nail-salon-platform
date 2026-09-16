@@ -20,14 +20,14 @@ const actors = [
     waId: "4915000000001",
     name: "Test Owner",
     roles: ["owner"],
-    businesses: ["Test business"],
+    business: "Test business",
     salons: [],
   },
   {
     waId: "4915000000002",
     name: "Test Technician",
     roles: ["technician"],
-    businesses: [],
+    business: null,
     salons: ["Test salon"],
   },
 ];
@@ -118,6 +118,9 @@ async function addCustomer(name: string, waId: string) {
   await fill(dialog.querySelector<HTMLInputElement>("#name")!, name);
   await fill(dialog.querySelector<HTMLInputElement>("#waId")!, waId);
   await click(button("Add customer", dialog));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 describe("simulator chat windows", () => {
@@ -129,6 +132,9 @@ describe("simulator chat windows", () => {
     await click(button("Add customer", container));
     const dialog = document.querySelector('[role="dialog"]')!;
     await click(button("Add customer", dialog));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(dialog.textContent).toContain("Enter a customer name.");
     expect(dialog.textContent).toContain("Enter a WhatsApp ID.");
     await fill(dialog.querySelector<HTMLInputElement>("#name")!, "Test Ada");

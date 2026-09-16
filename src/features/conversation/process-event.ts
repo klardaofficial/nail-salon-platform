@@ -120,7 +120,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   }
 
   const [owners, technicians, salons] = await Promise.all([
-    supabase.from("business_owners").select("business_id").eq("contact_id", contactId),
+    supabase.from("business_owners").select("business_id").eq("contact_id", contactId).limit(1),
     supabase
       .from("technicians")
       .select("id")
@@ -238,7 +238,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
       conversationId,
       contactId,
       waId: event.contactWaId,
-      ownerBusinessIds: (owners.data ?? []).map((owner) => owner.business_id),
+      isOwner: Boolean(owners.data?.length),
       technicianIds: (technicians.data ?? []).map((technician) => technician.id),
       currentMediaId: recentMedia?.media_id ?? null,
     };

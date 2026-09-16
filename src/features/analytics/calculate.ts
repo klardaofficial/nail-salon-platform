@@ -1,4 +1,4 @@
-import { subDays } from "date-fns";
+import { addDays, differenceInCalendarDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
 import type { TrendPoint } from "./types";
@@ -12,14 +12,16 @@ export type AnalyticsBooking = {
 export function calculateAnalytics(
   bookings: AnalyticsBooking[],
   priorCustomerIds: Set<string>,
-  days: number,
+  from: string,
+  to: string,
   timezone: string,
-  now = new Date(),
 ) {
   const points = new Map<string, TrendPoint>();
+  const start = new Date(`${from}T12:00:00Z`);
+  const days = differenceInCalendarDays(new Date(`${to}T12:00:00Z`), start) + 1;
 
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const key = formatInTimeZone(subDays(now, offset), timezone, "yyyy-MM-dd");
+  for (let offset = 0; offset < days; offset += 1) {
+    const key = addDays(start, offset).toISOString().slice(0, 10);
     points.set(key, { date: key, confirmed: 0, cancelled: 0, total: 0 });
   }
 

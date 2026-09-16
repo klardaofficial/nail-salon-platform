@@ -222,7 +222,9 @@ function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: 
         ) : (
           <Tag>Customer</Tag>
         )}
-        <span>{[...actor.businesses, ...actor.salons].join(" · ") || "Test customer"}</span>
+        <span>
+          {[actor.business, ...actor.salons].filter(Boolean).join(" · ") || "Test customer"}
+        </span>
       </div>
       {error ? (
         <Alert
@@ -326,7 +328,7 @@ export function SimulatorClient() {
   const actors: SimulatorIdentity[] = [
     ...customers
       .filter((customer) => !staff.some((actor) => actor.waId === customer.waId))
-      .map((customer) => ({ ...customer, roles: [], businesses: [], salons: [] })),
+      .map((customer) => ({ ...customer, roles: [], business: null, salons: [] })),
     ...staff,
   ];
   const visible = actors.filter(
@@ -419,7 +421,7 @@ export function SimulatorClient() {
           className={styles.empty}
           description={
             filter === "Owners" || filter === "Technicians"
-              ? "No matching identities. Add owner mappings under Businesses or active records under Technicians, then refresh."
+              ? "No matching identities. Add owner mappings under Business or active records under Technicians, then refresh."
               : "No chat windows yet. Add a test customer, or configure owners and technicians in the dashboard."
           }
         />

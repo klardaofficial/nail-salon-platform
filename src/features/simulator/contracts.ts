@@ -32,7 +32,7 @@ export type SimulatorCustomer = z.infer<typeof simulatorCustomerSchema>;
 export type SimulatorSendInput = z.infer<typeof simulatorSendSchema>;
 export type SimulatorIdentity = SimulatorCustomer & {
   roles: ("owner" | "technician")[];
-  businesses: string[];
+  business: string | null;
   salons: string[];
 };
 export type SimulatorActorsResponse = { actors: SimulatorIdentity[]; aiConfigured: boolean };

@@ -9,7 +9,7 @@ Every function definition uses strict JSON Schema with all properties required a
 Implemented tools:
 
 - Customer: save draft, create booking, list own bookings, cancel own booking, request style preview.
-- Owner: business booking summary, update owned salon, manage owned services, manage owned technicians.
+- Owner: configured-business booking summary, update its salon, manage its services, manage its technicians.
 - Technician: list assigned bookings, submit own optional time off.
 
 Image previews call `images.edit` with the WhatsApp source image, a constrained preservation prompt, high input fidelity, low-quality JPEG output, and up to the configured count. Base64 returned by OpenAI is decoded in memory and immediately uploaded. It never enters job results, SQL, logs, files, or documentation. `store: false` controls Responses storage; OpenAI and WhatsApp still apply their own data retention policies.

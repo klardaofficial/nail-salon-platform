@@ -20,11 +20,11 @@ export function groupSimulatorIdentities(owners: OwnerMapping[], technicians: Te
       waId,
       name: owner.contact.display_name || `Owner ${waId}`,
       roles: [],
-      businesses: [],
+      business: null,
       salons: [],
     };
     if (!actor.roles.includes("owner")) actor.roles.push("owner");
-    if (!actor.businesses.includes(owner.business.name)) actor.businesses.push(owner.business.name);
+    actor.business = owner.business.name;
     identities.set(waId, actor);
   }
   for (const technician of technicians) {
@@ -32,7 +32,7 @@ export function groupSimulatorIdentities(owners: OwnerMapping[], technicians: Te
       waId: technician.wa_id,
       name: technician.display_name,
       roles: [],
-      businesses: [],
+      business: null,
       salons: [],
     };
     if (actor.name === `Owner ${actor.waId}`) actor.name = technician.display_name;

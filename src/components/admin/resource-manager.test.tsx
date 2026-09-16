@@ -11,11 +11,8 @@ import { apiKeys } from "@/lib/api/keys";
 import { AdminProviders } from "./admin-providers";
 import { ResourceManager } from "./resource-manager";
 
-const business = { id: "11111111-1111-4111-8111-111111111111", name: "Test business" };
 const salon = {
   id: "22222222-2222-4222-8222-222222222222",
-  business_id: business.id,
-  business_name: business.name,
   name: "Test salon",
   location_label: "Berlin",
   timezone: "Europe/Berlin",
@@ -65,8 +62,8 @@ async function renderManager() {
         <SWRConfig
           value={{
             provider: () => new Map(),
-            fetcher: async (url: string) => ({
-              items: url === apiKeys.businesses ? [business] : [salon],
+            fetcher: async () => ({
+              items: [salon],
             }),
           }}
         >
@@ -92,7 +89,7 @@ function expectTimes(opening: string, closing: string) {
 }
 
 describe("salon resource form", { timeout: 15_000 }, () => {
-  it("opens with default times, searches businesses by label, and creates with HH:mm strings", async () => {
+  it("opens with default times and creates with HH:mm strings", async () => {
     await renderManager();
     await click(screen.getByRole("button", { name: "Add salon" }));
     expectTimes("09:00", "18:00");
@@ -100,17 +97,12 @@ describe("salon resource form", { timeout: 15_000 }, () => {
     const dialog = within(screen.getByRole("dialog"));
     await fill(dialog.getByLabelText("Salon name"), "New salon");
     await fill(dialog.getByLabelText("Location"), "Munich");
-    const businessSelect = dialog.getByRole("combobox", { name: "Business" });
-    await click(businessSelect);
-    await fill(businessSelect, "Test business");
-    await click(screen.getByText("Test business", { selector: ".ant-select-item-option-content" }));
     await click(dialog.getByRole("button", { name: "OK" }));
 
     expect(mocks.mutation).toHaveBeenCalledWith(apiKeys.salons, {
       arg: {
         method: "POST",
         body: {
-          business_id: business.id,
           name: "New salon",
           location_label: "Munich",
           timezone: "Europe/Berlin",
@@ -134,7 +126,6 @@ describe("salon resource form", { timeout: 15_000 }, () => {
         method: "PATCH",
         body: {
           id: salon.id,
-          business_id: business.id,
           name: salon.name,
           location_label: salon.location_label,
           timezone: salon.timezone,
