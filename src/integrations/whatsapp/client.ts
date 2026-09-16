@@ -5,11 +5,13 @@ import { requireWhatsAppConfig } from "@/lib/config/env";
 import type { OutboundWhatsAppPayload } from "./types";
 import { buildWhatsAppMessageBody } from "./message-body";
 
+export const WHATSAPP_API_VERSION = "v26.0";
+
 type GraphResult = { id?: string; messages?: { id: string }[]; url?: string; mime_type?: string };
 
 async function graphFetch(path: string, init?: RequestInit) {
   const config = requireWhatsAppConfig();
-  const response = await fetch(`https://graph.facebook.com/${config.apiVersion}/${path}`, {
+  const response = await fetch(`https://graph.facebook.com/${WHATSAPP_API_VERSION}/${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${config.accessToken}`,

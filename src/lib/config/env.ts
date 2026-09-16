@@ -9,7 +9,6 @@ const serverEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
-  WHATSAPP_API_VERSION: z.string().default("v23.0"),
   WHATSAPP_SIMULATOR_ENABLED: z.enum(["0", "1"]).default("0"),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional(),
@@ -92,7 +91,6 @@ export function requireWhatsAppConfig() {
   }
 
   return {
-    apiVersion: env.WHATSAPP_API_VERSION,
     phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID!,
     businessAccountId: env.WHATSAPP_BUSINESS_ACCOUNT_ID,
     accessToken: env.WHATSAPP_ACCESS_TOKEN!,

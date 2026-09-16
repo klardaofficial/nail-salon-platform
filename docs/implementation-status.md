@@ -10,7 +10,7 @@ Last reviewed: 2026-09-15.
 - The Business profile uses cards and includes a safe Meta WhatsApp Developer setup checklist with the current webhook callback URL, verify-token instructions, and `messages` subscription guidance; it never displays provider secrets.
 - Salon create/edit forms normalize time defaults and saved values for Ant Design pickers, serialize `HH:mm` API payloads, and restore defaults when adding after editing.
 - Supabase migrations with a database-enforced singleton business profile, snapshots, RLS, transactional inbound/booking/cancellation/preview functions, audit data, and durable queues. Local and production contain no salon/customer seed data.
-- WhatsApp verification/signature handling, normalization, duplicate-safe inbox registration, text/image/button/list transport, delivery tracking, and a signed local simulator.
+- WhatsApp Graph API v26.0, verification/signature handling, normalization, duplicate-safe inbox registration, text/image/button/list transport, delivery tracking, and a signed local simulator.
 - App-owned conversation history, fixed deployment locale, active catalog context, OpenAI Responses API loop, strict function tools, server-side role checks, and idempotent tool execution.
 - Customer booking/cancellation/preview tools, owner summary/catalog/salon tools, technician assigned-booking/time-off tools, and technician notifications.
 - In-memory image download, OpenAI edit, direct WhatsApp upload, quota reservation/reconciliation, retryable delivery by saved media ID, and stale-work recovery.

@@ -2,6 +2,8 @@
 
 The callback is `GET|POST /api/whatsapp/webhook`. Meta's GET challenge must match `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. POST reads the exact raw body and compares `x-hub-signature-256` with an HMAC-SHA256 made from `WHATSAPP_APP_SECRET` before parsing identity or data.
 
+The server integration pins Meta Graph API requests to `v26.0`. This is an application constant, not a deployment setting.
+
 The **Admin | Business** page displays the deployment's callback URL and a concise Meta setup checklist. In Meta for Developers, add the WhatsApp product to the one app, select the one WhatsApp Business Account/phone number, configure that callback URL and the exact `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, then subscribe the account to `messages`. Configure `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET`, and `WHATSAPP_WEBHOOK_VERIFY_TOKEN` only in server deployment settings; the dashboard never reads or displays their values.
 
 `normalizeWhatsAppWebhook` emits one event per text, image, interactive reply, or delivery status. Stored message events contain text, interactive IDs, MIME type, and WhatsApp media IDs, never downloaded bytes. Duplicate provider IDs return success without scheduling work twice. Status callbacks update delivery state and never produce a bot reply.
