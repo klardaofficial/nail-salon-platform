@@ -4,8 +4,9 @@ import { requireWhatsAppConfig } from "@/lib/config/env";
 
 import type { OutboundWhatsAppPayload } from "./types";
 import { buildWhatsAppMessageBody } from "./message-body";
+import { WHATSAPP_API_VERSION } from "./version";
 
-export const WHATSAPP_API_VERSION = "v26.0";
+export { WHATSAPP_API_VERSION } from "./version";
 
 type GraphResult = { id?: string; messages?: { id: string }[]; url?: string; mime_type?: string };
 

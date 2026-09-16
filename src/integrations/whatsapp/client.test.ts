@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { WHATSAPP_API_VERSION } from "./client";
+import { WHATSAPP_API_VERSION } from "./version";
 
 describe("WhatsApp Graph client", () => {
   it("pins requests to Graph API v26.0", () => {
