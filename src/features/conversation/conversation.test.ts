@@ -281,13 +281,14 @@ describe("unrestricted language and generated controls", () => {
 
 describe("minimal booking conditions", () => {
   it("books under the active business without a salon, services or technician, using the platform timezone", async () => {
-    expect(await create()).toMatchObject({
+    const result = await create();
+    expect(result).toMatchObject({
       ok: true,
       status: "confirmed",
-      salon: "[N/A]",
-      technician: "[N/A]",
       startsAt: "2099-09-18 15:00",
     });
+    expect(result).not.toHaveProperty("salon");
+    expect(result).not.toHaveProperty("technician");
     expect(mocks.rpc).toHaveBeenCalledWith(
       "create_booking_from_conversation",
       expect.objectContaining({
@@ -302,23 +303,30 @@ describe("minimal booking conditions", () => {
     );
     expect(mocks.queue).not.toHaveBeenCalled();
   });
-  it("selects a sole salon while retaining the platform timezone", async () => {
+  it("keeps a salon optional even when one is active", async () => {
     tables.set("salons", [salon]);
     expect(await create()).toMatchObject({
       ok: true,
-      salon: "Mitte",
       startsAt: "2099-09-18 15:00",
     });
     expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
-      p_salon_id: salonId,
+      p_salon_id: null,
       p_timezone_snapshot: "Asia/Bangkok",
       p_local_time_label: "2099-09-18 15:00",
     });
   });
-  it("requires a salon choice when multiple active salons exist", async () => {
+  it("instructs the AI to offer an optional salon before salon-scoped technician choices", async () => {
+    tables.set("salons", [salon]);
+    await createNaturalReply(actor);
+    const { instructions } = mocks.response.mock.calls[0][0];
+    expect(instructions).toContain("offer the salon choices and a No preference option");
+    expect(instructions).toContain("Only after a salon is selected");
+    expect(instructions).toContain("Do not mention salon or technician when either is absent");
+  });
+  it("keeps a salon optional when multiple are active", async () => {
     tables.set("salons", [salon, { ...salon, id: technicianId }]);
-    expect(await create()).toMatchObject({ ok: false, error: "salon_selection_required" });
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(await create()).toMatchObject({ ok: true });
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({ p_salon_id: null });
     expect(await create({ salonId })).toMatchObject({ ok: true });
   });
   it("rejects an inactive or stale selected salon without inventing a replacement", async () => {

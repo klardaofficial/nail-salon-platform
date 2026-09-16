@@ -358,19 +358,14 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
   if (business.error) throw business.error;
   if (platform.error) throw platform.error;
   if (!business.data.active) throw new Error("business_is_not_active");
-  const salon = values.salonId
-    ? salons.data.find((item) => item.id === values.salonId)
-    : salons.data.length === 1
-      ? salons.data[0]
-      : null;
+  const salon = values.salonId ? salons.data.find((item) => item.id === values.salonId) : null;
   if (values.salonId && !salon) throw new Error("salon_is_not_active");
-  if (!salon && salons.data.length > 1) throw new Error("salon_selection_required");
   const timezone = platform.data.platform_timezone;
-  const salonName = salon?.name ?? "[N/A]";
+  const salonName = salon?.name;
 
   let technicianName: string | null = null;
   let technicianWaId: string | null = null;
-  let technicianRef = values.technicianRef;
+  let technicianRef = salon ? values.technicianRef : null;
   if (technicianRef) {
     const technician = await supabase
       .from("technicians")
@@ -443,7 +438,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     if (settings.error) throw settings.error;
     if (contact.error) throw contact.error;
     const bodyParameters = [
-      salonName,
+      salonName ?? "[N/A]",
       contact.data.display_name || "[N/A]",
       contact.data.wa_id,
       localLabel,
@@ -476,8 +471,8 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     ok: true,
     bookingId,
     status: "confirmed",
-    salon: salonName,
-    technician: technicianName ?? "[N/A]",
+    ...(salonName ? { salon: salonName } : {}),
+    ...(technicianName ? { technician: technicianName } : {}),
     startsAt: localLabel,
   };
 }
@@ -603,15 +598,10 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
   const activeSalons = salons.data.filter(
     (salon) => salon.business_id === existingBooking.business_id,
   );
-  const salon = values.salonId
-    ? activeSalons.find((item) => item.id === values.salonId)
-    : activeSalons.length === 1
-      ? activeSalons[0]
-      : null;
+  const salon = values.salonId ? activeSalons.find((item) => item.id === values.salonId) : null;
   if (values.salonId && !salon) throw new Error("salon_is_not_active");
-  if (!salon && activeSalons.length > 1) throw new Error("salon_selection_required");
 
-  let technicianRef = values.technicianRef;
+  let technicianRef = salon ? values.technicianRef : null;
   let technicianName: string | null = null;
   let technicianWaId: string | null = null;
   if (technicianRef) {
@@ -767,8 +757,8 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
       existingBooking.starts_at,
       settings.data.platform_timezone,
     ),
-    salon: salon?.name ?? "[N/A]",
-    technician: technicianName ?? "[N/A]",
+    ...(salon ? { salon: salon.name } : {}),
+    ...(technicianName ? { technician: technicianName } : {}),
     services,
     additionalRequest: values.additionalRequest,
     startsAt,

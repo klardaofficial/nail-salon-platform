@@ -14,10 +14,8 @@ All date/time interpretation and display uses the configured platform timezone, 
 flowchart TD
   Message["Customer requests a booking"] --> Salons{"Active salons"}
   Salons -->|None| NoSalon["Use null salon and platform timezone; skip location"]
-  Salons -->|One| Sole["Select the sole salon implicitly"]
-  Salons -->|Several| Choice["Resolve the customer's choice; ask only if missing"]
+  Salons -->|One or more| Choice["Offer a salon reference or No preference"]
   NoSalon --> Time["Resolve future date/time; clarify only missing or ambiguous details"]
-  Sole --> Time
   Choice --> Time
   Time --> Agreement{"Clear agreement to these details?"}
   Agreement -->|No| Confirm["Brief summary with AI-labelled Confirm / Change choices"]
@@ -28,9 +26,9 @@ flowchart TD
 
 A clear instruction such as "Book 19 September at 15:00" supplies agreement to those exact details when the date/year and clock time are unambiguous. The timezone is always resolved from platform settings without asking. Otherwise ask for agreement once. Never invent a time, salon or availability. Opening hours, intervals, and time off guide suggestions but do not block bookings.
 
-Reuse all details volunteered by the customer. Services, Other/custom text, technician preference, and additional request are optional. Do not ask about an empty service catalog or unconfigured technicians. Offer service choices only when useful; offer technician choices whenever the selected salon has active staff, including a way to continue without preference. Optional questions must not postpone an otherwise complete booking.
+Reuse all details volunteered by the customer. Salon, services, Other/custom text, technician preference, and additional request are optional. When active salons exist and the customer has not selected one, offer salon choices and a way to continue without preference. Do not ask about an empty service catalog or unconfigured technicians. Only after a salon is selected, offer service choices when useful and technician choices whenever that salon has active staff, including a way to continue without preference. Do not ask about technicians when none are active. Optional questions must not postpone booking after the customer skips them.
 
-The app selects one active salon automatically and permits no-salon bookings under the active business. Several active salons require a choice. Inactive/stale selected salons fail safely. Store absent details as null or []; display [N/A] only where a template/table needs a value. A new booking does not reuse a completed draft.
+The app permits no-salon bookings under the active business whether or not salons are active; it never infers a salon from a list. Inactive/stale selected salons fail safely. Store absent details as null or []; omit absent salon and technician details from customer confirmations, and use [N/A] only where an internal template/table needs a value. A new booking does not reuse a completed draft.
 
 Examples with `BOT_LOCALE=de`:
 
