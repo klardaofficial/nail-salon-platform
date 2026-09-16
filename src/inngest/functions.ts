@@ -51,7 +51,7 @@ export const deliverWhatsAppMessage = inngest.createFunction(
   {
     id: "deliver-whatsapp-message",
     retries: 7,
-    concurrency: { limit: 20 },
+    concurrency: { limit: 5 },
     triggers: [{ event: "whatsapp/message.queued" }],
   },
   async ({ event, step }) => {
