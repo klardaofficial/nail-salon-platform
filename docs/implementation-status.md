@@ -4,6 +4,8 @@ Last reviewed: 2026-09-16.
 
 ## Implemented
 
+- Bot date/time interpretation and display now use the saved platform timezone for every salon and role, without asking for or disclosing a person's/configured timezone. Shared AI instructions omit timezone labels from replies and controls. Drafts use server settings; booking lists, notification parameters and fallback receipts format plain dates/clock times, including historical bookings. The additive booking-function migration is applied locally and types regenerated; it validates the platform timezone while preserving existing booking instants and snapshots.
+
 - Fixed silent simulator/customer replies caused by querying the platform interval column on salons. Unfinished inbox retries now resume after saved history, reuse and redispatch existing replies without another AI call, and propagate failed completion writes. The affected local greeting was recovered through Inngest and produced a captured AI-written interactive reply.
 
 - Adaptive conversation language without a language allowlist: BOT_LOCALE is a valid language-tag reference; AI generates contextual greetings and every WhatsApp option/list label. Admin greeting settings and English/German dictionaries are removed. Conversation language and AI-written outage text are retained per channel.
@@ -35,7 +37,7 @@ Last reviewed: 2026-09-16.
 
 ## Verified locally
 
-- `pnpm check`: formatting, lint, TypeScript, all 94 application tests, and the production build pass, including conversation recovery, unrestricted language/interactive replies, flexible bookings, staff query tools, and existing dashboard/inbox/reporting routes.
+- `pnpm check`: formatting, lint, TypeScript, all 104 application tests, and the production build pass, including platform-timezone interpretation and plain date/time labels, conversation recovery, unrestricted language/interactive replies, flexible bookings, staff query tools, and existing dashboard/inbox/reporting routes.
 
 - `pnpm format:check`
 - `pnpm lint`

@@ -6,6 +6,8 @@ Each opening message, greeting, question, image, or interactive tap goes through
 
 Stored owner/technician mappings select staff assistance. A customer cannot gain staff access by claiming a role in text. Greetings explain relevant capabilities and offer useful actions. Specific opening requests go straight to the requested task instead of receiving an unrelated welcome or location questionnaire.
 
+All date/time interpretation and display uses the configured platform timezone, including today/tomorrow, staff query boundaries, and time off. Interpret supplied clock times in that setting regardless of the person's stated timezone, location, phone country, language, or selected salon. Never ask for or disclose a timezone. Visible messages and controls contain dates and clock times only, without timezone abbreviations, offsets, or explanations such as "your local time". Tools retain offset timestamps internally.
+
 ## Customer booking
 
 ```mermaid
@@ -24,7 +26,7 @@ flowchart TD
   Book --> Receipt["Reply with booking reference and local time; notify assigned technician"]
 ```
 
-A clear instruction such as "Book 19 September at 15:00" supplies agreement to those exact details when the date/year/timezone are unambiguous. Otherwise ask for agreement once. Never invent a time, salon or availability. Opening hours, intervals, and time off guide suggestions but do not block bookings.
+A clear instruction such as "Book 19 September at 15:00" supplies agreement to those exact details when the date/year and clock time are unambiguous. The timezone is always resolved from platform settings without asking. Otherwise ask for agreement once. Never invent a time, salon or availability. Opening hours, intervals, and time off guide suggestions but do not block bookings.
 
 Reuse all details volunteered by the customer. Services, Other/custom text, technician preference, and additional request are optional. Do not ask about an empty service catalog or unconfigured technicians. Offer service choices only when useful; offer technician choices only when enabled with active staff, including a way to continue without preference. Optional questions must not postpone an otherwise complete booking.
 
@@ -64,7 +66,7 @@ Only the same customer may cancel a confirmed booking before its start time. The
 
 ## Technician notification templates
 
-Approved Meta templates retain their provider-defined content. The app uses the saved confirmed/cancelled template names and configured language code. For both, body parameters are: {{1}} salon name, {{2}} customer name, {{3}} customer WhatsApp number, {{4}} local appointment time, {{5}} booking reference. Missing required display details use [N/A]. Without a template, AI writes the ordinary notification in the recipient technician's stored conversation language, falling back to the environment reference. Ordinary messages still require that technician's own open Meta service window.
+Approved Meta templates retain their provider-defined content. The app uses the saved confirmed/cancelled template names and configured language code. For both, body parameters are: {{1}} salon name, {{2}} customer name, {{3}} customer WhatsApp number, {{4}} appointment date and clock time in the platform timezone without a timezone label, {{5}} booking reference. Missing required display details use [N/A]. Without a template, AI writes the ordinary notification in the recipient technician's stored conversation language, falling back to the environment reference. Ordinary messages still require that technician's own open Meta service window. Cancellation notifications and booking lists reformat stored appointment instants using current platform settings, so historical labels containing a timezone are not reused. Neutral fallback receipts and notification text use the same date/time format.
 
 ## Image preview
 

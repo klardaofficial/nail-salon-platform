@@ -4,6 +4,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import type { FunctionTool, ResponseFunctionToolCall } from "openai/resources/responses/responses";
 import { z } from "zod";
 import { recipientLocale, technicianNotificationText, templateLanguageCode } from "./notifications";
+import { formatConversationTime, getConversationTimezone, withConversationTimes } from "./datetime";
 
 import { queueWhatsAppMessage } from "@/features/messaging/outbox";
 import { inngest } from "@/inngest/client";
@@ -35,7 +36,6 @@ const customerTools: FunctionTool[] = [
       properties: {
         salonId: nullableUuid,
         startsAt: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] },
-        timezone: nullableString,
         services: {
           type: "array",
           items: {
@@ -48,14 +48,7 @@ const customerTools: FunctionTool[] = [
         technicianRef: nullableUuid,
         additionalRequest: nullableString,
       },
-      required: [
-        "salonId",
-        "startsAt",
-        "timezone",
-        "services",
-        "technicianRef",
-        "additionalRequest",
-      ],
+      required: ["salonId", "startsAt", "services", "technicianRef", "additionalRequest"],
       additionalProperties: false,
     },
   },
@@ -279,14 +272,11 @@ const serviceItemSchema = z.object({
 const draftSchema = z.object({
   salonId: z.uuid().nullable(),
   startsAt: z.iso.datetime({ offset: true }).nullable(),
-  timezone: z.string().nullable(),
   services: z.array(serviceItemSchema).max(20),
   technicianRef: z.uuid().nullable(),
   additionalRequest: z.string().max(1000).nullable(),
 });
-const createSchema = draftSchema
-  .omit({ timezone: true })
-  .extend({ startsAt: z.iso.datetime({ offset: true }) });
+const createSchema = draftSchema.extend({ startsAt: z.iso.datetime({ offset: true }) });
 
 async function ownedSalon(actor: ConversationActor, salonId: string) {
   const supabase = createSupabaseAdminClient();
@@ -309,12 +299,13 @@ async function ownedSalon(actor: ConversationActor, salonId: string) {
 
 async function saveDraft(actor: ConversationActor, raw: unknown) {
   const values = draftSchema.parse(raw);
+  const timezone = await getConversationTimezone();
   const { error } = await createSupabaseAdminClient().from("booking_drafts").upsert(
     {
       conversation_id: actor.conversationId,
       salon_id: values.salonId,
       starts_at: values.startsAt,
-      timezone: values.timezone,
+      timezone,
       service_selections: values.services,
       technician_ref: values.technicianRef,
       additional_request: values.additionalRequest,
@@ -334,7 +325,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
   const [salons, business, platform] = await Promise.all([
     supabase
       .from("salons")
-      .select("id,business_id,name,timezone,customer_can_choose_technician")
+      .select("id,business_id,name,customer_can_choose_technician")
       .eq("active", true)
       .is("deleted_at", null),
     supabase.from("businesses").select("id,active").eq("singleton", true).single(),
@@ -351,7 +342,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
       : null;
   if (values.salonId && !salon) throw new Error("salon_is_not_active");
   if (!salon && salons.data.length > 1) throw new Error("salon_selection_required");
-  const timezone = salon?.timezone ?? platform.data.platform_timezone;
+  const timezone = platform.data.platform_timezone;
   const salonName = salon?.name ?? "[N/A]";
 
   let technicianName: string | null = null;
@@ -397,7 +388,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
         ? known.get(service.serviceId)!
         : service.name,
   }));
-  const localLabel = formatInTimeZone(start, timezone, "yyyy-MM-dd HH:mm zzz");
+  const localLabel = formatConversationTime(start, timezone);
   const { data: bookingId, error } = await supabase.rpc("create_booking_from_conversation", {
     p_business_id: business.data.id,
     p_salon_id: salon?.id ?? null,
@@ -478,7 +469,7 @@ async function listCustomerBookings(actor: ConversationActor) {
     .order("starts_at", { ascending: false })
     .limit(10);
   if (error) throw error;
-  return { ok: true, bookings: data };
+  return { ok: true, bookings: await withConversationTimes(data ?? []) };
 }
 
 async function cancelBooking(actor: ConversationActor, raw: unknown) {
@@ -488,7 +479,7 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
   const supabase = createSupabaseAdminClient();
   const before = await supabase
     .from("bookings")
-    .select("id,technician_ref,local_time_label,salon:salons(name)")
+    .select("id,technician_ref,starts_at,salon:salons(name)")
     .eq("id", values.bookingId)
     .eq("contact_id", actor.contactId)
     .maybeSingle();
@@ -511,7 +502,7 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
       const [settings, contact] = await Promise.all([
         supabase
           .from("platform_settings")
-          .select("technician_booking_cancelled_template")
+          .select("technician_booking_cancelled_template,platform_timezone")
           .eq("singleton", true)
           .single(),
         supabase.from("contacts").select("display_name,wa_id").eq("id", actor.contactId).single(),
@@ -526,7 +517,7 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
         salonName,
         contact.data.display_name || "[N/A]",
         contact.data.wa_id,
-        before.data.local_time_label,
+        formatConversationTime(before.data.starts_at, settings.data.platform_timezone),
         values.bookingId,
       ];
       const notification = settings.data.technician_booking_cancelled_template
@@ -661,7 +652,7 @@ async function ownerListBookings(actor: ConversationActor, raw: unknown) {
   if (error) throw error;
   return {
     ok: true,
-    bookings: data,
+    bookings: await withConversationTimes(data ?? []),
     total: count,
     nextOffset: values.offset + 20 < (count ?? 0) ? values.offset + 20 : null,
   };
@@ -799,7 +790,7 @@ async function technicianBookings(actor: ConversationActor, raw: unknown) {
   const { data, count, error } = await createSupabaseAdminClient()
     .from("bookings")
     .select(
-      "id,local_time_label,status,additional_request,salon:salons(name),customer:contacts(display_name,wa_id),booking_services(service_name_snapshot)",
+      "id,starts_at,local_time_label,status,additional_request,salon:salons(name),customer:contacts(display_name,wa_id),booking_services(service_name_snapshot)",
       { count: "exact" },
     )
     .in("technician_ref", technicianIds)
@@ -810,7 +801,7 @@ async function technicianBookings(actor: ConversationActor, raw: unknown) {
   if (error) throw error;
   return {
     ok: true,
-    bookings: data,
+    bookings: await withConversationTimes(data ?? []),
     total: count,
     nextOffset: offset + 20 < (count ?? 0) ? offset + 20 : null,
   };

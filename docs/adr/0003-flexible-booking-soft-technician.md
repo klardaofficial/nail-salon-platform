@@ -11,3 +11,5 @@ Collect only missing required details, one focused question at a time. A clear i
 Strict scheduling/resource validation was rejected because the product goal is low-friction customer attraction. A confirmed booking is a customer request, not guaranteed staff capacity or attendance. Time off guides suggestions only. The database rechecks activity, future time, salon choice and timezone, while idempotency preserves the original booking on replay.
 
 Affected modules: booking SQL functions, conversation prompt/tools, analytics labels, admin booking table and CSV.
+
+2026-09-16 timezone revision: all conversation bookings use the configured platform timezone, including bookings with a salon. The booking RPC validates the platform setting instead of the salon timezone. Customer location, language and stated timezone are irrelevant to interpretation. WhatsApp displays contain only dates and clock times; the configured timezone stays internal. Existing booking instants and snapshots are preserved, and conversation read/notification paths format those instants using current platform settings.

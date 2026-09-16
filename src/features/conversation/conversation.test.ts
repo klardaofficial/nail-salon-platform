@@ -238,12 +238,28 @@ describe("unrestricted language and generated controls", () => {
       "予約が確定しました。",
     );
     expect(mocks.response.mock.calls[0][0].instructions).toContain("language ja");
+    expect(mocks.response.mock.calls[0][0].instructions).toContain(
+      "without timezone names, abbreviations, UTC/GMT offsets",
+    );
     mocks.configured = false;
     expect(await createNaturalReply(actor)).toBeNull();
     expect(
       await createLocalizedText({ locale: "ja", task: "Confirm booking", details: {} }),
     ).toBeNull();
     expect(templateLanguageCode("pt-BR")).toBe("pt_BR");
+  });
+  it("keeps timezone interpretation internal and independent of salon, draft and conversation language", async () => {
+    tables.set("salons", [salon]);
+    tables.set("booking_drafts", { ...booking, timezone: "America/New_York" });
+    await createNaturalReply(actor);
+    const { instructions } = mocks.response.mock.calls[0][0];
+    expect(instructions).toContain("configured platform timezone Asia/Bangkok");
+    expect(instructions).toContain("Never ask for, infer, or use the person's actual timezone");
+    expect(instructions).toContain("without timezone names, abbreviations, UTC/GMT offsets");
+    expect(instructions).toContain("every visible message and option label");
+    expect(instructions).toContain("Never disclose the configured timezone");
+    expect(instructions).not.toContain("Europe/Berlin");
+    expect(instructions).not.toContain("America/New_York");
   });
 });
 
@@ -254,6 +270,7 @@ describe("minimal booking conditions", () => {
       status: "confirmed",
       salon: "[N/A]",
       technician: "[N/A]",
+      startsAt: "2099-09-18 15:00",
     });
     expect(mocks.rpc).toHaveBeenCalledWith(
       "create_booking_from_conversation",
@@ -264,16 +281,22 @@ describe("minimal booking conditions", () => {
         p_services: [],
         p_starts_at: "2099-09-18T08:00:00.000Z",
         p_timezone_snapshot: "Asia/Bangkok",
+        p_local_time_label: "2099-09-18 15:00",
       }),
     );
     expect(mocks.queue).not.toHaveBeenCalled();
   });
-  it("selects a sole salon and uses its timezone", async () => {
+  it("selects a sole salon while retaining the platform timezone", async () => {
     tables.set("salons", [salon]);
-    expect(await create()).toMatchObject({ ok: true, salon: "Mitte" });
+    expect(await create()).toMatchObject({
+      ok: true,
+      salon: "Mitte",
+      startsAt: "2099-09-18 15:00",
+    });
     expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
       p_salon_id: salonId,
-      p_timezone_snapshot: "Europe/Berlin",
+      p_timezone_snapshot: "Asia/Bangkok",
+      p_local_time_label: "2099-09-18 15:00",
     });
   });
   it("requires a salon choice when multiple active salons exist", async () => {
@@ -359,7 +382,9 @@ describe("staff conversations and authorization", () => {
       error: "not_authorized",
     });
     tables.set("business_owners", { business_id: "business" });
-    tables.set("bookings", [{ id: "booking", salon: null, technician_name_snapshot: null }]);
+    tables.set("bookings", [
+      { id: "booking", starts_at: booking.startsAt, salon: null, technician_name_snapshot: null },
+    ]);
     expect(await executeConversationTool({ ...actor, isOwner: true }, call)).toMatchObject({
       ok: true,
       total: 21,
@@ -421,7 +446,7 @@ describe("staff conversations and authorization", () => {
       })
       .mockRejectedValueOnce(new Error("provider unavailable"));
     expect(await createNaturalReply(actor)).toMatchObject({
-      text: expect.stringContaining("booking-id"),
+      text: "✅ booking-id\n2099-09-18 15:00",
       options: [],
     });
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
@@ -466,4 +491,115 @@ describe("staff conversations and authorization", () => {
     expect(result).toMatchObject({ ok: false, error: "not_authorized" });
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
+});
+
+describe("conversation date/time presentation", () => {
+  it("saves drafts using server settings instead of an AI-supplied timezone", async () => {
+    expect(
+      await executeConversationTool(actor, {
+        type: "function_call",
+        name: "save_booking_details",
+        call_id: "draft-call",
+        arguments: JSON.stringify({ ...booking, timezone: "America/New_York" }),
+      }),
+    ).toMatchObject({ ok: true });
+    expect(operations).toContainEqual({
+      table: "booking_drafts",
+      method: "upsert",
+      args: [
+        expect.objectContaining({ starts_at: booking.startsAt, timezone: "Asia/Bangkok" }),
+        { onConflict: "conversation_id" },
+      ],
+    });
+    const tool = toolsForActor(actor).find((tool) => tool.name === "save_booking_details");
+    expect(tool?.parameters?.properties).not.toHaveProperty("timezone");
+  });
+
+  it.each([
+    ["Asia/Bangkok", "2099-09-18T20:30:00Z", "2099-09-19 03:30"],
+    ["Europe/Berlin", "2099-01-18T08:00:00Z", "2099-01-18 09:00"],
+    ["Europe/Berlin", "2099-07-18T08:00:00Z", "2099-07-18 10:00"],
+  ])(
+    "formats %s booking instants across midnight and seasonal offsets",
+    async (timezone, startsAt, label) => {
+      tables.set("platform_settings", { platform_timezone: timezone });
+      expect(await create({ startsAt })).toMatchObject({ ok: true, startsAt: label });
+      expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+        p_timezone_snapshot: timezone,
+        p_local_time_label: label,
+      });
+    },
+  );
+
+  it.each(["list_my_bookings", "owner_list_bookings", "technician_list_bookings"])(
+    "%s reformats historical labels using the current platform setting",
+    async (name) => {
+      tables.set("business_owners", { business_id: "business" });
+      tables.set("technicians", [{ id: technicianId }]);
+      tables.set("bookings", [
+        {
+          id: "booking",
+          starts_at: "2099-09-18T08:00:00Z",
+          local_time_label: "2099-09-18 10:00 CEST",
+        },
+      ]);
+      expect(
+        await executeConversationTool(actor, {
+          type: "function_call",
+          name,
+          call_id: "list-call",
+          arguments: JSON.stringify({ from: null, to: null, status: null, offset: 0 }),
+        }),
+      ).toMatchObject({
+        ok: true,
+        bookings: [{ id: "booking", local_time_label: "2099-09-18 15:00" }],
+      });
+    },
+  );
+
+  it.each(["confirmed", "cancelled"])(
+    "%s notifications and AI-outage fallbacks contain only the configured clock time",
+    async (status) => {
+      tables.set("salons", [salon]);
+      tables.set("technicians", {
+        display_name: "Mai",
+        wa_id: "49152222222",
+        salon_id: salonId,
+        active: true,
+      });
+      tables.set("contacts", { display_name: "Sam", wa_id: actor.waId });
+      tables.set("bookings", {
+        id: salonId,
+        technician_ref: technicianId,
+        starts_at: "2099-09-18T08:00:00Z",
+        local_time_label: "2099-09-18 10:00 CEST",
+        salon: { name: salon.name },
+      });
+      mocks.response.mockRejectedValue(new Error("provider unavailable"));
+      const result =
+        status === "confirmed"
+          ? await create({ technicianRef: technicianId })
+          : await executeConversationTool(actor, {
+              type: "function_call",
+              name: "cancel_booking",
+              call_id: "cancel-call",
+              arguments: JSON.stringify({ bookingId: salonId, reason: null }),
+            });
+      expect(result).toMatchObject({ ok: true });
+      expect(JSON.parse(mocks.response.mock.calls[0][0].input).appointment).toBe(
+        "2099-09-18 15:00",
+      );
+      expect(mocks.queue.mock.calls[0][0].payload).toEqual({
+        kind: "text",
+        text: [
+          status === "confirmed" ? "✅" : "❌",
+          "Mitte",
+          "Sam",
+          actor.waId,
+          "2099-09-18 15:00",
+          status === "confirmed" ? "booking-id" : salonId,
+        ].join("\n"),
+      });
+    },
+  );
 });

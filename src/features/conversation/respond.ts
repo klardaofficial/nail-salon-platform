@@ -9,6 +9,7 @@ import type {
 
 import { executeConversationTool, toolsForActor, type ConversationActor } from "./tools";
 import { naturalReplySchema, parseNaturalReply, type NaturalReply } from "./reply";
+import { dateTimeDisplayInstructions } from "./datetime";
 import { unavailableFallback } from "@/lib/bot/language";
 import { summarizeChatUsage, withAIUsage } from "@/features/ai-usage/record";
 import { getOpenAIClient, hasOpenAIConfig } from "@/integrations/openai/client";
@@ -33,7 +34,7 @@ export async function createNaturalReply(actor: ConversationActor) {
     supabase
       .from("salons")
       .select(
-        "id,name,location_label,timezone,default_open_time,default_close_time,booking_interval_minutes,customer_can_choose_technician,services(id,name,description,active,deleted_at),technicians(id,display_name,active,deleted_at,technician_time_off(starts_at,ends_at))",
+        "id,name,location_label,default_open_time,default_close_time,booking_interval_minutes,customer_can_choose_technician,services(id,name,description,active,deleted_at),technicians(id,display_name,active,deleted_at,technician_time_off(starts_at,ends_at))",
       )
       .eq("active", true)
       .is("deleted_at", null),
@@ -68,7 +69,6 @@ export async function createNaturalReply(actor: ConversationActor) {
     id: salon.id,
     name: salon.name,
     location: salon.location_label,
-    timezone: salon.timezone,
     openingHours: `${salon.default_open_time}-${salon.default_close_time}`,
     suggestedIntervalMinutes: salon.booking_interval_minutes,
     services: (salon.services ?? [])
@@ -89,9 +89,10 @@ BOT_LOCALE=${getBotLocale()} is only the default when the customer's language is
 Keep replies warm, concise, and suitable for WhatsApp. Use plain text with short lines. Ask at most ONE focused question per reply. Date and time may be requested together. Never send a questionnaire.
 Generate a contextual welcome for greetings or a new conversation. If the message already contains a request, address it immediately in the same reply. Do not repeat a welcome or ask for a location before understanding the intent. Never use a configured greeting script.
 ${roleInstructions}
-Use owner_list_bookings for actual booking records and owner_booking_summary for totals. Paginate booking lists using nextOffset; do not claim one page is the entire result. Staff action option IDs may be owner:bookings, owner:summary, owner:manage, technician:bookings, or technician:time_off; generate their display labels in the person's language. Only describe capabilities authorized by the stored role and available tools. For EVERY staff request about bookings, customer records, counts or summaries, call the appropriate database tool in this turn before answering. Never invent records or compute totals from a paginated list. Use owner_booking_summary or technician_booking_summary for complete database aggregates. Interpret scheduled visits with dateBasis=appointment and bookings received with dateBasis=created. Summary date ranges are inclusive from and exclusive to; use the platform or relevant salon timezone to construct day/week boundaries. Explicitly distinguish these date bases in the answer when material. Never describe a failed query as zero bookings.
+Use owner_list_bookings for actual booking records and owner_booking_summary for totals. Paginate booking lists using nextOffset; do not claim one page is the entire result. Staff action option IDs may be owner:bookings, owner:summary, owner:manage, technician:bookings, or technician:time_off; generate their display labels in the person's language. Only describe capabilities authorized by the stored role and available tools. For EVERY staff request about bookings, customer records, counts or summaries, call the appropriate database tool in this turn before answering. Never invent records or compute totals from a paginated list. Use owner_booking_summary or technician_booking_summary for complete database aggregates. Interpret scheduled visits with dateBasis=appointment and bookings received with dateBasis=created. Summary date ranges are inclusive from and exclusive to; use only the configured platform timezone to construct day/week boundaries. Explicitly distinguish these date bases in the answer when material. Never describe a failed query as zero bookings.
 Understand natural dates, times, salon names, locations, services, and technicians. Current time is ${new Date().toISOString()}.
-The supplied timestamps must include an offset. Use the selected salon's timezone, or platform timezone ${settings.data.platform_timezone} when no salon exists, when interpreting local time. Clarify ambiguous dates or times; never invent them.
+Always use the configured platform timezone ${settings.data.platform_timezone} for interpreting and displaying all dates and times, including bookings, relative dates such as today/tomorrow, staff queries, and time off. Interpret supplied clock times in this timezone even if the person mentions another timezone. Never ask for, infer, or use the person's actual timezone, location, phone country, or language to adjust times. Salon timezones and historical timezone snapshots do not override this setting. Timestamps supplied to tools must include the correct offset for the configured timezone on that date; timestamps returned by tools represent instants to display in the configured timezone. Clarify only ambiguous or missing dates and clock times; never invent them or ask for timezone confirmation.
+${dateTimeDisplayInstructions}
 A booking requires an active business, a future start time, and customer agreement. The business is ${JSON.stringify(business.data)}. Services, technician, duration, capacity, price, and attendance are optional.
 Never reject a valid future booking because of capacity, duration, missing services, missing technician, or recorded time off.
 Time off only guides suggestions. Do not promise availability. A soft technician reference can be absent or unresolved.
@@ -109,7 +110,7 @@ If a tool returns an error, explain the recoverable next step without exposing i
 Active catalog JSON: ${JSON.stringify(catalog)}
 This identity is a verified business owner: ${actor.isOwner}
 Technician record IDs for this identity: ${JSON.stringify(actor.technicianIds)}
-Current booking draft: ${JSON.stringify(draft.data ?? null)}
+Current booking draft: ${JSON.stringify(draft.data ? { ...draft.data, timezone: settings.data.platform_timezone } : null)}
 Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.`;
 
   const messages: EasyInputMessage[] = [...(history.data ?? [])].reverse().map((message) => ({
