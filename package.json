@@ -26,7 +26,7 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:migration": "supabase migration up",
-    "db:types": "supabase gen types typescript --local > src/generated/database.types.ts"
+    "db:types": "tsx scripts/generate-database-types.ts"
   },
   "dependencies": {
     "@ant-design/charts": "2.6.7",

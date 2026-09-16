@@ -10,4 +10,6 @@ Time fields use Day.js values inside Ant Design forms. Convert both create defau
 
 Use current component APIs: `Alert.title`, `Select.showSearch.optionFilterProp`, and Phosphor exports ending in `Icon`. Type-aware ESLint rejects APIs marked `@deprecated` by their declarations.
 
+Overview adds platform activity below booking reporting, using the same calendar dates plus an independent source selector. It includes accessible tables, matching CSV export, and a paginated AI request log. The separate WhatsApp inbox uses responsive list/detail panes and the same `ChatMessageBubble` as the Simulator, with no reply callback or composer. See [observability](../architecture/platform-observability.md).
+
 Analytics use Ant Design Charts. Charts must have a textual/table equivalent, filters shared with the API/CSV definition where applicable, and visible loading/error/empty states. The dashboard has no business filter because each deployment has one configured business. Keep the English dashboard separate from bot i18n and German marketing styles.

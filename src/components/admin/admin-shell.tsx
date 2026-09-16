@@ -57,6 +57,11 @@ const navigation = [
     label: <Link href="/admin/analytics">Analytics</Link>,
   },
   {
+    key: "/admin/inbox",
+    icon: <ChatCircleDotsIcon size={18} />,
+    label: <Link href="/admin/inbox">WhatsApp inbox</Link>,
+  },
+  {
     key: "/admin/simulator",
     icon: <ChatCircleDotsIcon size={18} />,
     label: <Link href="/admin/simulator">WhatsApp simulator</Link>,

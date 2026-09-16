@@ -13,3 +13,5 @@ Mocking replies in the browser would skip authorization and domain logic. A depl
 The simulator supports text and interactive messages, not image uploads or Meta delivery-window/template validation. It also runs the shared outgoing provider payload builder, so formatting and button/list bounds are exercised before capture. Disabling its flag hides the UI, rejects its APIs, pauses pending simulated inbound jobs, and leaves durable simulated output routed to capture.
 
 Affected modules: simulator admin components/API, conversation event processing/tools, shared messaging ingress/outbox, environment configuration.
+
+2026-09-16 extension: admins can inspect retained simulated histories through the read-only inbox even when simulation sends are disabled. Read models and usage logs carry the explicit channel. Simulator messages and inbox messages share presentation, while the inbox never supplies a reply callback or composer.

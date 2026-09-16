@@ -7,3 +7,5 @@ The application stores bounded sanitized conversation text and rebuilds OpenAI c
 Depending on WhatsApp history retrieval or OpenAI response IDs alone was rejected because neither is the authoritative durable business context. The database adds retention responsibility but supports deployments, replay, auditing, and model/provider changes.
 
 Affected modules: conversation tables, `respond.ts`, `tools.ts`, OpenAI adapter, retention runbook.
+
+2026-09-16 extension: the admin inbox projects retained original inbox/outbox records so readers see actual received text and cross-recipient notifications. It shares no write path with the Simulator. Separate numeric AI usage records provide observability without persisting provider response content.

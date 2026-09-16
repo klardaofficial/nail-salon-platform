@@ -3,6 +3,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 
 import { receiveWhatsAppWebhook } from "@/features/messaging/receive-webhook";
+import { outboundMessageText } from "@/features/messaging/chat";
 import type {
   NormalizedWhatsAppEvent,
   OutboundWhatsAppPayload,
@@ -47,14 +48,6 @@ export async function sendSimulatorMessage(input: unknown) {
   const response = await receiveWhatsAppWebhook(webhook.rawBody, webhook.signature, secret, true);
   if (!response.ok) throw new Error("The simulated webhook could not be accepted.");
   return { providerEventId: webhook.providerEventId };
-}
-
-function outboundText(payload: OutboundWhatsAppPayload) {
-  if (payload.kind === "text") return payload.text;
-  if (payload.kind === "image")
-    return payload.caption || "Image (media preview unavailable in the simulator)";
-  if (payload.kind === "template") return [payload.name, ...payload.bodyParameters].join("\n");
-  return payload.body;
 }
 
 export async function listSimulatorMessages(inputWaId: unknown) {
@@ -120,7 +113,7 @@ export async function listSimulatorMessages(inputWaId: unknown) {
         item.state === "sent" && item.provider_message_id?.startsWith("wamid.simulator.")
           ? "captured"
           : item.state,
-      text: outboundText(payload),
+      text: outboundMessageText(payload),
       payload,
     });
   }

@@ -34,6 +34,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_events: {
+        Row: {
+          cached_input_tokens: number | null
+          channel: string
+          completed_at: string | null
+          conversation_id: string | null
+          estimated_cost_usd: number | null
+          failure_code: string | null
+          id: string
+          image_count: number
+          input_image_tokens: number | null
+          input_text_tokens: number | null
+          input_tokens: number | null
+          kind: string
+          model: string
+          output_image_tokens: number | null
+          output_text_tokens: number | null
+          output_tokens: number | null
+          preview_request_id: string | null
+          pricing: Json | null
+          provider_request_id: string | null
+          reasoning_tokens: number | null
+          response_id: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          cached_input_tokens?: number | null
+          channel: string
+          completed_at?: string | null
+          conversation_id?: string | null
+          estimated_cost_usd?: number | null
+          failure_code?: string | null
+          id?: string
+          image_count?: number
+          input_image_tokens?: number | null
+          input_text_tokens?: number | null
+          input_tokens?: number | null
+          kind: string
+          model: string
+          output_image_tokens?: number | null
+          output_text_tokens?: number | null
+          output_tokens?: number | null
+          preview_request_id?: string | null
+          pricing?: Json | null
+          provider_request_id?: string | null
+          reasoning_tokens?: number | null
+          response_id?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          cached_input_tokens?: number | null
+          channel?: string
+          completed_at?: string | null
+          conversation_id?: string | null
+          estimated_cost_usd?: number | null
+          failure_code?: string | null
+          id?: string
+          image_count?: number
+          input_image_tokens?: number | null
+          input_text_tokens?: number | null
+          input_tokens?: number | null
+          kind?: string
+          model?: string
+          output_image_tokens?: number | null
+          output_text_tokens?: number | null
+          output_tokens?: number | null
+          preview_request_id?: string | null
+          pricing?: Json | null
+          provider_request_id?: string | null
+          reasoning_tokens?: number | null
+          response_id?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_preview_request_id_fkey"
+            columns: ["preview_request_id"]
+            isOneToOne: false
+            referencedRelation: "preview_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -376,6 +469,7 @@ export type Database = {
           id: string
           name: string
           reporting_timezone: string
+          singleton: boolean
           updated_at: string
         }
         Insert: {
@@ -385,6 +479,7 @@ export type Database = {
           id?: string
           name: string
           reporting_timezone?: string
+          singleton?: boolean
           updated_at?: string
         }
         Update: {
@@ -394,6 +489,7 @@ export type Database = {
           id?: string
           name?: string
           reporting_timezone?: string
+          singleton?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -734,6 +830,8 @@ export type Database = {
           preview_requests_per_day: number
           previews_per_request: number
           singleton: boolean
+          technician_booking_cancelled_template: string | null
+          technician_booking_confirmed_template: string | null
           updated_at: string
         }
         Insert: {
@@ -747,6 +845,8 @@ export type Database = {
           preview_requests_per_day?: number
           previews_per_request?: number
           singleton?: boolean
+          technician_booking_cancelled_template?: string | null
+          technician_booking_confirmed_template?: string | null
           updated_at?: string
         }
         Update: {
@@ -760,6 +860,8 @@ export type Database = {
           preview_requests_per_day?: number
           previews_per_request?: number
           singleton?: boolean
+          technician_booking_cancelled_template?: string | null
+          technician_booking_confirmed_template?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1123,9 +1225,44 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      admin_whatsapp_messages: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          direction: string | null
+          id: string | null
+          media_id: string | null
+          message_type: string | null
+          payload: Json | null
+          profile_name: string | null
+          sent_at: string | null
+          state: string | null
+          text_content: string | null
+          wa_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      admin_platform_activity: {
+        Args: {
+          p_channel: string
+          p_from: string
+          p_timezone: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      admin_whatsapp_threads: {
+        Args: {
+          p_channel: string
+          p_limit?: number
+          p_offset?: number
+          p_role?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
       cancel_customer_booking: {
         Args: { p_booking_id: string; p_contact_id: string; p_reason: string }
         Returns: boolean

@@ -30,4 +30,6 @@ High-volume indexes cover booking business/cohort, salon/start, customer history
 
 No column stores image bytes. `conversation_messages.media_id`, `preview_requests.source_media_id`, and `output_media_ids` are provider identifiers. Raw base64 and temporary image files are prohibited.
 
-After applying migrations locally, run `pnpm db:types`. Commit the generated `src/generated/database.types.ts` with the migration. The current placeholder must be replaced when the first full Supabase Docker stack is available.
+`ai_usage_events` holds numeric chat/image usage and price snapshots. Service-only read models project inbox/outbox history and aggregate platform metrics without duplicating transcripts; see [platform observability](platform-observability.md).
+
+After applying migrations locally, run `pnpm db:types`. Commit the generated `src/generated/database.types.ts` with the migration. The generator preserves the existing file on failure and can use the running local metadata service if Docker management is unavailable.

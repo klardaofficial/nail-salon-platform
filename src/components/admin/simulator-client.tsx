@@ -29,7 +29,6 @@ import useSWRMutation from "swr/mutation";
 import {
   simulatorCustomerSchema,
   type SimulatorActorsResponse,
-  type SimulatorChatMessage,
   type SimulatorCustomer,
   type SimulatorIdentity,
   type SimulatorMessagesResponse,
@@ -38,6 +37,7 @@ import {
 import { apiMutation } from "@/lib/api/client";
 import { apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
+import { ChatMessageBubble } from "./chat-message";
 import styles from "./simulator.module.css";
 
 const customerStorageKey = "nail-salon.simulator.customers";
@@ -67,21 +67,6 @@ function saveCustomers(customers: SimulatorCustomer[]) {
   window.dispatchEvent(new Event("simulator-customers"));
 }
 const serverCustomers = () => "[]";
-
-function messageState(state: string) {
-  const labels: Record<string, string> = {
-    pending: "Queued",
-    dispatched: "Queued",
-    processing: "Processing",
-    completed: "Processed",
-    processed: "Processed",
-    sending: "Sending",
-    sent: "Sent",
-    captured: "Simulated delivery",
-    failed: "Failed · check Inngest",
-  };
-  return labels[state] ?? state;
-}
 
 function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: () => void }) {
   const { data, error, isLoading, mutate } = useSWR<SimulatorMessagesResponse>(
@@ -133,66 +118,6 @@ function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: 
 
   function sendText() {
     if (draft.trim()) void send({ kind: "text", text: draft.trim() });
-  }
-
-  function renderMessage(message: SimulatorChatMessage) {
-    const payload = message.payload;
-    const interactive = payload?.kind === "buttons" || payload?.kind === "list" ? payload : null;
-    const delivered = message.state === "captured" || message.state === "sent";
-    return (
-      <div
-        key={message.id}
-        className={`${styles.bubble} ${message.direction === "inbound" ? styles.fromActor : styles.fromBot}`}
-      >
-        <span className={styles.sender}>
-          {message.direction === "inbound" ? actor.name : "Salon assistant"}
-        </span>
-        <div className={styles.messageText}>{message.text}</div>
-        {interactive ? (
-          <div className={styles.choices}>
-            {interactive.kind === "list" ? (
-              <span className={styles.sender}>
-                {interactive.buttonLabel} · {interactive.sectionTitle}
-              </span>
-            ) : null}
-            {interactive.options.map((option) => {
-              const title = option.title.slice(0, interactive.kind === "buttons" ? 20 : 24);
-              return (
-                <Button
-                  key={option.id}
-                  block
-                  size="small"
-                  className={styles.choice}
-                  disabled={isMutating || !delivered}
-                  onClick={() =>
-                    void send({
-                      kind: "interactive",
-                      replyType: interactive.kind === "buttons" ? "button_reply" : "list_reply",
-                      id: option.id.slice(0, interactive.kind === "buttons" ? 256 : 200),
-                      title,
-                    })
-                  }
-                >
-                  <span>
-                    {title}
-                    {option.description ? <small>{option.description.slice(0, 72)}</small> : null}
-                  </span>
-                </Button>
-              );
-            })}
-          </div>
-        ) : null}
-        <div className={`${styles.messageMeta} ${message.state === "failed" ? styles.failed : ""}`}>
-          <time dateTime={message.createdAt}>
-            {new Date(message.createdAt).toLocaleTimeString("en-GB", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </time>
-          <span>{messageState(message.state)}</span>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -262,7 +187,15 @@ function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: 
         {messages?.length === data?.limit ? (
           <p className={styles.historyNotice}>Showing the latest {data?.limit} messages.</p>
         ) : null}
-        {messages?.map(renderMessage)}
+        {messages?.map((item) => (
+          <ChatMessageBubble
+            key={item.id}
+            message={item}
+            contactName={actor.name}
+            busy={isMutating}
+            onReply={(reply) => void send(reply)}
+          />
+        ))}
       </div>
       <form
         className={styles.composer}

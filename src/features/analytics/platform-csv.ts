@@ -1,0 +1,90 @@
+import type { PlatformActivity } from "./platform-types";
+
+export function platformActivityCsv(data: PlatformActivity) {
+  const rows: unknown[][] = [
+    [
+      "Period start",
+      data.period.from,
+      "Period end",
+      data.period.to,
+      "Timezone",
+      data.period.timezone,
+      "Channel",
+      data.period.channel,
+    ],
+    ["Messages received", "Messages sent (provider accepted)", "Active users (distinct senders)"],
+    [data.received, data.sent, data.activeUsers],
+    [],
+    [
+      "AI kind",
+      "Model",
+      "Channel",
+      "Calls",
+      "Failed",
+      "Incomplete / started",
+      "Missing usage",
+      "Unpriced calls",
+      "Input tokens",
+      "Cached input tokens",
+      "Text input tokens",
+      "Image input tokens",
+      "Output tokens",
+      "Images generated",
+      "Known estimated USD subtotal",
+    ],
+    ...data.ai.map((row) => [
+      row.kind,
+      row.model,
+      row.channel,
+      row.calls,
+      row.failed,
+      row.incomplete,
+      row.missing_usage,
+      row.unpriced_calls,
+      row.input_tokens,
+      row.cached_input_tokens,
+      row.input_text_tokens,
+      row.input_image_tokens,
+      row.output_tokens,
+      row.images,
+      row.cost,
+    ]),
+    [],
+    [
+      "Date",
+      "Received",
+      "Sent",
+      "Active users",
+      "Chat calls",
+      "Image calls",
+      "Known chat USD subtotal",
+      "Known image USD subtotal",
+      "Unpriced calls",
+    ],
+    ...data.trends.map((row) => [
+      row.date,
+      row.received,
+      row.sent,
+      row.activeUsers,
+      row.chatCalls,
+      row.imageCalls,
+      row.chatCost,
+      row.imageCost,
+      row.unpricedCalls,
+    ]),
+  ];
+  return (
+    "\uFEFF" +
+    rows
+      .map((row) =>
+        row
+          .map((value) => {
+            let text = String(value ?? "");
+            if (/^[=+\-@\t\r\n]/.test(text)) text = `'${text}`;
+            return `"${text.replaceAll('"', '""')}"`;
+          })
+          .join(","),
+      )
+      .join("\r\n")
+  );
+}

@@ -16,6 +16,8 @@ Image previews call `images.edit` with the WhatsApp source image, a constrained 
 
 Official references used for this implementation:
 
+Chat and image SDK invocations now record separate numeric usage through `features/ai-usage/record.ts`. Each chat tool round gets its own log; image usage is saved before upload. Only explicitly selected counters/IDs/status and a model-price snapshot are stored, never the SDK response, prompts, or image content. Missing usage/prices remain unknown. Default SDK retry behavior is preserved. See [observability](../architecture/platform-observability.md) and [cost configuration](../development/configuration.md#ai-cost-estimates). The installed SDK usage declarations were checked for this addition; current hosted pricing was unreachable during implementation, so rates are deliberately configurable without assumed defaults.
+
 - [OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling/)
 - [OpenAI image generation](https://developers.openai.com/api/docs/guides/image-generation/)
 - [OpenAI conversation state](https://developers.openai.com/api/docs/guides/conversation-state/)

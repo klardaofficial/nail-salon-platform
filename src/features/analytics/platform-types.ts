@@ -1,0 +1,54 @@
+export type ActivityChannel = "whatsapp" | "whatsapp_simulator" | "all";
+export type AIBreakdown = {
+  kind: "chat_text" | "image_generation";
+  model: string;
+  channel: Exclude<ActivityChannel, "all">;
+  calls: number;
+  failed: number;
+  incomplete: number;
+  missing_usage: number;
+  unpriced_calls: number;
+  input_tokens: number;
+  cached_input_tokens: number;
+  input_text_tokens: number;
+  input_image_tokens: number;
+  output_tokens: number;
+  images: number;
+  cost: number;
+};
+export type ActivityTrend = {
+  date: string;
+  received: number;
+  sent: number;
+  activeUsers: number;
+  chatCalls: number;
+  imageCalls: number;
+  chatCost: number;
+  imageCost: number;
+  unpricedCalls: number;
+};
+export type PlatformActivity = {
+  period: { from: string; to: string; timezone: string; channel: ActivityChannel };
+  received: number;
+  sent: number;
+  activeUsers: number;
+  ai: AIBreakdown[];
+  trends: ActivityTrend[];
+};
+export type AIUsageLog = {
+  id: string;
+  started_at: string;
+  completed_at: string | null;
+  kind: AIBreakdown["kind"];
+  model: string;
+  channel: AIBreakdown["channel"];
+  status: "started" | "completed" | "incomplete" | "failed";
+  input_tokens: number | null;
+  cached_input_tokens: number | null;
+  input_text_tokens: number | null;
+  input_image_tokens: number | null;
+  output_tokens: number | null;
+  image_count: number;
+  estimated_cost_usd: number | null;
+};
+export type AIUsageLogs = { items: AIUsageLog[]; total: number; pageSize: number };

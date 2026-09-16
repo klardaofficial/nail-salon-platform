@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { aiPricingSchema } from "@/features/ai-usage/pricing";
+
 const localeSchema = z.enum(["en", "de"]);
 
 const serverEnvSchema = z.object({
@@ -18,6 +20,18 @@ const serverEnvSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_CHAT_MODEL: z.string().default("gpt-5-mini"),
   OPENAI_IMAGE_MODEL: z.string().default("gpt-image-1"),
+  OPENAI_PRICING_JSON: z
+    .string()
+    .default("{}")
+    .transform((value, ctx): unknown => {
+      try {
+        return JSON.parse(value);
+      } catch {
+        ctx.addIssue({ code: "custom", message: "OPENAI_PRICING_JSON must be valid JSON" });
+        return z.NEVER;
+      }
+    })
+    .pipe(aiPricingSchema),
   PLATFORM_TIMEZONE: z.string().default("Europe/Berlin"),
   DEFAULT_OPEN_TIME: z
     .string()

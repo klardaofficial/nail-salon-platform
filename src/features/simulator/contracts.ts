@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { OutboundWhatsAppPayload } from "@/integrations/whatsapp/types";
+import type { ChatMessage } from "@/features/messaging/chat";
 
 export const simulatorWaIdSchema = z
   .string()
@@ -36,12 +36,5 @@ export type SimulatorIdentity = SimulatorCustomer & {
   salons: string[];
 };
 export type SimulatorActorsResponse = { actors: SimulatorIdentity[]; aiConfigured: boolean };
-export type SimulatorChatMessage = {
-  id: string;
-  direction: "inbound" | "outbound";
-  createdAt: string;
-  state: string;
-  text: string;
-  payload?: OutboundWhatsAppPayload;
-};
+export type SimulatorChatMessage = ChatMessage;
 export type SimulatorMessagesResponse = { messages: SimulatorChatMessage[]; limit: number };

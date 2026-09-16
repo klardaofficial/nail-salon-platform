@@ -21,6 +21,8 @@ pnpm dev
 
 The publishable/anon key may be used by the browser. The secret/service-role key bypasses RLS and must remain server-only. Do not copy either value from a hosted project into local development.
 
+`pnpm db:types` writes its output only after successful generation. It first uses the local CLI, then can use the already-running local Supabase metadata service when Docker management is unavailable. That fallback requires a loopback `NEXT_PUBLIC_SUPABASE_URL` and its local service-role key from `.env.local`; it never falls back to a hosted project. Apply pending migrations with `pnpm db:migration` before generating types. No reset is needed for an additive migration.
+
 The migrations create the required platform setting, editable singleton business profile (`Nail Salon`), and initial administrator (`admin@gmail.com` / `Pass1234`) but no salons, services, technicians, customers, bookings, or conversations. The admin UI requires a password change at first login. Edit the business profile before adding salon locations. Use `pnpm db:reset` only when you intentionally want to erase local data and rebuild this same migration-only state.
 
 ## Local Inngest

@@ -1,20 +1,9 @@
-import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
-import { z } from "zod";
-
 import { calculateAnalytics } from "@/features/analytics/calculate";
+import { reportingBounds, reportingQuerySchema } from "@/features/analytics/period";
 import { apiException, apiSuccess } from "@/lib/api/response";
 import { requireApiAdmin } from "@/lib/auth/api-admin";
 import { getServerEnv } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-
-const querySchema = z
-  .object({
-    from: z.iso.date(),
-    to: z.iso.date(),
-  })
-  .refine(({ from, to }) => from <= to, {
-    message: "The start date must not be after the end date.",
-  });
 
 function relatedName(value: unknown, fallback: string) {
   if (value && typeof value === "object" && "name" in value) {
@@ -32,19 +21,18 @@ export async function GET(request: Request) {
     if (guard.error) return guard.error;
 
     const url = new URL(request.url);
-    const query = querySchema.parse(Object.fromEntries(url.searchParams));
+    const query = reportingQuerySchema.parse(Object.fromEntries(url.searchParams));
     const supabase = createSupabaseAdminClient();
     const timezone = getServerEnv().PLATFORM_TIMEZONE;
-    const from = fromZonedTime(`${query.from}T00:00:00.000`, timezone);
-    const to = fromZonedTime(`${query.to}T23:59:59.999`, timezone);
+    const { start, end } = reportingBounds(query.from, query.to, timezone);
 
     const cohortQuery = supabase
       .from("bookings")
       .select(
         "id, business_id, contact_id, created_at, starts_at, status, salon:salons(name), customer:contacts(display_name,wa_id)",
       )
-      .gte("created_at", from.toISOString())
-      .lte("created_at", to.toISOString())
+      .gte("created_at", start)
+      .lt("created_at", end)
       .order("created_at", { ascending: false });
     const [cohortResult, failedJobs, pendingMessages, previewFailures] = await Promise.all([
       cohortQuery,
@@ -63,6 +51,9 @@ export async function GET(request: Request) {
     ]);
 
     if (cohortResult.error) throw cohortResult.error;
+    if (failedJobs.error) throw failedJobs.error;
+    if (pendingMessages.error) throw pendingMessages.error;
+    if (previewFailures.error) throw previewFailures.error;
 
     const contactIds = [...new Set((cohortResult.data ?? []).map((item) => item.contact_id))];
     const priorCustomerIds = new Set<string>();
@@ -70,7 +61,7 @@ export async function GET(request: Request) {
       const priorQuery = supabase
         .from("bookings")
         .select("contact_id")
-        .lt("created_at", from.toISOString())
+        .lt("created_at", start)
         .in("contact_id", contactIds);
       const prior = await priorQuery;
       if (prior.error) throw prior.error;
@@ -91,8 +82,8 @@ export async function GET(request: Request) {
 
     return apiSuccess({
       period: {
-        from: formatInTimeZone(from, timezone, "yyyy-MM-dd"),
-        to: formatInTimeZone(to, timezone, "yyyy-MM-dd"),
+        from: query.from,
+        to: query.to,
         timezone,
       },
       ...analytics,

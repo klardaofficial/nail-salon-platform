@@ -1,0 +1,74 @@
+.bubble {
+  max-width: 92%;
+  border: 1px solid #dde3e0;
+  border-radius: 10px;
+  padding: 10px 12px 7px;
+  flex-shrink: 0;
+  overflow-wrap: anywhere;
+}
+.outgoing {
+  align-self: flex-end;
+  background: #e2f2e6;
+  border-color: #cde2d3;
+  border-top-right-radius: 3px;
+}
+.incoming {
+  align-self: flex-start;
+  background: white;
+  border-top-left-radius: 3px;
+}
+.sender {
+  display: block;
+  margin-bottom: 5px;
+  color: #57665b;
+  font-size: 11px;
+  font-weight: 600;
+}
+.messageText {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.messageMeta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+  color: #65726a;
+  font-size: 10px;
+}
+.failed {
+  color: #b42318;
+}
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.choice {
+  height: auto !important;
+  min-height: 32px;
+  padding-block: 6px !important;
+  white-space: normal !important;
+  text-align: left;
+}
+.choice small,
+.readOnlyChoice small {
+  display: block;
+  font-size: 11px;
+  color: #687383;
+  font-weight: 400;
+}
+.readOnlyChoice {
+  padding: 8px 10px;
+  border: 1px solid #dde3e0;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.media {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #687383;
+}

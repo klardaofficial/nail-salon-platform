@@ -2,6 +2,8 @@ import "server-only";
 
 import { toFile } from "openai";
 
+import { summarizeImageUsage, withAIUsage } from "@/features/ai-usage/record";
+
 import { queueWhatsAppMessage } from "@/features/messaging/outbox";
 import { downloadWhatsAppMedia, uploadWhatsAppMedia } from "@/integrations/whatsapp/client";
 import { getOpenAIClient } from "@/integrations/openai/client";
@@ -37,17 +39,29 @@ export async function processStylePreview(previewId: string) {
   const source = await downloadWhatsAppMedia(preview.source_media_id);
   const sourceFile = await toFile(source.bytes, "customer-nails.jpg", { type: source.mimeType });
   const prompt = `Edit only the nails in this customer's hand or nail photo. Preserve the person's hand, skin, pose, lighting, background, and identity. Apply a realistic, salon-ready nail design matching this request: ${preview.style_request || "suggest a tasteful modern nail style"}. Produce distinct inspiration suitable for discussing with a nail technician.`;
-  const result = await getOpenAIClient().images.edit({
-    model: getServerEnv().OPENAI_IMAGE_MODEL,
-    image: sourceFile,
-    prompt,
-    n: preview.requested_count,
-    size: "1024x1024",
-    quality: "low",
-    output_format: "jpeg",
-    input_fidelity: "high",
-    user: preview.contact_id,
-  });
+  const model = getServerEnv().OPENAI_IMAGE_MODEL;
+  const result = await withAIUsage(
+    {
+      conversationId: preview.conversation_id,
+      previewRequestId: preview.id,
+      channel: "whatsapp",
+      kind: "image_generation",
+      model,
+    },
+    () =>
+      getOpenAIClient().images.edit({
+        model,
+        image: sourceFile,
+        prompt,
+        n: preview.requested_count,
+        size: "1024x1024",
+        quality: "low",
+        output_format: "jpeg",
+        input_fidelity: "high",
+        user: preview.contact_id,
+      }),
+    summarizeImageUsage,
+  );
 
   const mediaIds: string[] = [];
   for (const generated of result.data ?? []) {

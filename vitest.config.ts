@@ -1,4 +1,6 @@
-const config = {
+import { defineConfig } from "vitest/config";
+
+const config = defineConfig({
   resolve: {
     alias: {
       "@": new URL("./src", import.meta.url).pathname,
@@ -7,11 +9,11 @@ const config = {
   test: {
     environment: "node",
     pool: "threads",
-    singleThread: true,
+    fileParallelism: false,
     coverage: {
       reporter: ["text", "html"],
     },
   },
-};
+});
 
 export default config;

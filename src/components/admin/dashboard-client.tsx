@@ -28,6 +28,7 @@ import useSWR from "swr";
 import type { DashboardData } from "@/features/analytics/types";
 import { apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
+import { PlatformActivityClient } from "./platform-activity-client";
 
 const Line = dynamic(() => import("@ant-design/charts").then((module) => module.Line), {
   ssr: false,
@@ -68,7 +69,7 @@ export function DashboardClient() {
     <>
       <PageHeading
         title="Business overview"
-        description="Booking activity and customer return signals for your business."
+        description="Bookings, customer return signals, messaging activity, and AI usage."
       />
       <Space wrap style={{ marginBottom: 22 }}>
         <DatePicker.RangePicker
@@ -221,13 +222,14 @@ export function DashboardClient() {
               </Card>
             </Col>
             <Col xs={24} xl={8}>
-              <Card title="Operations">
+              <Card title="Current queue health">
                 <Space orientation="vertical" size="large" style={{ width: "100%" }}>
                   <Statistic title="Failed jobs" value={data.health.failedJobs} />
                   <Statistic title="Pending messages" value={data.health.pendingMessages} />
                   <Statistic title="Preview failures" value={data.health.previewFailures} />
                   <Typography.Text type="secondary">
-                    Period timezone: {data.period.timezone}
+                    Current backlog across all dates and sources. Reporting timezone:{" "}
+                    {data.period.timezone}
                   </Typography.Text>
                 </Space>
               </Card>
@@ -252,6 +254,10 @@ export function DashboardClient() {
       ) : (
         <Empty description="Dashboard data is unavailable" />
       )}
+      <PlatformActivityClient
+        from={range[0].format("YYYY-MM-DD")}
+        to={range[1].format("YYYY-MM-DD")}
+      />
     </>
   );
 }

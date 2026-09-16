@@ -14,7 +14,11 @@ pnpm build
 
 `pnpm lint` enables type-aware `@typescript-eslint/no-deprecated` as an error for TypeScript source and tests. This makes `pnpm check` and the quality workflow reject deprecated APIs identified by dependency declarations; TypeScript compilation alone does not reject these editor diagnostics. Runtime-only deprecations without type annotations still require runtime verification.
 
+Vitest uses typed configuration and `fileParallelism: false` to run files serially. This is the current equivalent of the former, ignored `singleThread` setting and prevents concurrent Ant Design/Phosphor UI imports from exhausting Windows file handles.
+
 Resource form regression tests render the real Ant Design controls and cover salon default times, saved times, `HH:mm` create/update payloads without a business selector, and restoring defaults after editing.
+
+Observability acceptance covers admin gates on inbox/activity/log/CSV routes, date/timezone boundaries, pagination/cursors, source isolation, pricing with cached and image tokens, missing usage, completion-write failures, CSV consistency, and read-only inbox interactions. The Simulator's existing interactive tests also exercise the shared message renderer. These remain application tests; no automated migration tests are added.
 
 Simulator tests cover admin/flag gates, identity grouping and spoof rejection, signed ingestion and duplicate/recovery behavior, channel separation, technician notification routing, durable simulated delivery after disabling, and real delivery while enabled. UI acceptance covers customer add/remove/reopen, database staff windows, independent message composers, interactive replies, polling/error states, and browser persistence. Use [the browser simulator](local-setup.md#browser-whatsapp-simulator) for manual booking/owner/technician scenarios; these mutate the configured development database and use OpenAI for natural conversations.
 

@@ -1,8 +1,13 @@
 # Implementation status
 
-Last reviewed: 2026-09-15.
+Last reviewed: 2026-09-16.
 
 ## Implemented
+
+- Platform activity below booking reports: shared dates/timezone, selectable real/simulated/all sources, received/sent messages, distinct active senders, daily trends, chart/table equivalents, and matching CSV export.
+- Numeric AI usage records for each chat round and image generation call, including source/model/status, available tokens, generated output counts, configurable snapshotted USD estimates, unpriced coverage, and a paginated request log. Historical usage cannot be backfilled.
+- Read-only WhatsApp inbox for customers, owners, and technicians, including outbound-only notifications, verified current roles, search/filter/pagination, older-message cursors, and mobile list/detail navigation. It reuses the Simulator's message bubbles and interactive-option presentation; image attachments remain media-ID placeholders.
+- Additive observability migration applied locally without resetting data. Database types regenerated; `pnpm db:types` now preserves the file on failure and supports the running local metadata service as a fallback when Docker management is unavailable.
 
 - Next.js App Router scaffold with a German responsive landing page and English Ant Design admin shell.
 - Supabase Auth login, protected admin routes, migration-created initial account, UI-required first password change, and authenticated later password changes.
@@ -35,7 +40,6 @@ Last reviewed: 2026-09-15.
 ## Provider validation still required
 
 - Configure real dev Supabase, Meta WhatsApp, OpenAI, Inngest, and Vercel projects.
-- Generate and commit `src/generated/database.types.ts` from a running local Supabase stack.
 - Verify Meta webhook subscription, customer-service windows and approved technician notification templates with the real dev number.
 - Run a controlled OpenAI preview smoke test and confirm the configured model IDs are available to the account.
 - Exercise the complete signed webhook to delivered reply path, initial password-change flow/persistence, and configured-business owner access against dev infrastructure.

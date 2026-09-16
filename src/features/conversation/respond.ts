@@ -7,6 +7,7 @@ import type {
 } from "openai/resources/responses/responses";
 
 import { executeConversationTool, toolsForActor, type ConversationActor } from "./tools";
+import { summarizeChatUsage, withAIUsage } from "@/features/ai-usage/record";
 import { getOpenAIClient, hasOpenAIConfig } from "@/integrations/openai/client";
 import { getBotLocale, getServerEnv } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -94,16 +95,27 @@ Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.
   const tools = toolsForActor(actor);
 
   for (let round = 0; round < 5; round += 1) {
-    const response = await client.responses.create({
-      model: getServerEnv().OPENAI_CHAT_MODEL,
-      instructions,
-      input,
-      tools,
-      tool_choice: "auto",
-      parallel_tool_calls: false,
-      store: false,
-      safety_identifier: actor.contactId,
-    });
+    const model = getServerEnv().OPENAI_CHAT_MODEL;
+    const response = await withAIUsage(
+      {
+        conversationId: actor.conversationId,
+        channel: actor.transport === "simulator" ? "whatsapp_simulator" : "whatsapp",
+        kind: "chat_text",
+        model,
+      },
+      () =>
+        client.responses.create({
+          model,
+          instructions,
+          input,
+          tools,
+          tool_choice: "auto",
+          parallel_tool_calls: false,
+          store: false,
+          safety_identifier: actor.contactId,
+        }),
+      summarizeChatUsage,
+    );
     const calls = functionCalls(response.output);
     if (!calls.length) return response.output_text.trim() || null;
 
