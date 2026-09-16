@@ -110,7 +110,7 @@ function WhatsAppSetupGuide({ webhookUrl }: { webhookUrl: string }) {
           {
             title: "Test before going live",
             description:
-              "Use a test customer number to confirm Meta accepts the webhook, the first greeting arrives once, and a reply appears in the dashboard or provider logs.",
+              "Use a test customer number to confirm Meta accepts the webhook, a contextual greeting arrives in the customer's language, and a reply appears in the dashboard or provider logs.",
           },
         ]}
       />

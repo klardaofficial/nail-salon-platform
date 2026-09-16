@@ -12,8 +12,6 @@ const settingsSchema = z.object({
   defaultBookingIntervalMinutes: z.coerce.number().int().min(5).max(240),
   previewRequestsPerDay: z.coerce.number().int().min(1).max(100),
   previewsPerRequest: z.coerce.number().int().min(1).max(3),
-  greetingEn: z.string().trim().min(1).max(1000),
-  greetingDe: z.string().trim().min(1).max(1000),
   technicianBookingConfirmedTemplate: z
     .string()
     .trim()
@@ -41,8 +39,6 @@ function mapSettings(row: Record<string, unknown> | null) {
       row?.preview_requests_per_day ?? defaults.PREVIEW_REQUESTS_PER_DAY,
     ),
     previewsPerRequest: Number(row?.previews_per_request ?? defaults.PREVIEWS_PER_REQUEST),
-    greetingEn: String(row?.greeting_en ?? "Hello! How can I help you today?"),
-    greetingDe: String(row?.greeting_de ?? "Hallo! Wie kann ich dir heute helfen?"),
     technicianBookingConfirmedTemplate:
       (row?.technician_booking_confirmed_template as string | null) ?? null,
     technicianBookingCancelledTemplate:
@@ -82,8 +78,6 @@ export async function PATCH(request: Request) {
         default_booking_interval_minutes: values.defaultBookingIntervalMinutes,
         preview_requests_per_day: values.previewRequestsPerDay,
         previews_per_request: values.previewsPerRequest,
-        greeting_en: values.greetingEn,
-        greeting_de: values.greetingDe,
         technician_booking_confirmed_template: values.technicianBookingConfirmedTemplate,
         technician_booking_cancelled_template: values.technicianBookingCancelledTemplate,
       })

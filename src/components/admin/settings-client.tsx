@@ -15,11 +15,9 @@ type PlatformSettings = {
   defaultBookingIntervalMinutes: number;
   previewRequestsPerDay: number;
   previewsPerRequest: number;
-  greetingEn: string;
-  greetingDe: string;
   technicianBookingConfirmedTemplate: string | null;
   technicianBookingCancelledTemplate: string | null;
-  botLocale: "en" | "de";
+  botLocale: string;
 };
 
 export function SettingsClient() {
@@ -46,7 +44,7 @@ export function SettingsClient() {
     <>
       <PageHeading
         title="Platform settings"
-        description="Defaults for new salons, bot greetings, technician notifications, and preview usage. Bot language changes only on redeploy."
+        description="Booking defaults, technician notifications, and preview usage. The bot creates contextual greetings and follows the customer's language."
       />
       {(error || mutationError) && (
         <Alert type="error" showIcon title={(error || mutationError)?.message} />
@@ -92,14 +90,11 @@ export function SettingsClient() {
             </Form.Item>
           </Card>
           <Card title="WhatsApp and previews" style={{ marginBottom: 16 }}>
-            <Form.Item label="Active bot locale">
+            <Form.Item
+              label="Default bot language"
+              extra="Used when the customer's language is unclear. The AI follows the customer in any language and writes all selection labels."
+            >
               <Input value={data.botLocale} disabled />
-            </Form.Item>
-            <Form.Item name="greetingEn" label="English greeting" rules={[{ required: true }]}>
-              <Input.TextArea rows={3} />
-            </Form.Item>
-            <Form.Item name="greetingDe" label="German greeting" rules={[{ required: true }]}>
-              <Input.TextArea rows={3} />
             </Form.Item>
             <Alert
               type="info"
@@ -108,11 +103,13 @@ export function SettingsClient() {
               title="Technician notifications outside their 24-hour WhatsApp window"
               description={
                 <div>
-                  Create and approve these templates once in Meta WhatsApp Manager, in the active
+                  Create and approve these templates once in Meta WhatsApp Manager, in the default
                   bot language. Enter each approved Meta template name below. The app fills the
                   placeholders in this order: {"{{1}}"} salon name, {"{{2}}"} customer name,
                   {"{{3}}"} customer WhatsApp number, {"{{4}}"} local appointment time,
-                  {"{{5}}"} booking reference.
+                  {"{{5}}"} booking reference. Missing details use [N/A]. Approved templates keep
+                  their configured language; ordinary notifications use the technician&apos;s
+                  conversation language.
                   <br />
                   <br />
                   Confirmed template: {confirmedTemplateExample}

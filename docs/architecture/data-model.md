@@ -8,7 +8,7 @@ erDiagram
   SALONS ||--o{ TECHNICIANS : staffs
   TECHNICIANS ||--o{ TECHNICIAN_TIME_OFF : records
   CONTACTS ||--o{ BOOKINGS : creates
-  SALONS ||--o{ BOOKINGS : receives
+  SALONS |o--o{ BOOKINGS : receives
   BOOKINGS ||--o{ BOOKING_SERVICES : snapshots
   CONTACTS ||--o{ CONVERSATIONS : chats
   CONVERSATIONS ||--o{ CONVERSATION_MESSAGES : contains
@@ -24,6 +24,8 @@ erDiagram
 
 Conversations are unique per contact/channel: `whatsapp` for real messages and `whatsapp_simulator` for admin tests. Simulator ingress marks its existing inbox JSON payload; outgoing JSON payloads retain `transport=simulator` through durable retries. These use existing columns and need no schema migration.
 
+Bookings always belong to the singleton business, but `salon_id` is nullable when no active salons exist. Such bookings use the platform timezone; the sole active salon is otherwise selected implicitly, and multiple active salons require a choice. Salon/technician placeholders such as [N/A] are display values, not stored UUIDs. Conversations store an unrestricted `reply_locale` language tag and the latest AI-written `reply_unavailable_text`; obsolete platform greeting columns have been removed.
+
 Booking services keep names even after catalog removal. Technician name is snapshotted; `technician_ref` is a nullable UUID without a foreign key by design, so missing/stale staff never invalidates history or flexible booking. Soft deletion uses `active` and `deleted_at` for mutable catalog records.
 
 High-volume indexes cover booking business/cohort, salon/start, customer history, technician/start, recent conversation messages, pending inbox/outbox work, and contact/day preview usage. The initial migration enables RLS on all private tables and grants a platform-admin policy; background services use the service role after trusted edge checks.
@@ -33,3 +35,5 @@ No column stores image bytes. `conversation_messages.media_id`, `preview_request
 `ai_usage_events` holds numeric chat/image usage and price snapshots. Service-only read models project inbox/outbox history and aggregate platform metrics without duplicating transcripts; see [platform observability](platform-observability.md).
 
 After applying migrations locally, run `pnpm db:types`. Commit the generated `src/generated/database.types.ts` with the migration. The generator preserves the existing file on failure and can use the running local metadata service if Docker management is unavailable.
+
+The service-only `get_staff_booking_summary` RPC rechecks owner business membership or active technician mappings inside SQL. It aggregates total/confirmed/cancelled/distinct customers over all authorized records, including bookings without salons, with optional timestamp bounds and explicit appointment/created date basis. It does not change dashboard metric definitions.

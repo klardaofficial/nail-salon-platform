@@ -1,92 +1,73 @@
 # Conversation flows
 
-## Customer chat overview
+## Shared entry
 
-This is the customer-facing flow, not a rigid questionnaire: one message can supply several details, and customers can switch intent or correct a draft. Each reply is interpreted using the existing conversation history, current draft, and active catalog. The booking tool rechecks its required conditions when it executes.
+Each opening message, greeting, question, image, or interactive tap goes through the same AI conversation path. The bot produces one contextual reply, asking at most one focused question. Date and time may be requested together. All text, option titles/descriptions, list headings, and list button labels are generated in the person's language, with no language allowlist. `BOT_LOCALE` is only the initial reference when language is unclear; clear language switches take effect immediately.
+
+Stored owner/technician mappings select staff assistance. A customer cannot gain staff access by claiming a role in text. Greetings explain relevant capabilities and offer useful actions. Specific opening requests go straight to the requested task instead of receiving an unrelated welcome or location questionnaire.
+
+## Customer booking
 
 ```mermaid
 flowchart TD
-  Message["Customer sends text, an interactive reply, or a photo"] --> First{"First message in this conversation?"}
-  First -->|Yes| Greeting["Send the configured greeting once, in BOT_LOCALE"]
-  First -->|No| Intent{"Customer request"}
-  Greeting --> Intent
-
-  Intent -->|Book an appointment| SalonCount{"Active salons"}
-  SalonCount -->|None| NoSalon["Explain that booking needs an active salon"]
-  SalonCount -->|One| Sole["Select the sole active salon automatically"]
-  SalonCount -->|Several| Choose["Resolve the chosen salon from the draft or message; otherwise ask via buttons, list, or text"]
-  Sole --> Details["Collect a future date/time in the salon timezone; clarify ambiguous details"]
-  Choose --> Details
-  Details --> Optional["Keep optional services, Other text, technician preference, and additional request"]
-  Optional --> Agreement{"Customer agrees to the summarized booking?"}
-  Agreement -->|Not yet / changes| Clarify["Ask for confirmation or refine the draft"]
-  Agreement -->|Yes| Book["create_booking rechecks active salon and future time, then auto-confirms"]
-  Book --> BookReply["Send booking ID and local time; notify a valid assigned technician"]
-
-  Intent -->|List or cancel bookings| Own["Resolve the requested own booking; use list_my_bookings when needed"]
-  Own --> Cancel{"Cancellation requested for an own, confirmed, future booking?"}
-  Cancel -->|Yes| Cancelled["cancel_booking checks ownership and time atomically; reply and notify the assigned technician"]
-  Cancel -->|No| BookingInfo["Show the booking information or explain why cancellation is unavailable"]
-
-  Intent -->|Try a nail style| Photo["Ask for a hand/nail photo and desired style; reuse the latest usable media ID when appropriate"]
-  Photo --> Quota{"Can reserve the contact's daily preview quota?"}
-  Quota -->|Yes| Preview["Queue generation; download, edit, and upload in memory; deliver up to three previews"]
-  Quota -->|Limit reached| Limit["Explain the daily limit in BOT_LOCALE"]
-
-  Intent -->|Questions or unclear intent| Help["Answer from the catalog/context or ask a short clarification"]
-
-  NoSalon --> Next["Wait for the next customer message"]
-  Clarify --> Next
-  BookReply --> Next
-  Cancelled --> Next
-  BookingInfo --> Next
-  Preview --> Next
-  Limit --> Next
-  Help --> Next
-  Next --> Message
+  Message["Customer requests a booking"] --> Salons{"Active salons"}
+  Salons -->|None| NoSalon["Use null salon and platform timezone; skip location"]
+  Salons -->|One| Sole["Select the sole salon implicitly"]
+  Salons -->|Several| Choice["Resolve the customer's choice; ask only if missing"]
+  NoSalon --> Time["Resolve future date/time; clarify only missing or ambiguous details"]
+  Sole --> Time
+  Choice --> Time
+  Time --> Agreement{"Clear agreement to these details?"}
+  Agreement -->|No| Confirm["Brief summary with AI-labelled Confirm / Change choices"]
+  Agreement -->|Yes| Book["Create and auto-confirm booking"]
+  Confirm --> Agreement
+  Book --> Receipt["Reply with booking reference and local time; notify assigned technician"]
 ```
 
-The greeting may include salon-location choices before the customer expresses a booking intent; it never asks the customer to choose a business. Only an active salon and a future start time are required to create a booking; services, technician, duration, capacity, and attendance do not block it. The assistant asks for customer agreement before calling the auto-confirming booking tool. Recorded time off only guides technician suggestions.
+A clear instruction such as "Book 19 September at 15:00" supplies agreement to those exact details when the date/year/timezone are unambiguous. Otherwise ask for agreement once. Never invent a time, salon or availability. Opening hours, intervals, and time off guide suggestions but do not block bookings.
 
-All replies and notifications use the durable message outbox. Provider failures follow normal job retries/recovery; an unavailable source photo or failed preview may require the customer to resend it. The browser simulator runs the same text/interactive conversation, OpenAI, and tool paths, with captured delivery; its UI does not support the photo-upload/preview branch. See [simulator setup](../development/local-setup.md#browser-whatsapp-simulator) and [shared processing details](../integrations/whatsapp.md#admin-browser-simulator).
+Reuse all details volunteered by the customer. Services, Other/custom text, technician preference, and additional request are optional. Do not ask about an empty service catalog or unconfigured technicians. Offer service choices only when useful; offer technician choices only when enabled with active staff, including a way to continue without preference. Optional questions must not postpone an otherwise complete booking.
 
-## Greeting and salon choice
+The app selects one active salon automatically and permits no-salon bookings under the active business. Several active salons require a choice. Inactive/stale selected salons fail safely. Store absent details as null or []; display [N/A] only where a template/table needs a value. A new booking does not reuse a completed draft.
 
-The first accepted message atomically claims `conversations.greeted_at` and queues the configured greeting in `BOT_LOCALE`. With several active salons, the bot sends up to three reply buttons or a list of up to ten salons. The customer may tap one or type a name/location. With one active salon, the draft records it automatically and offers Book or Try style actions.
+Examples with `BOT_LOCALE=de`:
 
-Example customer path:
+> Customer: Hello!
+>
+> Bot: [AI-written English greeting with useful English action labels]
+>
+> Customer: Book tomorrow at 3 pm.
+>
+> Bot: [If unambiguous and no salon choice is needed, confirms the booking with reference immediately.]
 
-> Customer: Hallo, Saturday around 3 and gel nails please.  
-> Bot: [German reply because `BOT_LOCALE=de`] I found two salons. Which location suits you? [list]  
-> Customer: The one in Mitte.  
-> Bot: Saturday 19 September at 15:00, Mitte, gel nails, no technician preference. Shall I book it?  
-> Customer: Yes.  
-> Bot: Your booking is confirmed, with booking ID and local time.
+> Customer: Xin chào
+>
+> Bot: [Vietnamese greeting and Vietnamese controls]
+>
+> Customer: [Taps a date option]
+>
+> Bot: [Retains Vietnamese; asks only for the next missing detail.]
 
-Dates supplied to the booking tool are ISO timestamps with an offset based on the salon timezone. A vague or conflicting date gets a concise clarification. No capacity or duration check is introduced.
+Controls are conveniences: 1–3 choices use reply buttons and 4–10 use a list. AI writes labels; internal IDs carry meaning and entity identity. Free text, custom services, corrections, and typed alternatives to a displayed subset remain accepted.
 
-## Optional catalog
+## Owner
 
-When a salon has services, they are suggestions and several may be selected. `Other` becomes a snapshot with no service ID. With no services, the bot asks for an optional request and continues. Technician choice appears only as an optional preference when the salon setting enables it; a missing or stale technician never stops a booking.
+A verified owner's greeting explains business booking lists/customer details, booking summaries, and management of salon details, services, technicians, and the technician-choice setting. It offers relevant owner actions rather than customer booking intake. `owner_list_bookings` can include past/future and confirmed/cancelled records, filter by appointment dates/status, and paginate 20 records at a time; missing salon/technician displays as [N/A]. Every call rechecks the stored business membership.
+
+## Technician
+
+A verified technician's greeting explains upcoming assigned bookings/customer details, database summaries, and optional time off. It offers those actions in the technician's conversation language, not the customer's language. It cannot list the entire business's bookings or manage the business. Active stored mappings are rechecked inside each tool. Time off never cancels or blocks bookings. A contact with both roles can use both sets of abilities; staff may explicitly request personal customer bookings.
 
 ## Cancellation
 
-The bot lists only the contact's own bookings. `cancel_booking` calls a transactional function that succeeds only while the confirmed booking starts in the future. A valid technician recipient receives a deduplicated cancellation message containing salon, customer name and WhatsApp number, appointment, and booking reference. Cancelled records remain visible.
+Only the same customer may cancel a confirmed booking before its start time. The transactional function checks ownership and time. The response includes the booking reference; a resolvable technician receives a deduplicated cancellation notification. Missing salon relations are displayed as [N/A]. Cancelled records remain in reports.
 
 ## Technician notification templates
 
-When a technician has no open 24-hour WhatsApp service window, Meta permits this notification only through an approved template. An administrator creates the confirmed and cancelled templates in Meta using the exact examples in **Admin | Settings**, then saves each approved template name on that page. For both types, the body parameters are: `{{1}}` salon name, `{{2}}` customer name, `{{3}}` customer WhatsApp number, `{{4}}` local appointment time, and `{{5}}` booking reference. Leaving a name empty uses an ordinary message, which Meta can deliver only during the technician's own open service window.
+Approved Meta templates retain their provider-defined content. The app uses the saved confirmed/cancelled template names and configured language code. For both, body parameters are: {{1}} salon name, {{2}} customer name, {{3}} customer WhatsApp number, {{4}} local appointment time, {{5}} booking reference. Missing required display details use [N/A]. Without a template, AI writes the ordinary notification in the recipient technician's stored conversation language, falling back to the environment reference. Ordinary messages still require that technician's own open Meta service window.
 
 ## Image preview
 
-After an image, the bot asks for the desired style. A later text answer may reuse the most recent WhatsApp media ID in that conversation. The tool reserves the contact/day quota, queues generation, and tells the customer it is processing. Up to three images arrive with short inspiration captions. At quota limit, the localized reply explains that today's requests are used.
+Ask for a hand/nail photo and desired style, reusing the latest usable media ID when appropriate. Reserve the contact/day quota and generate/upload in memory. Captions and failure text follow the recipient's language. Quota errors are explained naturally by the AI. All delivery uses the durable outbox; no application storage retains image bytes.
 
-## Owner flow
-
-A stored business owner can ask, for example, “How many confirmed bookings did we have this week?” or “Change Mitte closing time to 19:00.” The model receives verified owner status, and each tool queries the mapping again before a mutation. Owners can create/update/deactivate services and technicians without an onboarding checklist.
-
-## Technician flow
-
-A WhatsApp ID matching active technician records can request upcoming assigned bookings or submit a time-off range. Queries use that identity's technician IDs only. Time off improves suggestions and does not cancel an existing booking.
-
-Controls are conveniences. Every option can be answered in natural text. Expired/stale IDs fail closed in the tool and the bot asks the person to choose again.
+The admin simulator uses these same language, role, tool and interactive paths with captured delivery. It supports text/interactive messages, not photo uploads or Meta template/window validation.

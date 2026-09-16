@@ -315,7 +315,7 @@ export type Database = {
           id: string
           idempotency_key: string
           local_time_label: string
-          salon_id: string
+          salon_id: string | null
           source: string
           starts_at: string
           status: Database["public"]["Enums"]["booking_status"]
@@ -334,7 +334,7 @@ export type Database = {
           id?: string
           idempotency_key: string
           local_time_label: string
-          salon_id: string
+          salon_id?: string | null
           source?: string
           starts_at: string
           status?: Database["public"]["Enums"]["booking_status"]
@@ -353,7 +353,7 @@ export type Database = {
           id?: string
           idempotency_key?: string
           local_time_label?: string
-          salon_id?: string
+          salon_id?: string | null
           source?: string
           starts_at?: string
           status?: Database["public"]["Enums"]["booking_status"]
@@ -586,6 +586,8 @@ export type Database = {
           greeted_at: string | null
           id: string
           last_activity_at: string
+          reply_locale: string | null
+          reply_unavailable_text: string | null
           role_context: string
           salon_context_id: string | null
           summary: string | null
@@ -599,6 +601,8 @@ export type Database = {
           greeted_at?: string | null
           id?: string
           last_activity_at?: string
+          reply_locale?: string | null
+          reply_unavailable_text?: string | null
           role_context?: string
           salon_context_id?: string | null
           summary?: string | null
@@ -612,6 +616,8 @@ export type Database = {
           greeted_at?: string | null
           id?: string
           last_activity_at?: string
+          reply_locale?: string | null
+          reply_unavailable_text?: string | null
           role_context?: string
           salon_context_id?: string | null
           summary?: string | null
@@ -824,8 +830,6 @@ export type Database = {
           default_booking_interval_minutes: number
           default_close_time: string
           default_open_time: string
-          greeting_de: string
-          greeting_en: string
           platform_timezone: string
           preview_requests_per_day: number
           previews_per_request: number
@@ -839,8 +843,6 @@ export type Database = {
           default_booking_interval_minutes?: number
           default_close_time?: string
           default_open_time?: string
-          greeting_de?: string
-          greeting_en?: string
           platform_timezone?: string
           preview_requests_per_day?: number
           previews_per_request?: number
@@ -854,8 +856,6 @@ export type Database = {
           default_booking_interval_minutes?: number
           default_close_time?: string
           default_open_time?: string
-          greeting_de?: string
-          greeting_en?: string
           platform_timezone?: string
           preview_requests_per_day?: number
           previews_per_request?: number
@@ -1287,6 +1287,16 @@ export type Database = {
         }
         Returns: string
       }
+      get_staff_booking_summary: {
+        Args: {
+          p_contact_id: string
+          p_date_basis: string
+          p_from: string
+          p_role: string
+          p_to: string
+        }
+        Returns: Json
+      }
       is_platform_admin: { Args: never; Returns: boolean }
       register_whatsapp_event: {
         Args: {
@@ -1479,4 +1489,3 @@ export const Constants = {
     },
   },
 } as const
-

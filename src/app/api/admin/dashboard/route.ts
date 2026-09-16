@@ -94,7 +94,7 @@ export async function GET(request: Request) {
           (booking.customer && typeof booking.customer === "object" && "wa_id" in booking.customer
             ? String((booking.customer as { wa_id: unknown }).wa_id)
             : "WhatsApp customer"),
-        salonName: relatedName(booking.salon, "Unknown salon"),
+        salonName: relatedName(booking.salon, "[N/A]"),
         startsAt: booking.starts_at,
         status: booking.status,
       })),

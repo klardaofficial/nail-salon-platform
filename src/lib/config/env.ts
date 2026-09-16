@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 import { aiPricingSchema } from "@/features/ai-usage/pricing";
+import { languageCodeSchema } from "@/lib/bot/language";
 
-const localeSchema = z.enum(["en", "de"]);
+const localeSchema = languageCodeSchema;
 
 const serverEnvSchema = z.object({
   APP_ENV: z.enum(["local", "dev", "prod"]).default("local"),
@@ -57,7 +58,7 @@ export function getServerEnv(): ServerEnv {
 }
 
 export function getBotLocale(): BotLocale {
-  return localeSchema.catch("de").parse(process.env.BOT_LOCALE);
+  return localeSchema.parse(process.env.BOT_LOCALE ?? "de");
 }
 
 export function isWhatsAppSimulatorEnabled(): boolean {

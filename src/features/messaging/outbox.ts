@@ -4,7 +4,6 @@ import { inngest } from "@/inngest/client";
 import { sendWhatsAppMessage } from "@/integrations/whatsapp/client";
 import { buildWhatsAppMessageBody } from "@/integrations/whatsapp/message-body";
 import type { OutboundWhatsAppPayload } from "@/integrations/whatsapp/types";
-import { getBotLocale } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function queueWhatsAppMessage(input: {
@@ -129,6 +128,8 @@ export async function queueInteractiveChoices(input: {
   options: { id: string; title: string; description?: string }[];
   deduplicationKey: string;
   transport?: "whatsapp" | "simulator";
+  buttonLabel: string;
+  sectionTitle: string;
 }) {
   const options = input.options.slice(0, 10);
   if (!options.length) return null;
@@ -138,8 +139,8 @@ export async function queueInteractiveChoices(input: {
       : {
           kind: "list",
           body: input.body,
-          buttonLabel: getBotLocale() === "de" ? "Auswählen" : "Choose",
-          sectionTitle: getBotLocale() === "de" ? "Optionen" : "Options",
+          buttonLabel: input.buttonLabel,
+          sectionTitle: input.sectionTitle,
           options,
         };
   return queueWhatsAppMessage({ ...input, payload });

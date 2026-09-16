@@ -66,7 +66,7 @@ export function BookingsClient() {
             {
               title: "Technician",
               dataIndex: "technicianName",
-              render: (value: string | null) => value || "Unassigned",
+              render: (value: string | null) => value || "[N/A]",
             },
             {
               title: "Start",

@@ -98,7 +98,14 @@ beforeEach(() => {
   });
   mocks.dispatch.mockResolvedValue({ ids: ["event"] });
   mocks.graphSend.mockResolvedValue("wamid.real.delivery");
-  mocks.reply.mockResolvedValue("Test assistant reply");
+  mocks.reply.mockResolvedValue({
+    locale: "vi",
+    text: "Xin chào! Bạn cần giúp gì?",
+    unavailableText: "Vui lòng thử lại sau.",
+    buttonLabel: "Chọn",
+    sectionTitle: "Lựa chọn",
+    options: [],
+  });
 });
 
 describe("simulator identity and input boundaries", () => {
@@ -266,10 +273,14 @@ describe("coexisting real and simulated conversations", () => {
       processed_at: null,
     });
     setTable("contacts", { id: "contact" });
-    setTable("conversations", { id: "conversation", greeted_at: null });
+    setTable("conversations", {
+      id: "conversation",
+      reply_locale: null,
+      reply_unavailable_text: null,
+    });
     setTable("conversation_messages", { id: "history" });
     setTable("booking_drafts", null);
-    setTable("platform_settings", { greeting_en: "Hello test customer" });
+    setTable("platform_settings", {});
     setTable("message_outbox", { id: "outbox", state: "pending" });
   }
   it.each([false, true])(
@@ -280,7 +291,12 @@ describe("coexisting real and simulated conversations", () => {
       expect(writes("conversations")[0]).toMatchObject({
         channel: simulated ? "whatsapp_simulator" : "whatsapp",
       });
-      expect(writes("message_outbox")).toHaveLength(2);
+      expect(mocks.reply).toHaveBeenCalledTimes(1);
+      expect(writes("message_outbox")).toHaveLength(1);
+      expect(writes("conversations", "update")).toContainEqual({
+        reply_locale: "vi",
+        reply_unavailable_text: "Vui lòng thử lại sau.",
+      });
       for (const outbox of writes("message_outbox"))
         expect(outbox).toMatchObject({
           payload: { transport: simulated ? "simulator" : "whatsapp" },
@@ -292,6 +308,51 @@ describe("coexisting real and simulated conversations", () => {
     mocks.enabled = false;
     await expect(processWhatsAppInboxEvent("inbox")).rejects.toThrow("simulator_disabled");
     expect(writes("contacts")).toEqual([]);
+  });
+  it.each([2, 5])(
+    "delivers AI-written foreign-language controls as one reply (%i options)",
+    async (count) => {
+      conversationFixture(true);
+      const options = Array.from({ length: count }, (_, i) => ({
+        id: `reply:${i}`,
+        title: `ตัวเลือก ${i + 1}`,
+        description: null,
+      }));
+      mocks.reply.mockResolvedValue({
+        locale: "th",
+        text: "คุณต้องการวันไหน?",
+        unavailableText: "กรุณาลองอีกครั้ง",
+        buttonLabel: "เลือก",
+        sectionTitle: "ตัวเลือก",
+        options,
+      });
+      await processWhatsAppInboxEvent("inbox");
+      expect(writes("message_outbox")).toHaveLength(1);
+      expect(writes("message_outbox")[0]).toMatchObject({
+        payload: {
+          kind: count <= 3 ? "buttons" : "list",
+          body: "คุณต้องการวันไหน?",
+          options: options.map(({ id, title }) => ({ id, title })),
+        },
+      });
+      if (count > 3)
+        expect(writes("message_outbox")[0]).toMatchObject({
+          payload: { buttonLabel: "เลือก", sectionTitle: "ตัวเลือก" },
+        });
+    },
+  );
+  it("uses the saved localized fallback when AI is unavailable", async () => {
+    conversationFixture(true);
+    setTable("conversations", {
+      id: "conversation",
+      reply_locale: "vi",
+      reply_unavailable_text: "Vui lòng thử lại sau.",
+    });
+    mocks.reply.mockResolvedValue(null);
+    await processWhatsAppInboxEvent("inbox");
+    expect(writes("message_outbox")[0]).toMatchObject({
+      payload: { kind: "text", text: "Vui lòng thử lại sau." },
+    });
   });
   it("routes technician notifications according to the originating tool call", async () => {
     setTable("tool_executions", { id: "tool", state: "started", result: null });

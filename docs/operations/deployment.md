@@ -13,7 +13,7 @@ Prepare these accounts before connecting the repository:
 - OpenAI production project and restricted API key.
 - Inngest production environment.
 
-Choose the final HTTPS domain and bot language before deployment. The language is `BOT_LOCALE=de` or `BOT_LOCALE=en` and changes only after an environment update plus redeploy.
+Choose the final HTTPS domain and default reference language before deployment. `BOT_LOCALE` accepts any valid language tag, such as `de`, `vi`, `th`, or `en-US`. Changing that default requires redeployment; actual conversations and AI-written WhatsApp labels follow each person's language immediately.
 
 ## 2. Protect `main` in GitHub
 
@@ -160,7 +160,7 @@ Use synthetic/test contacts and make one controlled pass:
 
 - Landing page loads in German and its WhatsApp link opens the shared number.
 - Admin login, CRUD, dashboard analytics, and CSV download work.
-- First WhatsApp greeting is sent once.
+- Each WhatsApp opening message gets one contextual AI reply, with appropriate customer/owner/technician capabilities and dynamically generated labels in the person's language.
 - With several active salons, typed and list selection both work.
 - A future booking with no service/technician confirms.
 - A multi-service booking with an Other request confirms.

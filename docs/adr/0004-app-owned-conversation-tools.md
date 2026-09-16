@@ -9,3 +9,5 @@ Depending on WhatsApp history retrieval or OpenAI response IDs alone was rejecte
 Affected modules: conversation tables, `respond.ts`, `tools.ts`, OpenAI adapter, retention runbook.
 
 2026-09-16 extension: the admin inbox projects retained original inbox/outbox records so readers see actual received text and cross-recipient notifications. It shares no write path with the Simulator. Separate numeric AI usage records provide observability without persisting provider response content.
+
+2026-09-16 conversation extension: strict structured final replies carry the AI's text, unrestricted language code, and interactive labels. Verified staff receive role-specific capability introductions. Owner/technician listing tools query current scoped database records; a service-only SQL aggregate supplies complete summaries with explicit created/appointment date basis. Tool and SQL scope checks use stored identity, never model claims.

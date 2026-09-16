@@ -1,9 +1,13 @@
-# ADR 0006: Fixed language surfaces
+# ADR 0006: Fixed web languages and adaptive WhatsApp language
 
-Status: Accepted, 2026-09-15.
+Status: Accepted (revised), 2026-09-16.
 
-The marketing surface is German, the admin surface is English, and WhatsApp/AI uses exactly `BOT_LOCALE=en|de` for a deployment. Both greeting texts and the optional approved technician-template names may be edited in Admin Settings, but database/user/browser language signals never select the active bot locale. Template names are deployment data; their submitted Meta template language follows `BOT_LOCALE`.
+The marketing surface remains German and the admin surface English. WhatsApp follows the customer's, owner's, or technician's conversation language without an application language allowlist. `BOT_LOCALE` accepts any valid BCP 47 language tag (underscore variants are normalized) and supplies only the initial reference when customer language is unclear. The model infers language from the person's text, honors switches, and retains the previous language for ambiguous dates, names, numbers, and interactive taps.
 
-Runtime language switching and web i18n were rejected for initial scope. Separate root layouts and small bot dictionaries keep behavior explicit. Changing bot language requires an environment update and redeploy.
+The model generates all conversational text, greetings, option titles/descriptions, list button labels, and list headings. The app validates structured output and WhatsApp limits; it does not replace labels with a dictionary. Admin greeting settings are removed. Each contact/channel stores its latest reply locale and an AI-generated unavailable message for outages. Before a localized fallback exists, an outage uses a language-neutral status.
 
-Affected modules: root layouts, bot dictionaries, conversation prompt, settings UI, deployment configuration.
+Ordinary staff notifications and preview captions are AI-written in the recipient's conversation language. Approved Meta templates retain their approved content and language contract; the app supplies the configured template and its required parameters.
+
+This supersedes the initial fixed English/German bot policy. The default changes after an environment update/redeploy; conversational language changes immediately. Fixed web languages do not depend on bot language.
+
+Affected modules: bot configuration, conversation history/prompt/structured replies, notifications, previews, settings UI, deployment configuration.

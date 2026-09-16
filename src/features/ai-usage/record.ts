@@ -15,7 +15,7 @@ type UsageSummary = AIUsage & {
   image_count?: number;
 };
 type UsageContext = {
-  conversationId: string;
+  conversationId: string | null;
   previewRequestId?: string;
   channel: "whatsapp" | "whatsapp_simulator";
   kind: "chat_text" | "image_generation";

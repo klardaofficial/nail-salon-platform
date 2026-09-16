@@ -46,12 +46,12 @@ export async function queryAdminBookings(filters: z.infer<typeof bookingFiltersS
       customerName:
         related(booking.customer, "display_name") ||
         related(booking.customer, "wa_id", "WhatsApp customer"),
-      salonName: related(booking.salon, "name", "Unknown salon"),
+      salonName: related(booking.salon, "name", "[N/A]"),
       services:
         serviceRows
           .sort((left, right) => left.position - right.position)
           .map((service) => service.service_name_snapshot)
-          .join(", ") || "Additional request only",
+          .join(", ") || "[N/A]",
       technicianName: booking.technician_name_snapshot,
       startsAt: booking.starts_at,
       status: booking.status,

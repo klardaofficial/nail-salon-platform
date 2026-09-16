@@ -3,13 +3,15 @@ import "server-only";
 import { formatInTimeZone } from "date-fns-tz";
 import type { FunctionTool, ResponseFunctionToolCall } from "openai/resources/responses/responses";
 import { z } from "zod";
+import { recipientLocale, technicianNotificationText, templateLanguageCode } from "./notifications";
 
 import { queueWhatsAppMessage } from "@/features/messaging/outbox";
 import { inngest } from "@/inngest/client";
-import { getServerEnv } from "@/lib/config/env";
+import { getServerEnv, type BotLocale } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type ConversationActor = {
+  locale?: BotLocale;
   transport?: "whatsapp" | "simulator";
   conversationId: string;
   contactId: string;
@@ -61,12 +63,12 @@ const customerTools: FunctionTool[] = [
     type: "function",
     name: "create_booking",
     description:
-      "Create and automatically confirm a booking after the customer has supplied a salon and future date/time and agreed to the details. Services and technician are optional.",
+      "Create and automatically confirm an agreed future booking. A clear request to book the supplied details counts as agreement. salonId may be null when no active salons exist; a sole active salon is selected automatically. Services and technician are optional.",
     strict: true,
     parameters: {
       type: "object",
       properties: {
-        salonId: { type: "string", format: "uuid" },
+        salonId: nullableUuid,
         startsAt: { type: "string", format: "date-time" },
         services: {
           type: "array",
@@ -118,18 +120,43 @@ const customerTools: FunctionTool[] = [
   },
 ];
 
+const summaryParameters = {
+  type: "object",
+  properties: {
+    from: nullableString,
+    to: nullableString,
+    dateBasis: { type: "string", enum: ["appointment", "created"] },
+  },
+  required: ["from", "to", "dateBasis"],
+  additionalProperties: false,
+};
+
 const ownerTools: FunctionTool[] = [
   {
     type: "function",
-    name: "owner_booking_summary",
-    description: "Show confirmed, cancelled, and customer counts for this business.",
+    name: "owner_list_bookings",
+    description:
+      "List this business's bookings with customer details, services, requests, salon and technician. Optional date/status filters; returns 20 bookings per page with nextOffset. Null date filters include past and future records.",
     strict: true,
     parameters: {
       type: "object",
-      properties: { days: { type: "integer", minimum: 1, maximum: 366 } },
-      required: ["days"],
+      properties: {
+        from: nullableString,
+        to: nullableString,
+        status: { type: ["string", "null"], enum: ["confirmed", "cancelled", null] },
+        offset: { type: "integer", minimum: 0 },
+      },
+      required: ["from", "to", "status", "offset"],
       additionalProperties: false,
     },
+  },
+  {
+    type: "function",
+    name: "owner_booking_summary",
+    description:
+      "Query complete business booking totals, confirmed/cancelled counts and distinct customers from the database. Use appointment dates for scheduled visits, created dates for bookings received. from is inclusive, to exclusive; null is unbounded.",
+    strict: true,
+    parameters: summaryParameters,
   },
   {
     type: "function",
@@ -198,10 +225,24 @@ const ownerTools: FunctionTool[] = [
 const technicianTools: FunctionTool[] = [
   {
     type: "function",
-    name: "technician_list_bookings",
-    description: "List upcoming bookings assigned to this technician only.",
+    name: "technician_booking_summary",
+    description:
+      "Query complete totals, confirmed/cancelled counts and distinct customers for this technician's assigned bookings only. Use appointment dates for scheduled visits, created dates for bookings received. from is inclusive, to exclusive; null is unbounded.",
     strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    parameters: summaryParameters,
+  },
+  {
+    type: "function",
+    name: "technician_list_bookings",
+    description:
+      "List upcoming assigned bookings with customer/service/request details, 20 per page. Use nextOffset to continue; total is the full matching count.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: { offset: { type: "integer", minimum: 0 } },
+      required: ["offset"],
+      additionalProperties: false,
+    },
   },
   {
     type: "function",
@@ -237,7 +278,7 @@ const serviceItemSchema = z.object({
 });
 const draftSchema = z.object({
   salonId: z.uuid().nullable(),
-  startsAt: z.iso.datetime().nullable(),
+  startsAt: z.iso.datetime({ offset: true }).nullable(),
   timezone: z.string().nullable(),
   services: z.array(serviceItemSchema).max(20),
   technicianRef: z.uuid().nullable(),
@@ -245,7 +286,7 @@ const draftSchema = z.object({
 });
 const createSchema = draftSchema
   .omit({ timezone: true })
-  .extend({ salonId: z.uuid(), startsAt: z.iso.datetime() });
+  .extend({ startsAt: z.iso.datetime({ offset: true }) });
 
 async function ownedSalon(actor: ConversationActor, salonId: string) {
   const supabase = createSupabaseAdminClient();
@@ -290,27 +331,43 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
   const start = new Date(values.startsAt);
   if (start.getTime() <= Date.now()) throw new Error("booking_time_must_be_in_future");
   const supabase = createSupabaseAdminClient();
-  const salonResult = await supabase
-    .from("salons")
-    .select("id,business_id,name,timezone,active")
-    .eq("id", values.salonId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (salonResult.error) throw salonResult.error;
-  const salon = salonResult.data;
-  if (!salon?.active) throw new Error("salon_is_not_active");
+  const [salons, business, platform] = await Promise.all([
+    supabase
+      .from("salons")
+      .select("id,business_id,name,timezone,customer_can_choose_technician")
+      .eq("active", true)
+      .is("deleted_at", null),
+    supabase.from("businesses").select("id,active").eq("singleton", true).single(),
+    supabase.from("platform_settings").select("platform_timezone").eq("singleton", true).single(),
+  ]);
+  if (salons.error) throw salons.error;
+  if (business.error) throw business.error;
+  if (platform.error) throw platform.error;
+  if (!business.data.active) throw new Error("business_is_not_active");
+  const salon = values.salonId
+    ? salons.data.find((item) => item.id === values.salonId)
+    : salons.data.length === 1
+      ? salons.data[0]
+      : null;
+  if (values.salonId && !salon) throw new Error("salon_is_not_active");
+  if (!salon && salons.data.length > 1) throw new Error("salon_selection_required");
+  const timezone = salon?.timezone ?? platform.data.platform_timezone;
+  const salonName = salon?.name ?? "[N/A]";
 
   let technicianName: string | null = null;
   let technicianWaId: string | null = null;
-  if (values.technicianRef) {
+  let technicianRef = salon?.customer_can_choose_technician ? values.technicianRef : null;
+  if (technicianRef) {
     const technician = await supabase
       .from("technicians")
       .select("display_name,wa_id,salon_id,active")
-      .eq("id", values.technicianRef)
+      .eq("id", technicianRef)
+      .is("deleted_at", null)
       .maybeSingle();
     if (technician.error) throw technician.error;
     const matchedTechnician = technician.data;
-    if (matchedTechnician && matchedTechnician.salon_id === salon.id && matchedTechnician.active) {
+    if (matchedTechnician && matchedTechnician.salon_id !== salon?.id) technicianRef = null;
+    if (matchedTechnician && matchedTechnician.salon_id === salon?.id && matchedTechnician.active) {
       technicianName = matchedTechnician.display_name;
       technicianWaId = matchedTechnician.wa_id;
     }
@@ -320,12 +377,17 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     service.serviceId ? [service.serviceId] : [],
   );
   const knownServices = serviceIds.length
-    ? await supabase.from("services").select("id,name,salon_id").in("id", serviceIds)
+    ? await supabase
+        .from("services")
+        .select("id,name,salon_id")
+        .in("id", serviceIds)
+        .eq("active", true)
+        .is("deleted_at", null)
     : { data: [], error: null };
   if (knownServices.error) throw knownServices.error;
   const known = new Map(
     (knownServices.data ?? [])
-      .filter((item) => item.salon_id === salon.id)
+      .filter((item) => item.salon_id === salon?.id)
       .map((item) => [item.id, item.name]),
   );
   const services = values.services.map((service) => ({
@@ -335,15 +397,15 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
         ? known.get(service.serviceId)!
         : service.name,
   }));
-  const localLabel = formatInTimeZone(start, salon.timezone, "yyyy-MM-dd HH:mm zzz");
+  const localLabel = formatInTimeZone(start, timezone, "yyyy-MM-dd HH:mm zzz");
   const { data: bookingId, error } = await supabase.rpc("create_booking_from_conversation", {
-    p_business_id: salon.business_id,
-    p_salon_id: salon.id,
+    p_business_id: business.data.id,
+    p_salon_id: salon?.id ?? null,
     p_contact_id: actor.contactId,
     p_starts_at: start.toISOString(),
-    p_timezone_snapshot: salon.timezone,
+    p_timezone_snapshot: timezone,
     p_local_time_label: localLabel,
-    p_technician_ref: values.technicianRef,
+    p_technician_ref: technicianRef,
     p_technician_name_snapshot: technicianName,
     p_additional_request: values.additionalRequest,
     p_idempotency_key: `${actor.conversationId}:${callId}`,
@@ -367,8 +429,8 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     if (settings.error) throw settings.error;
     if (contact.error) throw contact.error;
     const bodyParameters = [
-      salon.name,
-      contact.data.display_name || "Customer",
+      salonName,
+      contact.data.display_name || "[N/A]",
       contact.data.wa_id,
       localLabel,
       String(bookingId),
@@ -377,12 +439,17 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
       ? {
           kind: "template" as const,
           name: settings.data.technician_booking_confirmed_template,
-          languageCode: getServerEnv().BOT_LOCALE === "de" ? "de" : "en_US",
+          languageCode: templateLanguageCode(getServerEnv().BOT_LOCALE),
           bodyParameters,
         }
       : {
           kind: "text" as const,
-          text: `New booking at ${salon.name}. Customer: ${bodyParameters[1]} (${bodyParameters[2]}). Appointment: ${localLabel}. Booking reference: ${bookingId}.`,
+          text: await technicianNotificationText(
+            "confirmed",
+            bodyParameters,
+            await recipientLocale(technicianWaId, actor.transport),
+            actor.transport,
+          ),
         };
     await queueWhatsAppMessage({
       transport: actor.transport,
@@ -391,7 +458,14 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
       deduplicationKey: `booking:${bookingId}:technician:confirmed`,
     });
   }
-  return { ok: true, bookingId, status: "confirmed", salon: salon.name, startsAt: localLabel };
+  return {
+    ok: true,
+    bookingId,
+    status: "confirmed",
+    salon: salonName,
+    technician: technicianName ?? "[N/A]",
+    startsAt: localLabel,
+  };
 }
 
 async function listCustomerBookings(actor: ConversationActor) {
@@ -444,10 +518,13 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
       ]);
       if (settings.error) throw settings.error;
       if (contact.error) throw contact.error;
-      const salonName = before.data.salon[0]?.name ?? "the salon";
+      const salonRelation = before.data.salon as unknown as
+        { name?: string } | { name?: string }[] | null;
+      const salonName =
+        (Array.isArray(salonRelation) ? salonRelation[0]?.name : salonRelation?.name) ?? "[N/A]";
       const bodyParameters = [
         salonName,
-        contact.data.display_name || "Customer",
+        contact.data.display_name || "[N/A]",
         contact.data.wa_id,
         before.data.local_time_label,
         values.bookingId,
@@ -456,12 +533,17 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
         ? {
             kind: "template" as const,
             name: settings.data.technician_booking_cancelled_template,
-            languageCode: getServerEnv().BOT_LOCALE === "de" ? "de" : "en_US",
+            languageCode: templateLanguageCode(getServerEnv().BOT_LOCALE),
             bodyParameters,
           }
         : {
             kind: "text" as const,
-            text: `Booking cancelled at ${salonName}. Customer: ${bodyParameters[1]} (${bodyParameters[2]}). Appointment: ${before.data.local_time_label}. Booking reference: ${values.bookingId}.`,
+            text: await technicianNotificationText(
+              "cancelled",
+              bodyParameters,
+              await recipientLocale(technician.data.wa_id, actor.transport),
+              actor.transport,
+            ),
           };
       await queueWhatsAppMessage({
         transport: actor.transport,
@@ -507,29 +589,81 @@ async function requestPreview(actor: ConversationActor, raw: unknown, callId: st
   return { ok: true, previewId, status: "queued" };
 }
 
-async function ownerSummary(actor: ConversationActor, raw: unknown) {
-  const values = z.object({ days: z.number().int().min(1).max(366) }).parse(raw);
-  const owner = await createSupabaseAdminClient()
+async function staffBookingSummary(
+  actor: ConversationActor,
+  raw: unknown,
+  role: "owner" | "technician",
+) {
+  const values = z
+    .object({
+      from: z.iso.datetime({ offset: true }).nullable(),
+      to: z.iso.datetime({ offset: true }).nullable(),
+      dateBasis: z.enum(["appointment", "created"]),
+    })
+    .parse(raw);
+  if (values.from && values.to && new Date(values.from) >= new Date(values.to))
+    throw new Error("invalid_date_range");
+  const supabase = createSupabaseAdminClient();
+  if (role === "owner") {
+    const owner = await supabase
+      .from("business_owners")
+      .select("business_id")
+      .eq("contact_id", actor.contactId)
+      .maybeSingle();
+    if (owner.error) throw owner.error;
+    if (!owner.data) throw new Error("not_authorized");
+  } else {
+    await verifiedTechnicianIds(actor);
+  }
+  const { data, error } = await supabase.rpc("get_staff_booking_summary", {
+    p_contact_id: actor.contactId,
+    p_role: role,
+    p_from: values.from,
+    p_to: values.to,
+    p_date_basis: values.dateBasis,
+  });
+  if (error) throw error;
+  return { ok: true, summary: data };
+}
+
+async function ownerListBookings(actor: ConversationActor, raw: unknown) {
+  const values = z
+    .object({
+      from: z.iso.datetime({ offset: true }).nullable(),
+      to: z.iso.datetime({ offset: true }).nullable(),
+      status: z.enum(["confirmed", "cancelled"]).nullable(),
+      offset: z.number().int().min(0).max(1_000_000),
+    })
+    .parse(raw);
+  if (values.from && values.to && new Date(values.from) > new Date(values.to))
+    throw new Error("invalid_date_range");
+  const supabase = createSupabaseAdminClient();
+  const owner = await supabase
     .from("business_owners")
     .select("business_id")
     .eq("contact_id", actor.contactId)
     .maybeSingle();
   if (owner.error) throw owner.error;
   if (!owner.data) throw new Error("not_authorized");
-  const from = new Date(Date.now() - (values.days - 1) * 86_400_000).toISOString();
-  const { data, error } = await createSupabaseAdminClient()
+  let query = supabase
     .from("bookings")
-    .select("status,contact_id")
+    .select(
+      "id,status,local_time_label,starts_at,technician_name_snapshot,additional_request,salon:salons(name),customer:contacts(display_name,wa_id),booking_services(service_name_snapshot)",
+      { count: "exact" },
+    )
     .eq("business_id", owner.data.business_id)
-    .gte("created_at", from);
+    .order("starts_at")
+    .order("id");
+  if (values.from) query = query.gte("starts_at", values.from);
+  if (values.to) query = query.lte("starts_at", values.to);
+  if (values.status) query = query.eq("status", values.status);
+  const { data, count, error } = await query.range(values.offset, values.offset + 19);
   if (error) throw error;
   return {
     ok: true,
-    days: values.days,
-    total: data.length,
-    confirmed: data.filter((item) => item.status === "confirmed").length,
-    cancelled: data.filter((item) => item.status === "cancelled").length,
-    customers: new Set(data.map((item) => item.contact_id)).size,
+    bookings: data,
+    total: count,
+    nextOffset: values.offset + 20 < (count ?? 0) ? values.offset + 20 : null,
   };
 }
 
@@ -657,28 +791,55 @@ async function ownerManageTechnician(actor: ConversationActor, raw: unknown) {
   return { ok: true, technicianId: values.technicianId };
 }
 
-async function technicianBookings(actor: ConversationActor) {
-  const { data, error } = await createSupabaseAdminClient()
+async function technicianBookings(actor: ConversationActor, raw: unknown) {
+  const { offset } = z
+    .object({ offset: z.number().int().min(0).max(1_000_000).default(0) })
+    .parse(raw);
+  const technicianIds = await verifiedTechnicianIds(actor);
+  const { data, count, error } = await createSupabaseAdminClient()
     .from("bookings")
-    .select("id,local_time_label,status,salon:salons(name),customer:contacts(display_name,wa_id)")
-    .in("technician_ref", actor.technicianIds)
+    .select(
+      "id,local_time_label,status,additional_request,salon:salons(name),customer:contacts(display_name,wa_id),booking_services(service_name_snapshot)",
+      { count: "exact" },
+    )
+    .in("technician_ref", technicianIds)
     .gte("starts_at", new Date().toISOString())
     .order("starts_at")
-    .limit(20);
+    .order("id")
+    .range(offset, offset + 19);
   if (error) throw error;
-  return { ok: true, bookings: data };
+  return {
+    ok: true,
+    bookings: data,
+    total: count,
+    nextOffset: offset + 20 < (count ?? 0) ? offset + 20 : null,
+  };
+}
+
+async function verifiedTechnicianIds(actor: ConversationActor) {
+  const { data, error } = await createSupabaseAdminClient()
+    .from("technicians")
+    .select("id")
+    .eq("wa_id", actor.waId)
+    .eq("active", true)
+    .is("deleted_at", null);
+  if (error) throw error;
+  const ids = (data ?? []).map((technician) => technician.id);
+  if (!ids.length) throw new Error("not_authorized");
+  return ids;
 }
 
 async function technicianTimeOff(actor: ConversationActor, raw: unknown) {
   const values = z
     .object({
       technicianId: z.uuid(),
-      startsAt: z.iso.datetime(),
-      endsAt: z.iso.datetime(),
+      startsAt: z.iso.datetime({ offset: true }),
+      endsAt: z.iso.datetime({ offset: true }),
       note: z.string().max(500).nullable(),
     })
     .parse(raw);
-  if (!actor.technicianIds.includes(values.technicianId)) throw new Error("not_authorized");
+  if (!(await verifiedTechnicianIds(actor)).includes(values.technicianId))
+    throw new Error("not_authorized");
   if (new Date(values.endsAt) <= new Date(values.startsAt))
     throw new Error("time_off_end_must_be_later");
   const result = await createSupabaseAdminClient()
@@ -708,7 +869,9 @@ async function runTool(actor: ConversationActor, call: ResponseFunctionToolCall,
     case "request_style_preview":
       return requestPreview(actor, args, call.call_id);
     case "owner_booking_summary":
-      return ownerSummary(actor, args);
+      return staffBookingSummary(actor, args, "owner");
+    case "owner_list_bookings":
+      return ownerListBookings(actor, args);
     case "owner_update_salon":
       return ownerUpdateSalon(actor, args);
     case "owner_manage_service":
@@ -716,7 +879,9 @@ async function runTool(actor: ConversationActor, call: ResponseFunctionToolCall,
     case "owner_manage_technician":
       return ownerManageTechnician(actor, args);
     case "technician_list_bookings":
-      return technicianBookings(actor);
+      return technicianBookings(actor, args);
+    case "technician_booking_summary":
+      return staffBookingSummary(actor, args, "technician");
     case "technician_submit_time_off":
       return technicianTimeOff(actor, args);
     default:

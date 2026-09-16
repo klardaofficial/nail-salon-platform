@@ -4,6 +4,10 @@ Last reviewed: 2026-09-16.
 
 ## Implemented
 
+- Adaptive conversation language without a language allowlist: BOT_LOCALE is a valid language-tag reference; AI generates contextual greetings and every WhatsApp option/list label. Admin greeting settings and English/German dictionaries are removed. Conversation language and AI-written outage text are retained per channel.
+- One focused booking question at a time, optional catalog/staff questions skipped, explicit complete booking requests confirmed immediately, null salon support when none is active, and [N/A] displays. Additive local migrations applied without resetting data; types regenerated.
+- Verified owner/technician greetings explain staff capabilities in their conversation language. Paginated scoped record tools and service-only SQL summaries provide current database results without page-limit truncation; staff tools recheck mappings. Ordinary notifications and preview captions use AI localization; approved Meta templates retain their provider contract.
+
 - Platform activity below booking reports: shared dates/timezone, selectable real/simulated/all sources, received/sent messages, distinct active senders, daily trends, chart/table equivalents, and matching CSV export.
 - Numeric AI usage records for each chat round and image generation call, including source/model/status, available tokens, generated output counts, configurable snapshotted USD estimates, unpriced coverage, and a paginated request log. Historical usage cannot be backfilled.
 - Read-only WhatsApp inbox for customers, owners, and technicians, including outbound-only notifications, verified current roles, search/filter/pagination, older-message cursors, and mobile list/detail navigation. It reuses the Simulator's message bubbles and interactive-option presentation; image attachments remain media-ID placeholders.
@@ -16,7 +20,7 @@ Last reviewed: 2026-09-16.
 - Salon create/edit forms normalize time defaults and saved values for Ant Design pickers, serialize `HH:mm` API payloads, and restore defaults when adding after editing.
 - Supabase migrations with a database-enforced singleton business profile, snapshots, RLS, transactional inbound/booking/cancellation/preview functions, audit data, and durable queues. Local and production contain no salon/customer seed data.
 - WhatsApp Graph API v26.0, verification/signature handling, normalization, duplicate-safe inbox registration, text/image/button/list transport, delivery tracking, and a signed local simulator.
-- App-owned conversation history, fixed deployment locale, active catalog context, OpenAI Responses API loop, strict function tools, server-side role checks, and idempotent tool execution.
+- App-owned conversation history, adaptive conversation language, active catalog context, OpenAI Responses API loop, strict function tools, server-side role checks, and idempotent tool execution.
 - Customer booking/cancellation/preview tools, owner summary/catalog/salon tools, technician assigned-booking/time-off tools, and technician notifications.
 - In-memory image download, OpenAI edit, direct WhatsApp upload, quota reservation/reconciliation, retryable delivery by saved media ID, and stale-work recovery.
 - Confirmed/cancelled, unique customer, returning customer, repeat-rate, trends, recent activity, health counts, and CSV reporting.
@@ -29,10 +33,12 @@ Last reviewed: 2026-09-16.
 
 ## Verified locally
 
+- `pnpm check`: formatting, lint, TypeScript, all 89 application tests, and the production build pass, including unrestricted language/interactive replies, flexible bookings, staff query tools, and existing dashboard/inbox/reporting routes.
+
 - `pnpm format:check`
 - `pnpm lint`
 - `pnpm typecheck`
-- Application tests cover WhatsApp verification/normalization, analytics, simulator authorization/routing, chat UI interactions, and salon form time defaults/save behavior. Supabase migration tests and the database-test CI job were removed by project decision; they must not be reintroduced.
+- Application tests cover WhatsApp verification/normalization, analytics, simulator authorization/routing, shared chat UI interactions, read-only inbox pagination/source isolation, reporting API/CSV consistency, AI pricing/recording failures, and salon form time defaults/save behavior. Supabase migration tests and the database-test CI job were removed by project decision; they must not be reintroduced.
 - `pnpm build`: production build and all routes compile.
 - Local Inngest dev server 1.44.0 syncs successfully; `/api/inngest` reports HTTP 200, dev mode, no cloud keys, and four registered functions.
 - Supabase CLI 2.117.0 starts. Local database rebuild/type-generation commands remain available for schema development, but migration execution/reset/lint is not part of the application quality workflow.

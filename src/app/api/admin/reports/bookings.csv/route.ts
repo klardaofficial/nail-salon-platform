@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     item.customerName,
     item.salonName,
     item.services,
-    item.technicianName ?? "Unassigned",
+    item.technicianName ?? "[N/A]",
     item.startsAt,
     item.status,
     item.createdAt,

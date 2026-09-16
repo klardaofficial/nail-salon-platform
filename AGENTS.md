@@ -25,13 +25,13 @@ Use Node.js 22 and pnpm 12.4.1. Run `pnpm install`, then `pnpm check` before han
 ## Product invariants
 
 - One WhatsApp number serves every active salon. A customer chooses a salon when more than one is active. A sole active salon is selected implicitly.
-- A booking needs an active salon and future time. Services, technician, duration, capacity, and attendance are optional. Bookings auto-confirm.
+- A booking needs an active business and future time. With no active salons, salon is null and platform timezone applies; a sole active salon is implicit and multiple active salons require a choice. Services, technician, duration, capacity, and attendance are optional. Bookings auto-confirm after clear customer agreement.
 - One appointment may contain several services, custom Other text, and an additional request.
 - `bookings.technician_ref` is deliberately nullable and has no foreign key. Preserve its snapshot behavior.
 - Time off guides technician suggestions. It never blocks or cancels a booking.
 - Cancellation is allowed only for the same customer and before `starts_at`.
 - Owners and technicians use WhatsApp only. Their identity and business scope come from verified stored mappings, never their text claim.
-- The admin interface is English, the landing page is German, and `BOT_LOCALE` fixes all bot/AI replies to `en` or `de` until redeployment.
+- The admin interface is English and the landing page is German. `BOT_LOCALE` accepts any valid language tag as a default reference; AI replies and all WhatsApp option labels follow the person's conversation language. Verified staff start with role-specific capabilities.
 - Browser dashboard reads and writes go through shared SWR fetchers and authenticated route handlers.
 - Never write customer image bytes, base64 data, data URLs, or temporary image files to the database, logs, filesystem, job payloads, docs, or fixtures. Persist WhatsApp media IDs only.
 

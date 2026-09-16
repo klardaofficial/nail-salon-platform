@@ -7,8 +7,11 @@ import { summarizeImageUsage, withAIUsage } from "@/features/ai-usage/record";
 import { queueWhatsAppMessage } from "@/features/messaging/outbox";
 import { downloadWhatsAppMedia, uploadWhatsAppMedia } from "@/integrations/whatsapp/client";
 import { getOpenAIClient } from "@/integrations/openai/client";
-import { getBotLocale, getServerEnv } from "@/lib/config/env";
+import { getServerEnv } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createLocalizedText } from "@/features/conversation/localize";
+import { unavailableFallback } from "@/lib/bot/language";
+import { recipientLocale } from "@/features/conversation/notifications";
 
 export async function processStylePreview(previewId: string) {
   const supabase = createSupabaseAdminClient();
@@ -94,7 +97,7 @@ export async function queueStylePreviews(previewId: string, mediaIds: string[]) 
   const recipientWaId = Array.isArray(contact) ? contact[0]?.wa_id : contact?.wa_id;
   if (!recipientWaId) throw new Error("preview_recipient_missing");
 
-  const locale = getBotLocale();
+  const locale = await recipientLocale(recipientWaId);
   for (const [index, mediaId] of mediaIds.entries()) {
     await queueWhatsAppMessage({
       conversationId: previewResult.data.conversation_id,
@@ -103,9 +106,12 @@ export async function queueStylePreviews(previewId: string, mediaIds: string[]) 
         kind: "image",
         mediaId,
         caption:
-          locale === "de"
-            ? `Style-Vorschau ${index + 1}. Zeig sie deinem Nail-Profi als Inspiration.`
-            : `Style preview ${index + 1}. Show it to your nail professional as inspiration.`,
+          (await createLocalizedText({
+            locale,
+            conversationId: previewResult.data.conversation_id,
+            task: "Caption this nail style preview, suggesting the customer show it to their nail professional for inspiration.",
+            details: { previewNumber: index + 1 },
+          })) ?? `✨ ${index + 1}`,
       },
       deduplicationKey: `preview:${previewId}:image:${index}`,
     });
@@ -117,9 +123,12 @@ export async function queueStylePreviews(previewId: string, mediaIds: string[]) 
       payload: {
         kind: "text",
         text:
-          locale === "de"
-            ? "Die Vorschau hat diesmal nicht geklappt. Bitte sende das Foto erneut."
-            : "The preview did not work this time. Please send the photo again.",
+          (await createLocalizedText({
+            locale,
+            conversationId: previewResult.data.conversation_id,
+            task: "Explain that the preview failed and ask the customer to resend the photo.",
+            details: {},
+          })) ?? unavailableFallback,
       },
       deduplicationKey: `preview:${previewId}:failed`,
     });
