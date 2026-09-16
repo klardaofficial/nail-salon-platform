@@ -28,7 +28,7 @@ flowchart TD
 
 A clear instruction such as "Book 19 September at 15:00" supplies agreement to those exact details when the date/year and clock time are unambiguous. The timezone is always resolved from platform settings without asking. Otherwise ask for agreement once. Never invent a time, salon or availability. Opening hours, intervals, and time off guide suggestions but do not block bookings.
 
-Reuse all details volunteered by the customer. Services, Other/custom text, technician preference, and additional request are optional. Do not ask about an empty service catalog or unconfigured technicians. Offer service choices only when useful; offer technician choices only when enabled with active staff, including a way to continue without preference. Optional questions must not postpone an otherwise complete booking.
+Reuse all details volunteered by the customer. Services, Other/custom text, technician preference, and additional request are optional. Do not ask about an empty service catalog or unconfigured technicians. Offer service choices only when useful; offer technician choices whenever the selected salon has active staff, including a way to continue without preference. Optional questions must not postpone an otherwise complete booking.
 
 The app selects one active salon automatically and permits no-salon bookings under the active business. Several active salons require a choice. Inactive/stale selected salons fail safely. Store absent details as null or []; display [N/A] only where a template/table needs a value. A new booking does not reuse a completed draft.
 
@@ -54,7 +54,7 @@ Controls are conveniences: 1–3 choices use reply buttons and 4–10 use a list
 
 ## Owner
 
-A verified owner's greeting explains business booking lists/customer details, booking summaries, and management of salon details, services, technicians, and the technician-choice setting. It offers relevant owner actions rather than customer booking intake. `owner_list_bookings` can include past/future and confirmed/cancelled records, filter by appointment dates/status, and paginate 20 records at a time; missing salon/technician displays as [N/A]. Every call rechecks the stored business membership.
+A verified owner's greeting explains business booking lists/customer details, booking summaries, and management of salon details, services, and technicians. It offers relevant owner actions rather than customer booking intake. `owner_list_bookings` can include past/future and confirmed/cancelled records, filter by appointment dates/status, and paginate 20 records at a time; missing salon/technician displays as [N/A]. Every call rechecks the stored business membership.
 
 ## Technician
 

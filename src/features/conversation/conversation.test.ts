@@ -69,7 +69,6 @@ const salon = {
   business_id: "business",
   name: "Mitte",
   timezone: "Europe/Berlin",
-  customer_can_choose_technician: true,
   booking_interval_minutes: 45,
   services: [],
   technicians: [],
@@ -351,11 +350,6 @@ describe("minimal booking conditions", () => {
       p_additional_request: "Simple design",
     });
     expect(mocks.queue).not.toHaveBeenCalled();
-  });
-  it("does not assign a technician when customer choice is disabled", async () => {
-    tables.set("salons", [{ ...salon, customer_can_choose_technician: false }]);
-    await create({ technicianRef: technicianId });
-    expect(mocks.rpc.mock.calls[0][1].p_technician_ref).toBeNull();
   });
   it("reuses a completed tool result without creating a second booking", async () => {
     tables.set("tool_executions", {

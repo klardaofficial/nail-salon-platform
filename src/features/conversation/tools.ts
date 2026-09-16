@@ -199,16 +199,8 @@ const ownerTools: FunctionTool[] = [
         locationLabel: nullableString,
         openTime: nullableString,
         closeTime: nullableString,
-        customerCanChooseTechnician: { anyOf: [{ type: "boolean" }, { type: "null" }] },
       },
-      required: [
-        "salonId",
-        "name",
-        "locationLabel",
-        "openTime",
-        "closeTime",
-        "customerCanChooseTechnician",
-      ],
+      required: ["salonId", "name", "locationLabel", "openTime", "closeTime"],
       additionalProperties: false,
     },
   },
@@ -358,11 +350,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
   if (start.getTime() <= Date.now()) throw new Error("booking_time_must_be_in_future");
   const supabase = createSupabaseAdminClient();
   const [salons, business, platform] = await Promise.all([
-    supabase
-      .from("salons")
-      .select("id,business_id,name,customer_can_choose_technician")
-      .eq("active", true)
-      .is("deleted_at", null),
+    supabase.from("salons").select("id,business_id,name").eq("active", true).is("deleted_at", null),
     supabase.from("businesses").select("id,active").eq("singleton", true).single(),
     supabase.from("platform_settings").select("platform_timezone").eq("singleton", true).single(),
   ]);
@@ -382,7 +370,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
 
   let technicianName: string | null = null;
   let technicianWaId: string | null = null;
-  let technicianRef = salon?.customer_can_choose_technician ? values.technicianRef : null;
+  let technicianRef = values.technicianRef;
   if (technicianRef) {
     const technician = await supabase
       .from("technicians")
@@ -605,11 +593,7 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
       .eq("contact_id", actor.contactId)
       .maybeSingle(),
     supabase.from("platform_settings").select("platform_timezone").eq("singleton", true).single(),
-    supabase
-      .from("salons")
-      .select("id,business_id,name,customer_can_choose_technician")
-      .eq("active", true)
-      .is("deleted_at", null),
+    supabase.from("salons").select("id,business_id,name").eq("active", true).is("deleted_at", null),
   ]);
   if (before.error) throw before.error;
   if (settings.error) throw settings.error;
@@ -627,7 +611,7 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
   if (values.salonId && !salon) throw new Error("salon_is_not_active");
   if (!salon && activeSalons.length > 1) throw new Error("salon_selection_required");
 
-  let technicianRef = salon?.customer_can_choose_technician ? values.technicianRef : null;
+  let technicianRef = values.technicianRef;
   let technicianName: string | null = null;
   let technicianWaId: string | null = null;
   if (technicianRef) {
@@ -916,7 +900,6 @@ async function ownerUpdateSalon(actor: ConversationActor, raw: unknown) {
         .string()
         .regex(/^\d{2}:\d{2}$/)
         .nullable(),
-      customerCanChooseTechnician: z.boolean().nullable(),
     })
     .parse(raw);
   await ownedSalon(actor, values.salonId);
@@ -925,9 +908,6 @@ async function ownerUpdateSalon(actor: ConversationActor, raw: unknown) {
     ...(values.locationLabel ? { location_label: values.locationLabel } : {}),
     ...(values.openTime ? { default_open_time: values.openTime } : {}),
     ...(values.closeTime ? { default_close_time: values.closeTime } : {}),
-    ...(values.customerCanChooseTechnician === null
-      ? {}
-      : { customer_can_choose_technician: values.customerCanChooseTechnician }),
   };
   const { error } = await createSupabaseAdminClient()
     .from("salons")

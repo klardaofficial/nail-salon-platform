@@ -4,6 +4,8 @@ Last reviewed: 2026-09-16.
 
 ## Implemented
 
+- Salon technician-choice configuration has been removed. Customers may optionally choose any active technician at their selected salon, or continue without a preference.
+
 - Customer booking updates now modify the identified confirmed future booking in place rather than cancelling it and creating a replacement. Time, salon, services, technician, and additional request are supported while the booking reference and analytics identity stay intact; a technician reassignment sends cancelled/confirmed notifications to the former/new technician, and the transactional update event is idempotent.
 
 - Bot date/time interpretation and display now use the saved platform timezone for every salon and role, without asking for or disclosing a person's/configured timezone. Shared AI instructions omit timezone labels from replies and controls. Drafts use server settings; booking lists, notification parameters and fallback receipts format plain dates/clock times, including historical bookings. The additive booking-function migration is applied locally and types regenerated; it validates the platform timezone while preserving existing booking instants and snapshots.

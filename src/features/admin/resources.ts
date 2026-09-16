@@ -61,18 +61,12 @@ export const resourceDefinitions: Record<ResourceName, ResourceDefinition> = {
       { name: "timezone", label: "Timezone", required: true },
       { name: "open_time", label: "Opening time", kind: "time", required: true },
       { name: "close_time", label: "Closing time", kind: "time", required: true },
-      {
-        name: "customer_can_choose_technician",
-        label: "Customers can choose a technician",
-        kind: "switch",
-      },
       { name: "active", label: "Active", kind: "switch" },
     ],
     defaults: {
       timezone: "Europe/Berlin",
       open_time: "09:00",
       close_time: "18:00",
-      customer_can_choose_technician: false,
       active: true,
     },
   },

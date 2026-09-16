@@ -18,7 +18,6 @@ const salon = {
   timezone: "Europe/Berlin",
   open_time: "08:35",
   close_time: "19:45",
-  customer_can_choose_technician: true,
   active: true,
 };
 
@@ -93,6 +92,9 @@ describe("salon resource form", { timeout: 15_000 }, () => {
     await renderManager();
     await click(screen.getByRole("button", { name: "Add salon" }));
     expectTimes("09:00", "18:00");
+    expect(
+      within(screen.getByRole("dialog")).queryByLabelText("Customers can choose a technician"),
+    ).toBeNull();
 
     const dialog = within(screen.getByRole("dialog"));
     await fill(dialog.getByLabelText("Salon name"), "New salon");
@@ -108,7 +110,6 @@ describe("salon resource form", { timeout: 15_000 }, () => {
           timezone: "Europe/Berlin",
           open_time: "09:00",
           close_time: "18:00",
-          customer_can_choose_technician: false,
           active: true,
         },
       },
@@ -131,7 +132,6 @@ describe("salon resource form", { timeout: 15_000 }, () => {
           timezone: salon.timezone,
           open_time: "08:35",
           close_time: "19:45",
-          customer_can_choose_technician: true,
           active: true,
         },
       },

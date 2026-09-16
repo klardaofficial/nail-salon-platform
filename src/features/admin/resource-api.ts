@@ -26,7 +26,6 @@ const schemas = {
       .string()
       .regex(/^\d{2}:\d{2}$/)
       .default("18:00"),
-    customer_can_choose_technician: z.boolean().default(false),
     active: z.boolean().default(true),
   }),
   services: z.object({
