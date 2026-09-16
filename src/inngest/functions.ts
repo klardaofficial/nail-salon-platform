@@ -81,7 +81,7 @@ export const recoverDurableOutboxes = inngest.createFunction(
   {
     id: "recover-durable-outboxes",
     retries: 2,
-    triggers: [{ cron: "*/2 * * * *" }],
+    triggers: [{ cron: "*/5 * * * *" }],
   },
   async ({ step }) => {
     return step.run("redispatch", async () => {
