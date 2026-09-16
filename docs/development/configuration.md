@@ -37,12 +37,12 @@ The WhatsApp Graph API version is pinned in the server integration to `v26.0`; i
 
 ## AI cost estimates
 
-`OPENAI_PRICING_JSON={}` records tokens while displaying unavailable costs. Configure rates for the exact `OPENAI_CHAT_MODEL` and `OPENAI_IMAGE_MODEL` names after checking your project's [OpenAI pricing](https://developers.openai.com/api/docs/pricing/). No current price is hard-coded. Values must be finite nonnegative USD amounts per million tokens; zero is an explicit configured rate.
+`OPENAI_PRICING_JSON={}` records tokens while displaying unavailable costs. Configure rates for the exact `OPENAI_CHAT_MODEL` and `OPENAI_IMAGE_MODEL` names after checking your project's [OpenAI pricing](https://developers.openai.com/api/docs/pricing/). The application does not hard-code prices. Values must be finite nonnegative USD amounts per million tokens; zero is an explicit configured rate.
 
-Illustrative shape only; replace these synthetic rates with verified prices:
+The `.env.example` sample uses the published standard rates checked on 2026-09-16: `gpt-5-mini` input $0.25, cached input $0.025, and output $2.00; `gpt-image-1` text input $5.00, image input $10.00, and image output $40.00. Verify prices before deployment because provider rates can change:
 
 ```dotenv
-OPENAI_PRICING_JSON={"gpt-5-mini":{"kind":"chat_text","input":1,"cachedInput":0.5,"output":2},"gpt-image-1":{"kind":"image_generation","textInput":1,"imageInput":2,"imageOutput":3}}
+OPENAI_PRICING_JSON={"gpt-5-mini":{"kind":"chat_text","input":0.25,"cachedInput":0.025,"output":2},"gpt-image-1":{"kind":"image_generation","textInput":5,"imageInput":10,"imageOutput":40}}
 ```
 
 Image models returning text output additionally need `textOutput`. Unknown models, operation-kind mismatches, missing usage, or unpriced output modalities produce an unavailable estimate. Price snapshots apply only to new invocations after restart/redeploy; existing log entries retain their estimates. These are usage estimates, without taxes, account discounts, credits, or invoice reconciliation. Include Simulator or All sources in the activity filter to see simulator AI spending.
