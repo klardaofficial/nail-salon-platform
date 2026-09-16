@@ -4,6 +4,8 @@ Last reviewed: 2026-09-16.
 
 ## Implemented
 
+- Services are global reference choices by default and can be restricted to one or more salon locations. The customer booking flow offers applicable service suggestions only after the salon/no-preference decision, while always preserving free-text services outside the catalog or salon scope.
+
 - Salon technician-choice configuration has been removed. Customers may optionally choose any active technician at their selected salon, or continue without a preference.
 
 - Customer booking now offers active salons as an optional reference and allows a no-salon booking even when salons exist. Technician choices appear only after a salon choice and only when that salon has active technicians; customer confirmations omit absent salon and technician details.

@@ -4,7 +4,7 @@
 erDiagram
   BUSINESSES ||--o{ SALONS : owns
   CONTACTS }o--o{ BUSINESSES : business_owners
-  SALONS ||--o{ SERVICES : offers
+  SERVICES }o--o{ SALONS : restricted_to
   SALONS ||--o{ TECHNICIANS : staffs
   TECHNICIANS ||--o{ TECHNICIAN_TIME_OFF : records
   CONTACTS ||--o{ BOOKINGS : creates
@@ -26,7 +26,7 @@ Conversations are unique per contact/channel: `whatsapp` for real messages and `
 
 Bookings always belong to the singleton business, but `salon_id` is nullable whether or not active salons exist. The conversation offers an active salon as an optional preference and never infers one; a null selection has no technician catalog. Every new conversation booking snapshots the configured platform timezone, regardless of salon. The booking RPC rechecks the platform timezone while holding a shared settings-row lock. Existing booking instants and timezone snapshots remain historical; conversation lists and notifications reformat appointment instants in the current platform timezone without visible timezone labels. Salon/technician placeholders such as [N/A] are display values, not stored UUIDs. Conversations store an unrestricted `reply_locale` language tag and the latest AI-written `reply_unavailable_text`; obsolete platform greeting columns have been removed.
 
-Booking services keep names even after catalog removal. Technician name is snapshotted; `technician_ref` is a nullable UUID without a foreign key by design, so missing/stale staff never invalidates history or flexible booking. When a selected salon has active technicians, customers may choose one or continue without preference. Soft deletion uses `active` and `deleted_at` for mutable catalog records.
+`services` are reference catalog entries. A service with no `service_salons` rows is available at every salon; one or more rows restrict it to exactly those salons. Existing one-salon services were migrated into scope rows. Booking services keep names even after catalog removal, and a customer's described service is recorded even when it does not match the catalog or selected salon. Technician name is snapshotted; `technician_ref` is a nullable UUID without a foreign key by design, so missing/stale staff never invalidates history or flexible booking. When a selected salon has active technicians, customers may choose one or continue without preference. Soft deletion uses `active` and `deleted_at` for mutable catalog records.
 
 A customer booking update retains the existing confirmed future `bookings` row, including its immutable ID/reference and reporting identity. It updates appointment time labels/timezone snapshot, salon, service snapshots, technician snapshot, and additional request, then appends a `booking.rescheduled` audit event containing prior/new scheduling and service values plus a conversation-call idempotency key. It never creates a cancelled row or replacement booking.
 

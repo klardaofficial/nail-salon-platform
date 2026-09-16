@@ -227,12 +227,12 @@ describe("unrestricted language and generated controls", () => {
     tables.set("salons", [
       {
         ...salon,
-        services: [
-          { id: "live", name: "Gel", active: true },
-          { id: "hidden", name: "Hidden", active: false },
-        ],
         technicians: [{ id: "gone", active: true, deleted_at: "2026-01-01" }],
       },
+    ]);
+    tables.set("services", [
+      { id: "live", name: "Gel", active: true, deleted_at: null, service_salons: [] },
+      { id: "hidden", name: "Hidden", active: false, deleted_at: null, service_salons: [] },
     ]);
     await createNaturalReply(actor);
     const instructions = mocks.response.mock.calls[0][0].instructions;
@@ -359,6 +359,31 @@ describe("minimal booking conditions", () => {
     });
     expect(mocks.queue).not.toHaveBeenCalled();
   });
+  it("uses global or selected-salon service IDs but records other customer services as custom", async () => {
+    tables.set("salons", [salon]);
+    tables.set("services", [
+      { id: technicianId, name: "Global manicure", service_salons: [] },
+      {
+        id: "6fcb66a0-d713-4bfc-a075-0e7d3864baff",
+        name: "Other location only",
+        service_salons: [{ salon_id: "6fcb66a0-d713-4bfc-a075-0e7d3864baff" }],
+      },
+    ]);
+    await create({
+      salonId,
+      services: [
+        { serviceId: technicianId, name: "Wrong global name" },
+        {
+          serviceId: "6fcb66a0-d713-4bfc-a075-0e7d3864baff",
+          name: "Customer requested service",
+        },
+      ],
+    });
+    expect(mocks.rpc.mock.calls[0][1].p_services).toEqual([
+      { serviceId: technicianId, name: "Global manicure" },
+      { serviceId: null, name: "Customer requested service" },
+    ]);
+  });
   it("reuses a completed tool result without creating a second booking", async () => {
     tables.set("tool_executions", {
       state: "completed",
@@ -379,7 +404,11 @@ describe("minimal booking conditions", () => {
       salon_id: salonId,
       active: true,
     });
-    tables.set("services", { id: technicianId, name: "Manicure", salon_id: salonId });
+    tables.set("services", {
+      id: technicianId,
+      name: "Manicure",
+      service_salons: [{ salon_id: salonId }],
+    });
     mocks.rpc.mockResolvedValueOnce({ data: true, error: null });
 
     expect(

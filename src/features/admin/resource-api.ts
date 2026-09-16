@@ -29,7 +29,7 @@ const schemas = {
     active: z.boolean().default(true),
   }),
   services: z.object({
-    salon_id: z.uuid(),
+    salon_ids: z.array(z.uuid()).max(100).nullable().optional(),
     name: z.string().trim().min(1).max(120),
     description: z.string().trim().max(500).nullable().optional(),
     active: z.boolean().default(true),
@@ -48,6 +48,48 @@ function relationName(value: unknown) {
     return String(value[0].name);
   }
   return "";
+}
+
+function serviceSalonIds(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) =>
+    item && typeof item === "object" && "salon_id" in item && typeof item.salon_id === "string"
+      ? [item.salon_id]
+      : [],
+  );
+}
+
+function serviceSalonNames(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .flatMap((item) => {
+      if (!item || typeof item !== "object" || !("salon" in item)) return [];
+      return [relationName(item.salon)];
+    })
+    .filter(Boolean);
+}
+
+async function replaceServiceSalons(serviceId: string, salonIds?: string[] | null) {
+  const supabase = createSupabaseAdminClient();
+  const { error: removeError } = await supabase
+    .from("service_salons")
+    .delete()
+    .eq("service_id", serviceId);
+  if (removeError) throw removeError;
+  const uniqueSalonIds = [...new Set(salonIds ?? [])];
+  if (!uniqueSalonIds.length) return;
+  const { error } = await supabase
+    .from("service_salons")
+    .insert(uniqueSalonIds.map((salon_id) => ({ service_id: serviceId, salon_id })));
+  if (error) throw error;
+}
+
+function serviceDatabaseValues(values: Partial<z.infer<typeof schemas.services>>) {
+  return {
+    ...(values.name !== undefined ? { name: values.name } : {}),
+    ...(values.description !== undefined ? { description: values.description } : {}),
+    ...(values.active !== undefined ? { active: values.active } : {}),
+  };
 }
 
 function normalizeOwnerIds(value?: string) {
@@ -140,13 +182,24 @@ export async function listResource(resource: ResourceName) {
     };
   }
 
-  const result = await supabase
-    .from(resource)
-    .select("*,salon:salons(name)")
-    .order(resource === "technicians" ? "display_name" : "name");
+  const result =
+    resource === "services"
+      ? await supabase
+          .from("services")
+          .select("*,service_salons(salon_id,salon:salons(name))")
+          .order("name")
+      : await supabase.from("technicians").select("*,salon:salons(name)").order("display_name");
   if (result.error) throw result.error;
   return {
-    items: result.data.map((item) => ({ ...item, salon_name: relationName(item.salon) })),
+    items: result.data.map((item) =>
+      resource === "services"
+        ? {
+            ...item,
+            salon_ids: serviceSalonIds(item.service_salons),
+            salon_names: serviceSalonNames(item.service_salons).join(", ") || "All salons",
+          }
+        : { ...item, salon_name: relationName(item.salon) },
+    ),
   };
 }
 
@@ -187,7 +240,7 @@ export async function createResource(resource: ResourceName, input: unknown) {
     resource === "services"
       ? await supabase
           .from("services")
-          .insert(values as z.infer<typeof schemas.services>)
+          .insert(serviceDatabaseValues(values as z.infer<typeof schemas.services>))
           .select("*")
           .single()
       : await supabase
@@ -196,6 +249,11 @@ export async function createResource(resource: ResourceName, input: unknown) {
           .select("*")
           .single();
   if (result.error) throw result.error;
+  if (resource === "services")
+    await replaceServiceSalons(
+      result.data.id,
+      (values as z.infer<typeof schemas.services>).salon_ids,
+    );
   return result.data;
 }
 
@@ -233,20 +291,26 @@ export async function updateResource(resource: ResourceName, input: unknown) {
     return result.data;
   }
 
-  const result =
-    resource === "services"
-      ? await supabase
-          .from("services")
-          .update(values as Partial<z.infer<typeof schemas.services>>)
-          .eq("id", id)
-          .select("*")
-          .single()
-      : await supabase
-          .from("technicians")
-          .update(values as Partial<z.infer<typeof schemas.technicians>>)
-          .eq("id", id)
-          .select("*")
-          .single();
+  if (resource === "services") {
+    const service = serviceDatabaseValues(values as Partial<z.infer<typeof schemas.services>>);
+    const result = Object.keys(service).length
+      ? await supabase.from("services").update(service).eq("id", id).select("*").single()
+      : await supabase.from("services").select("*").eq("id", id).single();
+    if (result.error) throw result.error;
+    if ("salon_ids" in values)
+      await replaceServiceSalons(
+        id,
+        (values as Partial<z.infer<typeof schemas.services>>).salon_ids,
+      );
+    return result.data;
+  }
+
+  const result = await supabase
+    .from("technicians")
+    .update(values as Partial<z.infer<typeof schemas.technicians>>)
+    .eq("id", id)
+    .select("*")
+    .single();
   if (result.error) throw result.error;
   return result.data;
 }

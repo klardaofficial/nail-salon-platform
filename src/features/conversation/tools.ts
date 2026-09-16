@@ -24,6 +24,9 @@ export type ConversationActor = {
 
 const nullableUuid = { anyOf: [{ type: "string", format: "uuid" }, { type: "null" }] };
 const nullableString = { anyOf: [{ type: "string" }, { type: "null" }] };
+const nullableUuidArray = {
+  anyOf: [{ type: "array", items: { type: "string", format: "uuid" } }, { type: "null" }],
+};
 
 const customerTools: FunctionTool[] = [
   {
@@ -207,18 +210,19 @@ const ownerTools: FunctionTool[] = [
   {
     type: "function",
     name: "owner_manage_service",
-    description: "Create, update, or deactivate an optional service at this business's salon.",
+    description:
+      "Create, update, or deactivate an optional reference service. salonIds=null means it is available at every salon; one or more IDs restrict it to those salons.",
     strict: true,
     parameters: {
       type: "object",
       properties: {
         action: { type: "string", enum: ["create", "update", "deactivate"] },
-        salonId: { type: "string", format: "uuid" },
+        salonIds: nullableUuidArray,
         serviceId: nullableUuid,
         name: nullableString,
         description: nullableString,
       },
-      required: ["action", "salonId", "serviceId", "name", "description"],
+      required: ["action", "salonIds", "serviceId", "name", "description"],
       additionalProperties: false,
     },
   },
@@ -305,6 +309,38 @@ const draftSchema = z.object({
 });
 const createSchema = draftSchema.extend({ startsAt: z.iso.datetime({ offset: true }) });
 
+async function normalizeServiceSelections(
+  services: z.infer<typeof serviceItemSchema>[],
+  salonId: string | null,
+) {
+  const serviceIds = services.flatMap((service) => (service.serviceId ? [service.serviceId] : []));
+  if (!serviceIds.length)
+    return services.map((service) => ({ serviceId: null, name: service.name }));
+  const supabase = createSupabaseAdminClient();
+  const knownServices = await supabase
+    .from("services")
+    .select("id,name,service_salons(salon_id)")
+    .in("id", serviceIds)
+    .eq("active", true)
+    .is("deleted_at", null);
+  if (knownServices.error) throw knownServices.error;
+  const known = new Map(
+    (knownServices.data ?? [])
+      .filter((service) => {
+        const scopes = service.service_salons ?? [];
+        return scopes.length === 0 || scopes.some((scope) => scope.salon_id === salonId);
+      })
+      .map((service) => [service.id, service.name]),
+  );
+  return services.map((service) => ({
+    serviceId: service.serviceId && known.has(service.serviceId) ? service.serviceId : null,
+    name:
+      service.serviceId && known.has(service.serviceId)
+        ? known.get(service.serviceId)!
+        : service.name,
+  }));
+}
+
 async function ownedSalon(actor: ConversationActor, salonId: string) {
   const supabase = createSupabaseAdminClient();
   const result = await supabase
@@ -322,6 +358,42 @@ async function ownedSalon(actor: ConversationActor, salonId: string) {
   if (owner.error) throw owner.error;
   if (!result.data || !owner.data) throw new Error("not_authorized");
   return result.data;
+}
+
+async function ownedSalons(actor: ConversationActor, salonIds: string[] | null) {
+  const supabase = createSupabaseAdminClient();
+  const { data: owner, error: ownerError } = await supabase
+    .from("business_owners")
+    .select("business_id")
+    .eq("contact_id", actor.contactId);
+  if (ownerError) throw ownerError;
+  const ownerBusinessIds = new Set((owner ?? []).map((item) => item.business_id));
+  if (!ownerBusinessIds.size) throw new Error("not_authorized");
+  if (!salonIds?.length) return;
+  const uniqueSalonIds = [...new Set(salonIds)];
+  const { data: salons, error } = await supabase
+    .from("salons")
+    .select("id,business_id")
+    .in("id", uniqueSalonIds);
+  if (error) throw error;
+  if ((salons ?? []).length !== uniqueSalonIds.length) throw new Error("service_salon_not_found");
+  if ((salons ?? []).some((salon) => !ownerBusinessIds.has(salon.business_id)))
+    throw new Error("not_authorized");
+}
+
+async function replaceServiceSalons(serviceId: string, salonIds: string[] | null) {
+  const supabase = createSupabaseAdminClient();
+  const { error: removeError } = await supabase
+    .from("service_salons")
+    .delete()
+    .eq("service_id", serviceId);
+  if (removeError) throw removeError;
+  const uniqueSalonIds = [...new Set(salonIds ?? [])];
+  if (!uniqueSalonIds.length) return;
+  const { error } = await supabase
+    .from("service_salons")
+    .insert(uniqueSalonIds.map((salon_id) => ({ service_id: serviceId, salon_id })));
+  if (error) throw error;
 }
 
 async function saveDraft(actor: ConversationActor, raw: unknown) {
@@ -382,30 +454,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     }
   }
 
-  const serviceIds = values.services.flatMap((service) =>
-    service.serviceId ? [service.serviceId] : [],
-  );
-  const knownServices = serviceIds.length
-    ? await supabase
-        .from("services")
-        .select("id,name,salon_id")
-        .in("id", serviceIds)
-        .eq("active", true)
-        .is("deleted_at", null)
-    : { data: [], error: null };
-  if (knownServices.error) throw knownServices.error;
-  const known = new Map(
-    (knownServices.data ?? [])
-      .filter((item) => item.salon_id === salon?.id)
-      .map((item) => [item.id, item.name]),
-  );
-  const services = values.services.map((service) => ({
-    serviceId: service.serviceId && known.has(service.serviceId) ? service.serviceId : null,
-    name:
-      service.serviceId && known.has(service.serviceId)
-        ? known.get(service.serviceId)!
-        : service.name,
-  }));
+  const services = await normalizeServiceSelections(values.services, salon?.id ?? null);
   const localLabel = formatConversationTime(start, timezone);
   const { data: bookingId, error } = await supabase.rpc("create_booking_from_conversation", {
     p_business_id: business.data.id,
@@ -618,30 +667,7 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
       technicianWaId = technician.data.wa_id;
     }
   }
-  const serviceIds = values.services.flatMap((service) =>
-    service.serviceId ? [service.serviceId] : [],
-  );
-  const knownServices = serviceIds.length
-    ? await supabase
-        .from("services")
-        .select("id,name,salon_id")
-        .in("id", serviceIds)
-        .eq("active", true)
-        .is("deleted_at", null)
-    : { data: [], error: null };
-  if (knownServices.error) throw knownServices.error;
-  const known = new Map(
-    (knownServices.data ?? [])
-      .filter((service) => service.salon_id === salon?.id)
-      .map((service) => [service.id, service.name]),
-  );
-  const services = values.services.map((service) => ({
-    serviceId: service.serviceId && known.has(service.serviceId) ? service.serviceId : null,
-    name:
-      service.serviceId && known.has(service.serviceId)
-        ? known.get(service.serviceId)!
-        : service.name,
-  }));
+  const services = await normalizeServiceSelections(values.services, salon?.id ?? null);
   const startsAt = formatConversationTime(start, settings.data.platform_timezone);
   const { data: rescheduled, error } = await supabase.rpc("reschedule_customer_booking", {
     p_booking_id: values.bookingId,
@@ -911,38 +937,39 @@ async function ownerManageService(actor: ConversationActor, raw: unknown) {
   const values = z
     .object({
       action: z.enum(["create", "update", "deactivate"]),
-      salonId: z.uuid(),
+      salonIds: z.array(z.uuid()).max(100).nullable(),
       serviceId: z.uuid().nullable(),
       name: z.string().trim().min(1).max(120).nullable(),
       description: z.string().max(500).nullable(),
     })
     .parse(raw);
-  await ownedSalon(actor, values.salonId);
+  await ownedSalons(actor, values.salonIds);
   const supabase = createSupabaseAdminClient();
   if (values.action === "create") {
     if (!values.name) throw new Error("service_name_required");
     const result = await supabase
       .from("services")
-      .insert({ salon_id: values.salonId, name: values.name, description: values.description })
+      .insert({ name: values.name, description: values.description })
       .select("id")
       .single();
     if (result.error) throw result.error;
+    await replaceServiceSalons(result.data.id, values.salonIds);
     return { ok: true, serviceId: result.data.id };
   }
   if (!values.serviceId) throw new Error("service_id_required");
   const existing = await supabase
     .from("services")
-    .select("salon_id")
+    .select("id")
     .eq("id", values.serviceId)
     .maybeSingle();
-  if (existing.error || existing.data?.salon_id !== values.salonId)
-    throw new Error("service_not_found");
+  if (existing.error || !existing.data) throw new Error("service_not_found");
   const updates =
     values.action === "deactivate"
       ? { active: false, deleted_at: new Date().toISOString() }
       : { ...(values.name ? { name: values.name } : {}), description: values.description };
   const { error } = await supabase.from("services").update(updates).eq("id", values.serviceId);
   if (error) throw error;
+  if (values.action === "update") await replaceServiceSalons(values.serviceId, values.salonIds);
   return { ok: true, serviceId: values.serviceId };
 }
 

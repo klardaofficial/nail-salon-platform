@@ -1,6 +1,9 @@
 export type ResourceName = "businesses" | "salons" | "services" | "technicians";
 
-export type AdminResourceItem = Record<string, string | number | boolean | null | undefined> & {
+export type AdminResourceItem = Record<
+  string,
+  string | string[] | number | boolean | null | undefined
+> & {
   id: string;
 };
 
@@ -9,7 +12,7 @@ export type ResourceResponse = { items: AdminResourceItem[] };
 export type ResourceField = {
   name: string;
   label: string;
-  kind?: "text" | "textarea" | "select" | "switch" | "time";
+  kind?: "text" | "textarea" | "select" | "multiselect" | "switch" | "time";
   required?: boolean;
   optionSource?: "salons";
   help?: string;
@@ -72,21 +75,22 @@ export const resourceDefinitions: Record<ResourceName, ResourceDefinition> = {
   },
   services: {
     title: "Services",
-    description: "Optional salon services shown as helpful choices in natural conversations.",
+    description:
+      "Optional reference services. Leave salon locations empty to offer a service at all salons.",
     singular: "service",
     columns: [
       { key: "name", label: "Service" },
-      { key: "salon_name", label: "Salon" },
+      { key: "salon_names", label: "Available at" },
       { key: "description", label: "Description" },
       { key: "active", label: "Active", kind: "boolean" },
     ],
     fields: [
       {
-        name: "salon_id",
-        label: "Salon",
-        kind: "select",
+        name: "salon_ids",
+        label: "Salon locations",
+        kind: "multiselect",
         optionSource: "salons",
-        required: true,
+        help: "Leave empty to make this service available at all salons.",
       },
       { name: "name", label: "Service name", required: true },
       { name: "description", label: "Description", kind: "textarea" },

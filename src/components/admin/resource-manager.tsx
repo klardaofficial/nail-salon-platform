@@ -291,6 +291,14 @@ export function ResourceManager({
                 <Input.TextArea rows={4} />
               ) : field.kind === "select" ? (
                 <Select showSearch={{ optionFilterProp: "label" }} options={options()} />
+              ) : field.kind === "multiselect" ? (
+                <Select
+                  allowClear
+                  mode="multiple"
+                  showSearch={{ optionFilterProp: "label" }}
+                  options={options()}
+                  placeholder="All salons"
+                />
               ) : field.kind === "switch" ? (
                 <Switch />
               ) : field.kind === "time" ? (

@@ -1031,7 +1031,6 @@ export type Database = {
           description: string | null
           id: string
           name: string
-          salon_id: string
           updated_at: string
         }
         Insert: {
@@ -1041,7 +1040,6 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
-          salon_id: string
           updated_at?: string
         }
         Update: {
@@ -1051,15 +1049,36 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
-          salon_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      service_salons: {
+        Row: {
+          salon_id: string
+          service_id: string
+        }
+        Insert: {
+          salon_id: string
+          service_id: string
+        }
+        Update: {
+          salon_id?: string
+          service_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "services_salon_id_fkey"
+            foreignKeyName: "service_salons_salon_id_fkey"
             columns: ["salon_id"]
             isOneToOne: false
             referencedRelation: "salons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_salons_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
             referencedColumns: ["id"]
           },
         ]
