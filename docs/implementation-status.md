@@ -4,6 +4,8 @@ Last reviewed: 2026-09-16.
 
 ## Implemented
 
+- Customer booking updates now modify the identified confirmed future booking in place rather than cancelling it and creating a replacement. Time, salon, services, technician, and additional request are supported while the booking reference and analytics identity stay intact; a technician reassignment sends cancelled/confirmed notifications to the former/new technician, and the transactional update event is idempotent.
+
 - Bot date/time interpretation and display now use the saved platform timezone for every salon and role, without asking for or disclosing a person's/configured timezone. Shared AI instructions omit timezone labels from replies and controls. Drafts use server settings; booking lists, notification parameters and fallback receipts format plain dates/clock times, including historical bookings. The additive booking-function migration is applied locally and types regenerated; it validates the platform timezone while preserving existing booking instants and snapshots.
 
 - Fixed silent simulator/customer replies caused by querying the platform interval column on salons. Unfinished inbox retries now resume after saved history, reuse and redispatch existing replies without another AI call, and propagate failed completion writes. The affected local greeting was recovered through Inngest and produced a captured AI-written interactive reply.

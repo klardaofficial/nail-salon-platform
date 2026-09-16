@@ -137,6 +137,23 @@ async function create(values: Record<string, unknown> = {}) {
   });
 }
 
+async function update(values: Record<string, unknown> = {}) {
+  return executeConversationTool(actor, {
+    type: "function_call",
+    name: "update_booking",
+    call_id: "update-call",
+    arguments: JSON.stringify({
+      bookingId: salonId,
+      salonId: null,
+      startsAt: booking.startsAt,
+      services: [],
+      technicianRef: null,
+      additionalRequest: null,
+      ...values,
+    }),
+  });
+}
+
 describe("unrestricted language and generated controls", () => {
   it.each(["vi", "th", "ja", "ar", "fr-CA", "zh-Hant", "en_US"])(
     "accepts language %s for environment defaults and replies",
@@ -347,6 +364,49 @@ describe("minimal booking conditions", () => {
     });
     expect(await create()).toEqual({ ok: true, bookingId: "existing" });
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("updates a customer's future booking in place with location, service, technician, and request changes", async () => {
+    tables.set("bookings", {
+      id: salonId,
+      starts_at: "2099-09-18T08:00:00Z",
+      business_id: "business",
+    });
+    tables.set("salons", [salon]);
+    tables.set("technicians", {
+      display_name: "Mai",
+      salon_id: salonId,
+      active: true,
+    });
+    tables.set("services", { id: technicianId, name: "Manicure", salon_id: salonId });
+    mocks.rpc.mockResolvedValueOnce({ data: true, error: null });
+
+    expect(
+      await update({
+        salonId,
+        technicianRef: technicianId,
+        services: [{ serviceId: technicianId, name: "Old name" }],
+        additionalRequest: "Glossy finish",
+      }),
+    ).toMatchObject({
+      ok: true,
+      bookingId: salonId,
+      status: "rescheduled",
+      salon: "Mitte",
+      technician: "Mai",
+      services: [{ serviceId: technicianId, name: "Manicure" }],
+      additionalRequest: "Glossy finish",
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "reschedule_customer_booking",
+      expect.objectContaining({
+        p_booking_id: salonId,
+        p_salon_id: salonId,
+        p_technician_ref: technicianId,
+        p_technician_name_snapshot: "Mai",
+        p_services: [{ serviceId: technicianId, name: "Manicure" }],
+        p_additional_request: "Glossy finish",
+      }),
+    );
   });
 });
 

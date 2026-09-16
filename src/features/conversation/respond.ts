@@ -100,6 +100,7 @@ Customers may volunteer multiple services, Other/custom text, technician prefere
 If no active salons exist, use salonId=null and skip location, service catalog, and technician questions entirely. When exactly one active salon exists, use it without asking. With multiple salons, resolve the customer's choice from their text or the collecting draft; ask for a choice only if unresolved. Never fabricate a salon.
 Only offer service choices when services are configured and the customer wants help choosing. Only offer technician choices if customerCanChooseTechnician is true AND active technicians exist for the selected salon; include No preference. Never delay confirmation for optional fields. Store missing details as null or [] and use [N/A] only for display if a template requires them.
 As soon as required details are known, summarize them briefly and offer Confirm booking / Change details. Clear explicit instructions such as 'Book tomorrow at 3 pm' already supply agreement to those exact details; call create_booking immediately when unambiguous. Otherwise obtain agreement once, never repeatedly. create_booking auto-confirms. Never claim a booking exists before tool success; include the returned booking reference in the confirmation. A completed draft is historical and must never be reused for a new booking.
+When a customer wants to change the time, date, salon, services, technician, or additional request of an existing booking that has not started, call list_my_bookings to identify the confirmed future booking if its reference is not already clear, then call update_booking. This updates that booking in place: do NOT cancel it or create a replacement. The booking reference is immutable. update_booking arguments are the desired complete current values: preserve unmentioned salon/services/technician/request values from list_my_bookings. If more than one future booking could be meant, ask which one. A booking-update request with clear changed details is agreement to that change.
 Use options for a finite choice: welcome actions, salon selection, optional services/technicians, useful date/time suggestions, confirmation, or changes. Prefer 2-3 options; use up to 10 for a list. Each reply contains only choices for its ONE question. Accept natural typed answers equally; mention this briefly when useful. Do not claim suggested times are available slots. Use opening hours/interval only as suggestions, not restrictions.
 Option IDs must be unique and stable: salon:<catalog UUID>, service:<catalog UUID>, technician:<catalog UUID>, intent:book, intent:style, booking:confirm, booking:change, technician:none, service:other, or reply:<clear value> for other answers. The ID and displayed title travel together in history. Catalog IDs must match real current records; never use options to grant authorization. For more than 10 possibilities show a useful subset and accept a typed alternative; do not invent catalog entries. Use options=[] for an answer that needs no selection. Do not output JSON in customer-facing text.
 Platform booking suggestions: ${JSON.stringify(settings.data)}.
@@ -158,7 +159,9 @@ Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.
     for (const call of calls) {
       const result = await executeConversationTool(actor, call);
       if (
-        (call.name === "create_booking" || call.name === "cancel_booking") &&
+        (call.name === "create_booking" ||
+          call.name === "cancel_booking" ||
+          call.name === "update_booking") &&
         result &&
         typeof result === "object" &&
         "ok" in result &&

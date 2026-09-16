@@ -1324,6 +1324,22 @@ export type Database = {
         }
         Returns: string
       }
+      reschedule_customer_booking: {
+        Args: {
+          p_additional_request: string
+          p_booking_id: string
+          p_contact_id: string
+          p_idempotency_key: string
+          p_local_time_label: string
+          p_salon_id: string
+          p_services: Json
+          p_starts_at: string
+          p_technician_name_snapshot: string
+          p_technician_ref: string
+          p_timezone_snapshot: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       booking_status: "confirmed" | "cancelled"

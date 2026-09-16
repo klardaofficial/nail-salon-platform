@@ -100,6 +100,41 @@ const customerTools: FunctionTool[] = [
   },
   {
     type: "function",
+    name: "update_booking",
+    description:
+      "Update the appointment time, salon, services, technician, or additional request of this customer's own confirmed future booking in place. It preserves the booking reference; it never cancels and recreates the booking.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        bookingId: { type: "string", format: "uuid" },
+        salonId: nullableUuid,
+        startsAt: { type: "string", format: "date-time" },
+        services: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { serviceId: nullableUuid, name: { type: "string" } },
+            required: ["serviceId", "name"],
+            additionalProperties: false,
+          },
+        },
+        technicianRef: nullableUuid,
+        additionalRequest: nullableString,
+      },
+      required: [
+        "bookingId",
+        "salonId",
+        "startsAt",
+        "services",
+        "technicianRef",
+        "additionalRequest",
+      ],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
     name: "request_style_preview",
     description:
       "Generate up to three nail-style previews from the image sent in the current chat.",
@@ -463,7 +498,7 @@ async function listCustomerBookings(actor: ConversationActor) {
   const { data, error } = await createSupabaseAdminClient()
     .from("bookings")
     .select(
-      "id,starts_at,local_time_label,status,salon:salons(name),booking_services(service_name_snapshot)",
+      "id,salon_id,technician_ref,additional_request,starts_at,local_time_label,status,salon:salons(name),booking_services(service_id,service_name_snapshot)",
     )
     .eq("contact_id", actor.contactId)
     .order("starts_at", { ascending: false })
@@ -545,6 +580,215 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
     }
   }
   return { ok: true, bookingId: values.bookingId, status: "cancelled" };
+}
+
+async function updateBooking(actor: ConversationActor, raw: unknown, callId: string) {
+  const values = z
+    .object({
+      bookingId: z.uuid(),
+      salonId: z.uuid().nullable(),
+      startsAt: z.iso.datetime({ offset: true }),
+      services: z.array(serviceItemSchema).max(20),
+      technicianRef: z.uuid().nullable(),
+      additionalRequest: z.string().max(1000).nullable(),
+    })
+    .parse(raw);
+  const start = new Date(values.startsAt);
+  if (start.getTime() <= Date.now()) throw new Error("booking_time_must_be_in_future");
+
+  const supabase = createSupabaseAdminClient();
+  const [before, settings, salons] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("id,starts_at,business_id,technician_ref,salon:salons(name)")
+      .eq("id", values.bookingId)
+      .eq("contact_id", actor.contactId)
+      .maybeSingle(),
+    supabase.from("platform_settings").select("platform_timezone").eq("singleton", true).single(),
+    supabase
+      .from("salons")
+      .select("id,business_id,name,customer_can_choose_technician")
+      .eq("active", true)
+      .is("deleted_at", null),
+  ]);
+  if (before.error) throw before.error;
+  if (settings.error) throw settings.error;
+  if (salons.error) throw salons.error;
+  if (!before.data) return { ok: false, error: "booking_not_reschedulable" };
+  const existingBooking = before.data;
+  const activeSalons = salons.data.filter(
+    (salon) => salon.business_id === existingBooking.business_id,
+  );
+  const salon = values.salonId
+    ? activeSalons.find((item) => item.id === values.salonId)
+    : activeSalons.length === 1
+      ? activeSalons[0]
+      : null;
+  if (values.salonId && !salon) throw new Error("salon_is_not_active");
+  if (!salon && activeSalons.length > 1) throw new Error("salon_selection_required");
+
+  let technicianRef = salon?.customer_can_choose_technician ? values.technicianRef : null;
+  let technicianName: string | null = null;
+  let technicianWaId: string | null = null;
+  if (technicianRef) {
+    const technician = await supabase
+      .from("technicians")
+      .select("display_name,wa_id,salon_id,active")
+      .eq("id", technicianRef)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (technician.error) throw technician.error;
+    if (technician.data && technician.data.salon_id !== salon?.id) technicianRef = null;
+    if (technician.data && technician.data.salon_id === salon?.id && technician.data.active) {
+      technicianName = technician.data.display_name;
+      technicianWaId = technician.data.wa_id;
+    }
+  }
+  const serviceIds = values.services.flatMap((service) =>
+    service.serviceId ? [service.serviceId] : [],
+  );
+  const knownServices = serviceIds.length
+    ? await supabase
+        .from("services")
+        .select("id,name,salon_id")
+        .in("id", serviceIds)
+        .eq("active", true)
+        .is("deleted_at", null)
+    : { data: [], error: null };
+  if (knownServices.error) throw knownServices.error;
+  const known = new Map(
+    (knownServices.data ?? [])
+      .filter((service) => service.salon_id === salon?.id)
+      .map((service) => [service.id, service.name]),
+  );
+  const services = values.services.map((service) => ({
+    serviceId: service.serviceId && known.has(service.serviceId) ? service.serviceId : null,
+    name:
+      service.serviceId && known.has(service.serviceId)
+        ? known.get(service.serviceId)!
+        : service.name,
+  }));
+  const startsAt = formatConversationTime(start, settings.data.platform_timezone);
+  const { data: rescheduled, error } = await supabase.rpc("reschedule_customer_booking", {
+    p_booking_id: values.bookingId,
+    p_contact_id: actor.contactId,
+    p_salon_id: salon?.id ?? null,
+    p_starts_at: start.toISOString(),
+    p_timezone_snapshot: settings.data.platform_timezone,
+    p_local_time_label: startsAt,
+    p_technician_ref: technicianRef,
+    p_technician_name_snapshot: technicianName,
+    p_additional_request: values.additionalRequest,
+    p_services: services,
+    p_idempotency_key: `${actor.conversationId}:${callId}`,
+  });
+  if (error) throw error;
+  if (!rescheduled) return { ok: false, error: "booking_not_reschedulable" };
+
+  const oldTechnicianWaId =
+    existingBooking.technician_ref && existingBooking.technician_ref !== technicianRef
+      ? (
+          await supabase
+            .from("technicians")
+            .select("wa_id")
+            .eq("id", existingBooking.technician_ref)
+            .maybeSingle()
+        ).data?.wa_id
+      : null;
+  if (oldTechnicianWaId || technicianWaId) {
+    const [notificationSettings, contact] = await Promise.all([
+      supabase
+        .from("platform_settings")
+        .select("technician_booking_confirmed_template,technician_booking_cancelled_template")
+        .eq("singleton", true)
+        .single(),
+      supabase.from("contacts").select("display_name,wa_id").eq("id", actor.contactId).single(),
+    ]);
+    if (notificationSettings.error) throw notificationSettings.error;
+    if (contact.error) throw contact.error;
+    const oldSalonRelation = existingBooking.salon as unknown as
+      { name?: string } | { name?: string }[] | null;
+    const oldSalonName =
+      (Array.isArray(oldSalonRelation) ? oldSalonRelation[0]?.name : oldSalonRelation?.name) ??
+      "[N/A]";
+    const customer = contact.data.display_name || "[N/A]";
+    if (oldTechnicianWaId) {
+      const bodyParameters = [
+        oldSalonName,
+        customer,
+        contact.data.wa_id,
+        formatConversationTime(existingBooking.starts_at, settings.data.platform_timezone),
+        values.bookingId,
+      ];
+      const payload = notificationSettings.data.technician_booking_cancelled_template
+        ? {
+            kind: "template" as const,
+            name: notificationSettings.data.technician_booking_cancelled_template,
+            languageCode: templateLanguageCode(getServerEnv().BOT_LOCALE),
+            bodyParameters,
+          }
+        : {
+            kind: "text" as const,
+            text: await technicianNotificationText(
+              "cancelled",
+              bodyParameters,
+              await recipientLocale(oldTechnicianWaId, actor.transport),
+              actor.transport,
+            ),
+          };
+      await queueWhatsAppMessage({
+        transport: actor.transport,
+        recipientWaId: oldTechnicianWaId,
+        payload,
+        deduplicationKey: `booking:${values.bookingId}:technician:cancelled:update:${callId}`,
+      });
+    }
+    if (technicianWaId) {
+      const bodyParameters = [
+        salon?.name ?? "[N/A]",
+        customer,
+        contact.data.wa_id,
+        startsAt,
+        values.bookingId,
+      ];
+      const payload = notificationSettings.data.technician_booking_confirmed_template
+        ? {
+            kind: "template" as const,
+            name: notificationSettings.data.technician_booking_confirmed_template,
+            languageCode: templateLanguageCode(getServerEnv().BOT_LOCALE),
+            bodyParameters,
+          }
+        : {
+            kind: "text" as const,
+            text: await technicianNotificationText(
+              "confirmed",
+              bodyParameters,
+              await recipientLocale(technicianWaId, actor.transport),
+              actor.transport,
+            ),
+          };
+      await queueWhatsAppMessage({
+        transport: actor.transport,
+        recipientWaId: technicianWaId,
+        payload,
+        deduplicationKey: `booking:${values.bookingId}:technician:confirmed:update:${callId}`,
+      });
+    }
+  }
+  return {
+    ok: true,
+    bookingId: values.bookingId,
+    status: "rescheduled",
+    previousStartsAt: formatConversationTime(
+      existingBooking.starts_at,
+      settings.data.platform_timezone,
+    ),
+    salon: salon?.name ?? "[N/A]",
+    technician: technicianName ?? "[N/A]",
+    services,
+    additionalRequest: values.additionalRequest,
+    startsAt,
+  };
 }
 
 async function requestPreview(actor: ConversationActor, raw: unknown, callId: string) {
@@ -857,6 +1101,8 @@ async function runTool(actor: ConversationActor, call: ResponseFunctionToolCall,
       return listCustomerBookings(actor);
     case "cancel_booking":
       return cancelBooking(actor, args);
+    case "update_booking":
+      return updateBooking(actor, args, call.call_id);
     case "request_style_preview":
       return requestPreview(actor, args, call.call_id);
     case "owner_booking_summary":

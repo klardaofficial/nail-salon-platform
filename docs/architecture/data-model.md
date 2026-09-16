@@ -28,6 +28,8 @@ Bookings always belong to the singleton business, but `salon_id` is nullable whe
 
 Booking services keep names even after catalog removal. Technician name is snapshotted; `technician_ref` is a nullable UUID without a foreign key by design, so missing/stale staff never invalidates history or flexible booking. Soft deletion uses `active` and `deleted_at` for mutable catalog records.
 
+A customer booking update retains the existing confirmed future `bookings` row, including its immutable ID/reference and reporting identity. It updates appointment time labels/timezone snapshot, salon, service snapshots, technician snapshot, and additional request, then appends a `booking.rescheduled` audit event containing prior/new scheduling and service values plus a conversation-call idempotency key. It never creates a cancelled row or replacement booking.
+
 High-volume indexes cover booking business/cohort, salon/start, customer history, technician/start, recent conversation messages, pending inbox/outbox work, and contact/day preview usage. The initial migration enables RLS on all private tables and grants a platform-admin policy; background services use the service role after trusted edge checks.
 
 No column stores image bytes. `conversation_messages.media_id`, `preview_requests.source_media_id`, and `output_media_ids` are provider identifiers. Raw base64 and temporary image files are prohibited.
