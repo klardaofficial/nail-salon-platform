@@ -14,4 +14,6 @@ Verified owners start with owner capabilities; technicians start with assigned-b
 
 Inngest concurrency serializes events by WA ID. Provider IDs are unique in history, inbox events are unique, tool calls are unique by conversation/call ID, and booking inserts use a conversation/call idempotency key. The single contextual reply uses an event-specific outbox key. Provider failures use the latest AI-written unavailable text, or a language-neutral status when none exists. If booking/cancellation already succeeded but the final model reply fails, a neutral receipt retains the successful booking reference.
 
+Saving inbound history does not mark the event complete. A retry with existing history resumes reply generation when no event-specific reply exists; if a reply is already queued, it reuses that payload and retries dispatch without calling AI again. Completion writes must succeed before the processor reports success. Salon context reads `salons.booking_interval_minutes`; the platform-level fallback is `platform_settings.default_booking_interval_minutes`.
+
 The app never persists image bytes. Supporting notification/caption generation uses numeric AI usage instrumentation; localization failures use neutral status plus original details. Failed dispatch/delivery follows the existing durable recovery paths. See [ADR 0010](../adr/0010-web-whatsapp-simulator.md).

@@ -48,4 +48,6 @@ Deferred: owner/technician web dashboards (the simulator is an admin testing too
 
 CHAT-01 acceptance: ask at most one focused question per reply, prefer AI-labelled interactive selections for finite choices, and accept typed alternatives. Skip unconfigured locations/services/technicians and do not delay confirmation for optional fields. Clear instructions to book supplied unambiguous details count as agreement; otherwise summarize and confirm once. Missing salon/technician details use [N/A] in required display fields, while storage uses null.
 
+CHAT-02 / SIM-02 recovery acceptance: an inbound history row alone never means processing succeeded. Retrying an unfinished event resumes reply generation, or redispatches its existing durable reply without another AI call. Completed events and event-specific reply keys prevent duplicate replies across real and simulated channels.
+
 OWNER-01 / TECH-01 acceptance: greetings explain verified staff capabilities in the person's language. Staff booking answers must use current database tools; summaries aggregate the complete authorized set, not a paginated subset. Date basis distinguishes scheduled appointments from bookings received. Owners see business records; technicians see only their own assignments.

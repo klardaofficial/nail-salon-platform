@@ -3,7 +3,10 @@ import "server-only";
 import { createNaturalReply } from "./respond";
 import type { ConversationActor } from "./tools";
 import { queueInteractiveChoices, queueWhatsAppMessage } from "@/features/messaging/outbox";
-import type { NormalizedWhatsAppEvent } from "@/integrations/whatsapp/types";
+import type {
+  NormalizedWhatsAppEvent,
+  OutboundWhatsAppPayload,
+} from "@/integrations/whatsapp/types";
 import { getBotLocale, isWhatsAppSimulatorEnabled } from "@/lib/config/env";
 import { unavailableFallback } from "@/lib/bot/language";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -31,6 +34,13 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     .single();
   if (inboxResult.error) throw inboxResult.error;
   if (inboxResult.data.processed_at) return { duplicate: true };
+  async function markProcessed() {
+    const result = await supabase
+      .from("whatsapp_inbox_events")
+      .update({ processed_at: new Date().toISOString(), failure_code: null })
+      .eq("id", inboxEventId);
+    if (result.error) throw result.error;
+  }
   const event = inboxResult.data.payload as NormalizedWhatsAppEvent;
   if (event.kind === "message" && event.simulated && !isWhatsAppSimulatorEnabled()) {
     throw new Error("simulator_disabled");
@@ -38,10 +48,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
 
   if (event.kind === "status") {
     await processStatus(event);
-    await supabase
-      .from("whatsapp_inbox_events")
-      .update({ processed_at: new Date().toISOString() })
-      .eq("id", inboxEventId);
+    await markProcessed();
     return { processed: "status" };
   }
 
@@ -74,6 +81,12 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     .single();
   if (conversationResult.error) throw conversationResult.error;
   const conversationId = conversationResult.data.id;
+  const replyTarget = {
+    transport,
+    conversationId,
+    recipientWaId: event.contactWaId,
+    deduplicationKey: `conversation:${conversationId}:reply:${event.providerEventId}`,
+  } as const;
   const locale = conversationResult.data.reply_locale ?? getBotLocale();
   const messageText = normalizedMessageText(event);
   const historyResult = await supabase
@@ -98,11 +111,21 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     .maybeSingle();
   if (historyResult.error) throw historyResult.error;
   if (!historyResult.data) {
-    await supabase
-      .from("whatsapp_inbox_events")
-      .update({ processed_at: new Date().toISOString() })
-      .eq("id", inboxEventId);
-    return { duplicate: true };
+    // Saving inbound history is not proof that an earlier attempt queued its reply.
+    const existingReply = await supabase
+      .from("message_outbox")
+      .select("payload")
+      .eq("deduplication_key", replyTarget.deduplicationKey)
+      .maybeSingle();
+    if (existingReply.error) throw existingReply.error;
+    if (existingReply.data) {
+      await queueWhatsAppMessage({
+        ...replyTarget,
+        payload: existingReply.data.payload as OutboundWhatsAppPayload,
+      });
+      await markProcessed();
+      return { duplicate: true };
+    }
   }
 
   const [owners, technicians] = await Promise.all([
@@ -139,12 +162,14 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     locale,
   };
   const reply = await createNaturalReply(actor);
-  const replyTarget = {
-    transport,
-    conversationId,
-    recipientWaId: event.contactWaId,
-    deduplicationKey: `conversation:${conversationId}:reply:${event.providerEventId}`,
-  } as const;
+  const localeResult = await supabase
+    .from("conversations")
+    .update({
+      reply_locale: reply?.locale ?? locale,
+      ...(reply ? { reply_unavailable_text: reply.unavailableText } : {}),
+    })
+    .eq("id", conversationId);
+  if (localeResult.error) throw localeResult.error;
   if (reply?.options.length) {
     await queueInteractiveChoices({
       ...replyTarget,
@@ -165,18 +190,6 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
       },
     });
   }
-  const localeResult = await supabase
-    .from("conversations")
-    .update({
-      reply_locale: reply?.locale ?? locale,
-      ...(reply ? { reply_unavailable_text: reply.unavailableText } : {}),
-    })
-    .eq("id", conversationId);
-  if (localeResult.error) throw localeResult.error;
-
-  await supabase
-    .from("whatsapp_inbox_events")
-    .update({ processed_at: new Date().toISOString(), failure_code: null })
-    .eq("id", inboxEventId);
+  await markProcessed();
   return { processed: "message" };
 }

@@ -51,6 +51,14 @@ const input = {
   message: { kind: "text" as const, text: "Hallo" },
 };
 const secret = "synthetic-signing-key";
+const naturalReply = {
+  locale: "en",
+  text: "Hello! How can I help?",
+  unavailableText: "Please try again shortly.",
+  buttonLabel: "Choose",
+  sectionTitle: "Options",
+  options: [],
+};
 
 function setTable(table: string, data: unknown) {
   tables.set(table, { data, error: null });
@@ -308,6 +316,67 @@ describe("coexisting real and simulated conversations", () => {
     mocks.enabled = false;
     await expect(processWhatsAppInboxEvent("inbox")).rejects.toThrow("simulator_disabled");
     expect(writes("contacts")).toEqual([]);
+  });
+  it.each([false, true])(
+    "retries a failed reply after inbound history was already saved (simulated=%s)",
+    async (simulated) => {
+      conversationFixture(simulated);
+      mocks.reply.mockRejectedValueOnce(new Error("context_query_failed"));
+      await expect(processWhatsAppInboxEvent("inbox")).rejects.toThrow("context_query_failed");
+      expect(writes("whatsapp_inbox_events", "update")).toEqual([]);
+      expect(writes("message_outbox")).toEqual([]);
+
+      setTable("conversation_messages", null);
+      setTable("message_outbox", null);
+      mocks.reply.mockImplementationOnce(async () => {
+        setTable("message_outbox", { id: "outbox", state: "pending" });
+        return naturalReply;
+      });
+      expect(await processWhatsAppInboxEvent("inbox")).toEqual({ processed: "message" });
+      expect(mocks.reply).toHaveBeenCalledTimes(2);
+      expect(writes("message_outbox")).toHaveLength(1);
+      expect(writes("message_outbox")[0]).toMatchObject({
+        payload: { text: naturalReply.text, transport: simulated ? "simulator" : "whatsapp" },
+      });
+      expect(writes("whatsapp_inbox_events", "update")).toEqual([
+        { processed_at: expect.any(String), failure_code: null },
+      ]);
+    },
+  );
+  it("redispatches an already queued reply on retry without another AI call", async () => {
+    conversationFixture(true);
+    mocks.dispatch.mockRejectedValueOnce(new Error("dispatch_unavailable"));
+    await expect(processWhatsAppInboxEvent("inbox")).rejects.toThrow("dispatch_unavailable");
+    expect(writes("whatsapp_inbox_events", "update")).toEqual([]);
+    const queued = writes("message_outbox")[0] as { payload: unknown };
+
+    setTable("conversation_messages", null);
+    setTable("message_outbox", { id: "outbox", state: "pending", payload: queued.payload });
+    expect(await processWhatsAppInboxEvent("inbox")).toEqual({ duplicate: true });
+    expect(mocks.reply).toHaveBeenCalledTimes(1);
+    expect(writes("message_outbox")).toEqual([queued, queued]);
+    expect(mocks.dispatch).toHaveBeenLastCalledWith({
+      name: "whatsapp/message.queued",
+      data: { outboxId: "outbox" },
+    });
+    expect(writes("whatsapp_inbox_events", "update")).toHaveLength(1);
+  });
+  it("skips a fully processed event without regenerating or requeueing its reply", async () => {
+    conversationFixture(true);
+    setTable("whatsapp_inbox_events", { processed_at: "2026-09-16T00:00:00Z" });
+    expect(await processWhatsAppInboxEvent("inbox")).toEqual({ duplicate: true });
+    expect(mocks.reply).not.toHaveBeenCalled();
+    expect(writes("message_outbox")).toEqual([]);
+  });
+  it("does not report completion when the final inbox update fails", async () => {
+    conversationFixture(true);
+    const error = { code: "08006", message: "database_unavailable" };
+    mocks.reply.mockImplementationOnce(async () => {
+      tables.set("whatsapp_inbox_events", { data: null, error });
+      return naturalReply;
+    });
+    await expect(processWhatsAppInboxEvent("inbox")).rejects.toEqual(error);
+    expect(writes("message_outbox")).toHaveLength(1);
   });
   it.each([2, 5])(
     "delivers AI-written foreign-language controls as one reply (%i options)",

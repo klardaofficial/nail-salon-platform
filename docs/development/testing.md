@@ -22,6 +22,8 @@ Observability acceptance covers admin gates on inbox/activity/log/CSV routes, da
 
 Simulator tests cover admin/flag gates, identity grouping and spoof rejection, signed ingestion and duplicate/recovery behavior, channel separation, technician notification routing, durable simulated delivery after disabling, and real delivery while enabled. UI acceptance covers customer add/remove/reopen, database staff windows, independent message composers, interactive replies, polling/error states, and browser persistence. Use [the browser simulator](local-setup.md#browser-whatsapp-simulator) for manual booking/owner/technician scenarios; these mutate the configured development database and use OpenAI for natural conversations.
 
+Conversation recovery regressions cover failure after saving inbound history on both channels, resuming the reply, redispatching an existing reply without another AI call, skipping completed events, and propagating failed completion writes. Catalog coverage checks the salon interval column and its value in AI context. A controlled local simulator greeting was retried through Inngest and verified with completed OpenAI usage plus a captured interactive reply.
+
 When intentionally rebuilding the local database after a schema change, the operational commands are:
 
 ```bash

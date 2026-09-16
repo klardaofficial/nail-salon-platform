@@ -70,6 +70,7 @@ const salon = {
   name: "Mitte",
   timezone: "Europe/Berlin",
   customer_can_choose_technician: true,
+  booking_interval_minutes: 45,
   services: [],
   technicians: [],
 };
@@ -222,6 +223,12 @@ describe("unrestricted language and generated controls", () => {
     const catalog = JSON.parse(instructions.split("Active catalog JSON: ")[1].split("\n")[0]);
     expect(catalog[0].services).toEqual([{ id: "live", name: "Gel" }]);
     expect(catalog[0].technicians).toEqual([]);
+    expect(catalog[0].suggestedIntervalMinutes).toBe(45);
+    const columns = operations.find(
+      (operation) => operation.table === "salons" && operation.method === "select",
+    )?.args[0] as string;
+    expect(columns.split(",")).toContain("booking_interval_minutes");
+    expect(columns.split(",")).not.toContain("default_booking_interval_minutes");
   });
   it("uses the recipient language for supporting messages and handles unavailable AI", async () => {
     tables.set("conversations", { reply_locale: "ja" });

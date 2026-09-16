@@ -33,7 +33,7 @@ export async function createNaturalReply(actor: ConversationActor) {
     supabase
       .from("salons")
       .select(
-        "id,name,location_label,timezone,default_open_time,default_close_time,default_booking_interval_minutes,customer_can_choose_technician,services(id,name,description,active,deleted_at),technicians(id,display_name,active,deleted_at,technician_time_off(starts_at,ends_at))",
+        "id,name,location_label,timezone,default_open_time,default_close_time,booking_interval_minutes,customer_can_choose_technician,services(id,name,description,active,deleted_at),technicians(id,display_name,active,deleted_at,technician_time_off(starts_at,ends_at))",
       )
       .eq("active", true)
       .is("deleted_at", null),
@@ -70,7 +70,7 @@ export async function createNaturalReply(actor: ConversationActor) {
     location: salon.location_label,
     timezone: salon.timezone,
     openingHours: `${salon.default_open_time}-${salon.default_close_time}`,
-    suggestedIntervalMinutes: salon.default_booking_interval_minutes,
+    suggestedIntervalMinutes: salon.booking_interval_minutes,
     services: (salon.services ?? [])
       .filter((service) => service.active && !service.deleted_at)
       .map(({ id, name, description }) => ({ id, name, description })),

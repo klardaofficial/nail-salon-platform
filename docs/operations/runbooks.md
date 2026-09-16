@@ -8,6 +8,10 @@ Check Meta callback URL, GET verify token, app secret, Graph version, and 2xx ra
 
 Inspect `job_outbox` and `message_outbox` state, attempts, available time, and bounded error code. Inngest's two-minute recovery redispatches pending/failed rows. Verify `/api/inngest` signing key and function sync. Delivery retries reuse the saved WhatsApp media ID.
 
+For a silent local simulator, check that `http://localhost:3000/api/inngest` reports four functions and `http://localhost:8288` is reachable. Trace the simulated inbox event through its job, AI usage and event-specific reply outbox row. An inbound history row with no AI usage or reply can indicate a context query failure before OpenAI. The salon interval column is `booking_interval_minutes`, while platform settings use `default_booking_interval_minutes`; selecting the platform column from salons fails even when no salons exist.
+
+After fixing a processing error, retry the original unfinished event through Inngest. If an older faulty retry already marked it processed without a reply, first verify the source, message, existing reply key and any tool side effects. Reopen only the affected local test event and redispatch its original inbox/job IDs. Do not delete history, reset the database, or blindly replay booking requests.
+
 ## Duplicate behavior
 
 Compare unique provider event/message IDs, conversation/tool call IDs, and booking idempotency key. Do not delete unique constraints. A duplicate webhook returning 200 with no new work is normal.

@@ -4,6 +4,8 @@ Last reviewed: 2026-09-16.
 
 ## Implemented
 
+- Fixed silent simulator/customer replies caused by querying the platform interval column on salons. Unfinished inbox retries now resume after saved history, reuse and redispatch existing replies without another AI call, and propagate failed completion writes. The affected local greeting was recovered through Inngest and produced a captured AI-written interactive reply.
+
 - Adaptive conversation language without a language allowlist: BOT_LOCALE is a valid language-tag reference; AI generates contextual greetings and every WhatsApp option/list label. Admin greeting settings and English/German dictionaries are removed. Conversation language and AI-written outage text are retained per channel.
 - One focused booking question at a time, optional catalog/staff questions skipped, explicit complete booking requests confirmed immediately, null salon support when none is active, and [N/A] displays. Additive local migrations applied without resetting data; types regenerated.
 - Verified owner/technician greetings explain staff capabilities in their conversation language. Paginated scoped record tools and service-only SQL summaries provide current database results without page-limit truncation; staff tools recheck mappings. Ordinary notifications and preview captions use AI localization; approved Meta templates retain their provider contract.
@@ -33,7 +35,7 @@ Last reviewed: 2026-09-16.
 
 ## Verified locally
 
-- `pnpm check`: formatting, lint, TypeScript, all 89 application tests, and the production build pass, including unrestricted language/interactive replies, flexible bookings, staff query tools, and existing dashboard/inbox/reporting routes.
+- `pnpm check`: formatting, lint, TypeScript, all 94 application tests, and the production build pass, including conversation recovery, unrestricted language/interactive replies, flexible bookings, staff query tools, and existing dashboard/inbox/reporting routes.
 
 - `pnpm format:check`
 - `pnpm lint`
