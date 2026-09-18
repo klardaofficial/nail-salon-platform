@@ -22,24 +22,25 @@ import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
 import type { AdminIdentity } from "@/features/admin/contracts";
-import { apiMutation } from "@/lib/api/client";
-import { apiKeys } from "@/lib/api/keys";
+import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiKey, apiKeys } from "@/lib/api/keys";
 
 type Organization = { id: string; name: string; status: "active" | "archived" };
 
 export function OrganizationsClient() {
   const endpoint = "/api/admin/organizations";
-  const { data: admin } = useSWR<AdminIdentity>(apiKeys.adminIdentity);
+  const directoryKey = apiKey("organization-directory", endpoint);
+  const { data: admin } = useSWR<AdminIdentity>(apiKeys.adminIdentity, apiGet);
   const { mutate: mutateCache } = useSWRConfig();
   const canManage = Boolean(admin?.isSystemAdmin);
-  const { data, mutate } = useSWR<{ organizations: Organization[]; total: number }>(endpoint);
-  const { trigger, isMutating } = useSWRMutation(endpoint, apiMutation);
+  const { data } = useSWR<{ organizations: Organization[]; total: number }>(directoryKey, apiGet);
+  const { trigger, isMutating } = useSWRMutation(directoryKey, apiMutation);
   const [form] = Form.useForm();
   const [createOpen, setCreateOpen] = useState(false);
   const { message, modal } = App.useApp();
   async function lifecycle(id: string, archived: boolean) {
     await trigger({ method: "PATCH", body: { id, archived } });
-    await Promise.all([mutate(), mutateCache(apiKeys.organizations)]);
+    await mutateCache(apiKeys.organizations);
   }
   return (
     <Space orientation="vertical" size="large" style={{ width: "100%" }}>
@@ -141,7 +142,7 @@ export function OrganizationsClient() {
           onFinish={async ({ name }) => {
             await trigger({ method: "POST", body: { name } });
             form.resetFields();
-            await Promise.all([mutate(), mutateCache(apiKeys.organizations)]);
+            await mutateCache(apiKeys.organizations);
             setCreateOpen(false);
             message.success("Organization created");
           }}

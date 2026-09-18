@@ -6,8 +6,8 @@ import useSWR from "swr";
 import useSWRMutation from "swr/mutation";
 
 import type { AdminIdentity } from "@/features/admin/contracts";
-import { apiMutation } from "@/lib/api/client";
-import { apiKeys } from "@/lib/api/keys";
+import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiKey, apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
 type PasswordValues = {
@@ -20,8 +20,11 @@ export function AccountClient() {
   const [form] = Form.useForm<PasswordValues>();
   const { message } = App.useApp();
   const router = useRouter();
-  const { data: admin, mutate: mutateAdmin } = useSWR<AdminIdentity>(apiKeys.adminIdentity);
-  const { trigger, isMutating, error } = useSWRMutation("/api/admin/auth/password", apiMutation);
+  const { data: admin, mutate: mutateAdmin } = useSWR<AdminIdentity>(apiKeys.adminIdentity, apiGet);
+  const { trigger, isMutating, error } = useSWRMutation(
+    apiKey("admin-password", "/api/admin/auth/password"),
+    apiMutation,
+  );
 
   async function changePassword(values: PasswordValues) {
     await trigger({ method: "PATCH", body: values });

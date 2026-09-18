@@ -7,14 +7,17 @@ import { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
 import { apiMutation } from "@/lib/api/client";
-import { apiKeys } from "@/lib/api/keys";
+import { apiKey, apiKeys } from "@/lib/api/keys";
 
 type LoginValues = { email: string; password: string };
 
 export function LoginForm() {
   const router = useRouter();
   const { mutate } = useSWRConfig();
-  const { trigger, isMutating, error } = useSWRMutation("/api/admin/auth/login", apiMutation);
+  const { trigger, isMutating, error } = useSWRMutation(
+    apiKey("admin-login", "/api/admin/auth/login"),
+    apiMutation,
+  );
 
   async function onFinish(values: LoginValues) {
     await trigger({ method: "POST", body: values });

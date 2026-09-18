@@ -4,6 +4,15 @@ import { apiException, apiSuccess } from "@/lib/api/response";
 import { requireApiAdmin, requireSystemAdmin } from "@/lib/auth/api-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+const noStore = { headers: { "Cache-Control": "private, no-store" } };
+
+function simulatorEnabled(
+  settings: { simulator_enabled: boolean } | { simulator_enabled: boolean }[] | null,
+) {
+  const value = Array.isArray(settings) ? settings[0] : settings;
+  return Boolean(value?.simulator_enabled);
+}
+
 export async function GET(request: Request) {
   try {
     const guard = await requireApiAdmin();
@@ -24,15 +33,18 @@ export async function GET(request: Request) {
     if (!guard.admin.isSystemAdmin) query = query.in("id", guard.admin.organizationIds);
     const { data, count, error } = await query;
     if (error) throw error;
-    return apiSuccess({
-      organizations: data.map(({ settings, ...organization }) => ({
-        ...organization,
-        simulatorEnabled: Boolean(settings[0]?.simulator_enabled),
-      })),
-      page,
-      pageSize: limit,
-      total: count ?? 0,
-    });
+    return apiSuccess(
+      {
+        organizations: data.map(({ settings, ...organization }) => ({
+          ...organization,
+          simulatorEnabled: simulatorEnabled(settings),
+        })),
+        page,
+        pageSize: limit,
+        total: count ?? 0,
+      },
+      noStore,
+    );
   } catch (error) {
     return apiException(error);
   }

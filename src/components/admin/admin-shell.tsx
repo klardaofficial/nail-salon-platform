@@ -31,8 +31,8 @@ import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
 import type { AdminIdentity } from "@/features/admin/contracts";
-import { apiMutation } from "@/lib/api/client";
-import { apiKeys } from "@/lib/api/keys";
+import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiKey, apiKeys } from "@/lib/api/keys";
 
 const { Header, Content, Sider } = Layout;
 
@@ -56,13 +56,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
     data: admin,
     error: adminError,
     mutate: mutateAdmin,
-  } = useSWR<AdminIdentity>(apiKeys.adminIdentity);
+  } = useSWR<AdminIdentity>(apiKeys.adminIdentity, apiGet);
   const { mutate: mutateCache } = useSWRConfig();
   const { data: organizationData } = useSWR<{
     organizations: { id: string; name: string; status: string; simulatorEnabled: boolean }[];
-  }>(admin ? apiKeys.organizations : null);
+  }>(admin ? apiKeys.organizations : null, apiGet);
   const organizations = organizationData?.organizations ?? [];
-  const { trigger: logout, isMutating } = useSWRMutation("/api/admin/auth/logout", apiMutation);
+  const { trigger: logout, isMutating } = useSWRMutation(
+    apiKey("admin-logout", "/api/admin/auth/logout"),
+    apiMutation,
+  );
   const passwordChangeRequired = admin?.mustChangePassword ?? false;
   const organizationId = pathname.match(/^\/admin\/organizations\/([^/]+)/)?.[1] ?? null;
   const currentOrganization = organizations.find((item) => item.id === organizationId);

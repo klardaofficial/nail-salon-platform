@@ -5,8 +5,6 @@ import enUS from "antd/locale/en_US";
 import type { ReactNode } from "react";
 import { SWRConfig } from "swr";
 
-import { apiGet } from "@/lib/api/client";
-
 export function AdminProviders({ children }: { children: ReactNode }) {
   return (
     <ConfigProvider
@@ -28,7 +26,6 @@ export function AdminProviders({ children }: { children: ReactNode }) {
       <App>
         <SWRConfig
           value={{
-            fetcher: apiGet,
             revalidateOnFocus: false,
             shouldRetryOnError: false,
             dedupingInterval: 2_000,

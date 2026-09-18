@@ -34,6 +34,7 @@
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.116.0",
     "antd": "6.6.4",
+    "axios": "1.15.0",
     "date-fns": "4.4.0",
     "date-fns-tz": "3.2.0",
     "dayjs": "1.11.23",

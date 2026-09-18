@@ -27,6 +27,7 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 
 import type { DashboardData } from "@/features/analytics/types";
+import { apiGet } from "@/lib/api/client";
 import { apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 import { PlatformActivityClient } from "./platform-activity-client";
@@ -50,7 +51,7 @@ export function DashboardClient({
   const [source, setSource] = useState<"real" | "simulator" | "both">("real");
   const { data: organizationData } = useSWR<{
     organizations: { id: string; simulatorEnabled: boolean }[];
-  }>(apiKeys.organizations);
+  }>(apiKeys.organizations, apiGet);
   const simulatorEnabled = Boolean(
     organizationData?.organizations.find((item) => item.id === organizationId)?.simulatorEnabled,
   );
@@ -61,6 +62,7 @@ export function DashboardClient({
       range[1].format("YYYY-MM-DD"),
       simulatorEnabled ? source : "real",
     ),
+    apiGet,
   );
 
   function setPreset(start: Dayjs, end: Dayjs) {

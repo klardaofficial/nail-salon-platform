@@ -3,6 +3,9 @@
 import { Alert, Table, Tag } from "antd";
 import useSWR from "swr";
 
+import { apiGet } from "@/lib/api/client";
+import { apiKey } from "@/lib/api/keys";
+
 import { PageHeading } from "./page-heading";
 
 type Member = {
@@ -14,7 +17,12 @@ type Member = {
 
 export function OrganizationAccountsClient({ organizationId }: { organizationId: string }) {
   const { data, error, isLoading } = useSWR<{ members: Member[] }>(
-    `/api/admin/organizations/${organizationId}/accounts`,
+    apiKey(
+      "organization-accounts",
+      `/api/admin/organizations/${organizationId}/accounts`,
+      organizationId,
+    ),
+    apiGet,
   );
   const rows = (data?.members ?? []).map((item) => ({
     ...item,

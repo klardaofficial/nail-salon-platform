@@ -18,7 +18,8 @@ import { useState } from "react";
 import useSWR from "swr";
 import useSWRMutation from "swr/mutation";
 
-import { apiMutation } from "@/lib/api/client";
+import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiKey, apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
 type Account = {
@@ -34,11 +35,13 @@ type Organization = { id: string; name: string; status: string };
 
 export function SystemAccountsClient() {
   const endpoint = "/api/admin/system/accounts";
-  const { data, error, isLoading, mutate } = useSWR<{ accounts: Account[] }>(endpoint);
+  const accountsKey = apiKey("system-accounts", endpoint);
+  const { data, error, isLoading } = useSWR<{ accounts: Account[] }>(accountsKey, apiGet);
   const { data: organizations } = useSWR<{ organizations: Organization[] }>(
-    "/api/admin/organizations",
+    apiKeys.organizations,
+    apiGet,
   );
-  const { trigger, isMutating } = useSWRMutation(endpoint, apiMutation);
+  const { trigger, isMutating } = useSWRMutation(accountsKey, apiMutation);
   const [createForm] = Form.useForm();
   const [resetForm] = Form.useForm();
   const [createOpen, setCreateOpen] = useState(false);
@@ -46,7 +49,6 @@ export function SystemAccountsClient() {
   const { message } = App.useApp();
   async function action(body: Record<string, unknown>) {
     await trigger({ method: "PATCH", body });
-    await mutate();
   }
   return (
     <>
@@ -169,7 +171,6 @@ export function SystemAccountsClient() {
           onFinish={async (values) => {
             await trigger({ method: "POST", body: values });
             createForm.resetFields();
-            await mutate();
             setCreateOpen(false);
             message.success("Account created; an initial password change is required");
           }}

@@ -26,6 +26,7 @@ import type {
   InboxThread,
   InboxThreads,
 } from "@/features/inbox/contracts";
+import { apiGet } from "@/lib/api/client";
 import { apiKeys } from "@/lib/api/keys";
 import { ChatMessageBubble } from "./chat-message";
 import { PageHeading } from "./page-heading";
@@ -60,6 +61,7 @@ function Conversation({
         if (page && !previous?.nextCursor) return null;
         return apiKeys.inboxMessages(organizationId, channel, thread.waId, previous?.nextCursor);
       },
+      apiGet,
       { refreshInterval: 10000, revalidateAll: true },
     );
   const messages = useMemo(
@@ -190,12 +192,13 @@ export function InboxClient({
   const [selected, setSelected] = useState<InboxThread | null>(null);
   const { data: organizationData } = useSWR<{
     organizations: { id: string; simulatorEnabled: boolean }[];
-  }>(apiKeys.organizations);
+  }>(apiKeys.organizations, apiGet);
   const simulatorEnabled = Boolean(
     organizationData?.organizations.find((item) => item.id === organizationId)?.simulatorEnabled,
   );
   const { data, error, isLoading, isValidating, mutate } = useSWR<InboxThreads>(
     apiKeys.inbox(organizationId, channel, search, role, page),
+    apiGet,
     { refreshInterval: 10000 },
   );
   const selectedThread =

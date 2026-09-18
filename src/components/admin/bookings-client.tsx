@@ -5,6 +5,9 @@ import { Alert, Button, Select, Skeleton, Table, Tag } from "antd";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { apiGet } from "@/lib/api/client";
+import { apiKey } from "@/lib/api/keys";
+
 import { PageHeading } from "./page-heading";
 
 type BookingRow = {
@@ -25,8 +28,8 @@ export function BookingsClient({ organizationId }: { organizationId: string }) {
   const [source, setSource] = useState("real");
   const base = `/api/admin/organizations/${organizationId}/bookings`;
   const query = new URLSearchParams({ source, ...(status ? { status } : {}) }).toString();
-  const key = `${base}?${query}`;
-  const { data, error, isLoading } = useSWR<BookingResponse>(key);
+  const key = apiKey("bookings", `${base}?${query}`, organizationId, source, status);
+  const { data, error, isLoading } = useSWR<BookingResponse>(key, apiGet);
 
   return (
     <>

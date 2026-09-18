@@ -25,6 +25,7 @@ import type {
   AIUsageLogs,
   PlatformActivity,
 } from "@/features/analytics/platform-types";
+import { apiGet } from "@/lib/api/client";
 import { apiKeys } from "@/lib/api/keys";
 
 const Line = dynamic(() => import("@ant-design/charts").then((module) => module.Line), {
@@ -88,6 +89,7 @@ function UsageLog({
   const [kind, setKind] = useState("all");
   const { data, error, isLoading, mutate } = useSWR<AIUsageLogs>(
     apiKeys.aiUsage(organizationId, from, to, channel, page, kind),
+    apiGet,
     { refreshInterval: 15000 },
   );
   return (
@@ -194,6 +196,7 @@ export function PlatformActivityClient({
   const [channel, setChannel] = useState<ActivityChannel>("whatsapp");
   const { data, error, isLoading, mutate } = useSWR<PlatformActivity>(
     apiKeys.platform(organizationId, from, to, simulatorEnabled ? channel : "whatsapp"),
+    apiGet,
     { refreshInterval: 15000 },
   );
   const messageTrend =

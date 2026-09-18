@@ -1,6 +1,9 @@
 "use client";
 
+import axios from "axios";
+
 import type { ApiFailure, ApiSuccess } from "@/lib/api/response";
+import type { ApiKey } from "@/lib/api/keys";
 
 export class ApiClientError extends Error {
   constructor(
@@ -13,14 +16,17 @@ export class ApiClientError extends Error {
   }
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const payload = (await response.json().catch(() => null)) as ApiSuccess<T> | ApiFailure | null;
+const apiClient = axios.create({
+  headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+  validateStatus: () => true,
+});
 
-  if (!response.ok || !payload || "error" in payload) {
+function parseResponse<T>(payload: ApiSuccess<T> | ApiFailure | null, status: number): T {
+  if (status < 200 || status >= 300 || !payload || "error" in payload) {
     const failure = payload && "error" in payload ? payload.error : null;
     throw new ApiClientError(
       failure?.message ?? "The request could not be completed",
-      response.status,
+      status,
       failure?.code ?? "request_failed",
       failure?.details,
     );
@@ -29,21 +35,19 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return payload.data;
 }
 
-export async function apiGet<T>(url: string): Promise<T> {
-  return parseResponse<T>(
-    await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" }),
-  );
+export async function apiGet<T>(key: ApiKey): Promise<T> {
+  const response = await apiClient.get<ApiSuccess<T> | ApiFailure>(key[1]);
+  return parseResponse(response.data, response.status);
 }
 
 export async function apiMutation<T, TBody = unknown>(
-  url: string,
+  key: ApiKey,
   { arg }: { arg: { method?: "POST" | "PATCH" | "DELETE"; body?: TBody } },
 ): Promise<T> {
-  return parseResponse<T>(
-    await fetch(url, {
-      method: arg.method ?? "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: arg.body === undefined ? undefined : JSON.stringify(arg.body),
-    }),
-  );
+  const response = await apiClient.request<ApiSuccess<T> | ApiFailure>({
+    url: key[1],
+    method: arg.method ?? "POST",
+    data: arg.body,
+  });
+  return parseResponse(response.data, response.status);
 }

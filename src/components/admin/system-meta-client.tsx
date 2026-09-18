@@ -5,7 +5,8 @@ import { useEffect } from "react";
 import useSWR from "swr";
 import useSWRMutation from "swr/mutation";
 
-import { apiMutation } from "@/lib/api/client";
+import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiKey } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
 type RootMeta = {
@@ -19,8 +20,9 @@ type RootMeta = {
 
 export function SystemMetaClient() {
   const endpoint = "/api/admin/system/meta";
-  const { data, error, mutate } = useSWR<RootMeta>(endpoint);
-  const { trigger, isMutating } = useSWRMutation(endpoint, apiMutation);
+  const metaKey = apiKey("root-meta", endpoint);
+  const { data, error } = useSWR<RootMeta>(metaKey, apiGet);
+  const { trigger, isMutating } = useSWRMutation(metaKey, apiMutation);
   const [form] = Form.useForm();
   const { message } = App.useApp();
   useEffect(() => {
@@ -46,7 +48,6 @@ export function SystemMetaClient() {
               layout="vertical"
               onFinish={async (values) => {
                 await trigger({ method: "PATCH", body: values });
-                await mutate();
                 message.success("Root Meta settings saved; inherited validations were invalidated");
               }}
             >

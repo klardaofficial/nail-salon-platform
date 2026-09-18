@@ -34,7 +34,8 @@ import {
   type SimulatorMessagesResponse,
   type SimulatorSendInput,
 } from "@/features/simulator/contracts";
-import { apiMutation } from "@/lib/api/client";
+import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiKey } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 import { ChatMessageBubble } from "./chat-message";
 import styles from "./simulator.module.css";
@@ -84,11 +85,17 @@ function ChatWindow({
 }) {
   const base = `/api/admin/organizations/${organizationId}/simulator`;
   const { data, error, isLoading, mutate } = useSWR<SimulatorMessagesResponse>(
-    `${base}/messages?waId=${encodeURIComponent(actor.waId)}`,
+    apiKey(
+      "simulator-messages",
+      `${base}/messages?waId=${encodeURIComponent(actor.waId)}`,
+      organizationId,
+      actor.waId,
+    ),
+    apiGet,
     { refreshInterval: 2000 },
   );
   const { trigger, isMutating } = useSWRMutation(
-    `${base}/messages`,
+    apiKey("simulator-send", `${base}/messages`, organizationId, actor.waId),
     apiMutation<{ providerEventId: string }, SimulatorSendInput>,
   );
   const [draft, setDraft] = useState("");
@@ -256,7 +263,8 @@ function ChatWindow({
 export function SimulatorClient({ organizationId }: { organizationId: string }) {
   const base = `/api/admin/organizations/${organizationId}/simulator`;
   const { data, error, isLoading, isValidating, mutate } = useSWR<SimulatorActorsResponse>(
-    `${base}/actors`,
+    apiKey("simulator-actors", `${base}/actors`, organizationId),
+    apiGet,
     { refreshInterval: 10000 },
   );
   const [adding, setAdding] = useState(false);

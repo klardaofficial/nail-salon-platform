@@ -20,7 +20,7 @@ import {
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { useState } from "react";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 import useSWRMutation from "swr/mutation";
 
 import {
@@ -29,7 +29,8 @@ import {
   type ResourceName,
   type ResourceResponse,
 } from "@/features/admin/resources";
-import { apiMutation } from "@/lib/api/client";
+import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiKey } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
 dayjs.extend(customParseFormat);
@@ -71,13 +72,18 @@ export function ResourceManager({
   const [editing, setEditing] = useState<AdminResourceItem | null>(null);
   const [open, setOpen] = useState(false);
   const resourceEndpoint = endpoint(resource, organizationId);
-  const { data, error, isLoading } = useSWR<ResourceResponse>(resourceEndpoint);
-  const { data: salons } = useSWR<ResourceResponse>(endpoint("salons", organizationId));
-  const {
-    trigger,
-    isMutating,
-    error: mutationError,
-  } = useSWRMutation(resourceEndpoint, apiMutation);
+  const resourceKey = apiKey(
+    `organization-${resource}`,
+    resourceEndpoint,
+    organizationId,
+    resource,
+  );
+  const { data, error, isLoading } = useSWR<ResourceResponse>(resourceKey, apiGet);
+  const { data: salons } = useSWR<ResourceResponse>(
+    apiKey("organization-salons", endpoint("salons", organizationId), organizationId),
+    apiGet,
+  );
+  const { trigger, isMutating, error: mutationError } = useSWRMutation(resourceKey, apiMutation);
 
   function showCreate() {
     setEditing(null);
@@ -97,14 +103,12 @@ export function ResourceManager({
       method: editing ? "PATCH" : "POST",
       body: { ...requestValues(values), ...(editing ? { id: editing.id } : {}) },
     });
-    await mutate(resourceEndpoint);
     setOpen(false);
     message.success(`${definition.singular} ${editing ? "updated" : "created"}`);
   }
 
   async function deactivate(item: AdminResourceItem) {
     await trigger({ method: "DELETE", body: { id: item.id } });
-    await mutate(resourceEndpoint);
     message.success(`${definition.singular} deactivated`);
   }
 

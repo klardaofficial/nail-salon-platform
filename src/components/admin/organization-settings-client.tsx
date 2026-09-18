@@ -21,8 +21,8 @@ import { useEffect, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
-import { apiMutation } from "@/lib/api/client";
-import { apiKeys } from "@/lib/api/keys";
+import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiKey, apiKeys } from "@/lib/api/keys";
 import { languageOptions } from "@/lib/bot/language";
 import { timeZoneOptions } from "@/lib/timezones";
 import { PageHeading } from "./page-heading";
@@ -52,12 +52,12 @@ type SettingsResponse = {
 };
 
 export function OrganizationSettingsClient({ organizationId }: { organizationId: string }) {
-  const endpoint = apiKeys.organizationSettings(organizationId);
-  const { data, error, mutate } = useSWR<SettingsResponse>(endpoint);
+  const settingsKey = apiKeys.organizationSettings(organizationId);
+  const { data, error, mutate } = useSWR<SettingsResponse>(settingsKey, apiGet);
   const { mutate: mutateCache } = useSWRConfig();
-  const { trigger, isMutating } = useSWRMutation(endpoint, apiMutation);
+  const { trigger, isMutating } = useSWRMutation(settingsKey, apiMutation);
   const { trigger: validate, isMutating: validating } = useSWRMutation(
-    `/api/admin/organizations/${organizationId}/provider-validation`,
+    apiKey("provider-validation", `/api/admin/organizations/${organizationId}/provider-validation`),
     apiMutation,
   );
   const [form] = Form.useForm();
@@ -111,7 +111,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
         },
       },
     });
-    await Promise.all([mutate(), mutateCache(apiKeys.organizations)]);
+    await mutateCache(apiKeys.organizations);
     message.success("Organization settings saved");
   }
 
