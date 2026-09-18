@@ -50,8 +50,8 @@ type SettingsResponse = {
     cancelledTemplate: string | null;
     openai: {
       overrideConfigured: boolean;
-      chatModel: string;
-      imageModel: string;
+      chatModel: string | null;
+      imageModel: string | null;
       pricing: Record<string, AIPricing>;
       effective: {
         source: "root" | "organization" | "none";
@@ -156,8 +156,8 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
     simulatorForm.setFieldsValue({simulatorEnabled: data.settings.simulator_enabled});
     openaiForm.setFieldsValue({
       apiKey: null,
-      chatModel: data.provider.openai.chatModel,
-      imageModel: data.provider.openai.imageModel,
+      chatModel: data.provider.openai.chatModel ?? "",
+      imageModel: data.provider.openai.imageModel ?? "",
       pricing: pricingToRows(data.provider.openai.pricing),
     });
   }, [data, orgForm, waAccountForm, waCredentialsForm, simulatorForm, openaiForm]);

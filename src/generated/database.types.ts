@@ -998,9 +998,9 @@ export type Database = {
           display_phone_number: string | null
           e164_digits: string | null
           openai_api_key: string | null
-          openai_chat_model: string
+          openai_chat_model: string | null
           openai_configuration_version: number
-          openai_image_model: string
+          openai_image_model: string | null
           openai_pricing: Json
           organization_id: string
           phone_number_id: string | null
@@ -1019,9 +1019,9 @@ export type Database = {
           display_phone_number?: string | null
           e164_digits?: string | null
           openai_api_key?: string | null
-          openai_chat_model?: string
+          openai_chat_model?: string | null
           openai_configuration_version?: number
-          openai_image_model?: string
+          openai_image_model?: string | null
           openai_pricing?: Json
           organization_id: string
           phone_number_id?: string | null
@@ -1040,9 +1040,9 @@ export type Database = {
           display_phone_number?: string | null
           e164_digits?: string | null
           openai_api_key?: string | null
-          openai_chat_model?: string
+          openai_chat_model?: string | null
           openai_configuration_version?: number
-          openai_image_model?: string
+          openai_image_model?: string | null
           openai_pricing?: Json
           organization_id?: string
           phone_number_id?: string | null

@@ -255,7 +255,11 @@ export async function resolveOpenAIConfiguration(
     ]);
   if (organizationError ?? rootError) throw organizationError ?? rootError;
   if (!organization) return null;
-  if (present(organization.openai_api_key)) {
+  if (
+    present(organization.openai_api_key) &&
+    present(organization.openai_chat_model) &&
+    present(organization.openai_image_model)
+  ) {
     return {
       organizationId: organization.organization_id,
       apiKey: organization.openai_api_key.trim(),

@@ -186,8 +186,12 @@ export async function PATCH(request: Request, { params }: Context) {
       if (!values.openai.enabled) {
         openAIChanged =
           current.data.openai_api_key !== null ||
+          current.data.openai_chat_model !== null ||
+          current.data.openai_image_model !== null ||
           Object.keys(current.data.openai_pricing ?? {}).length > 0;
         providerValues.openai_api_key = null;
+        providerValues.openai_chat_model = null;
+        providerValues.openai_image_model = null;
         providerValues.openai_pricing = {};
       } else {
         const { apiKey, chatModel, imageModel, pricing } = values.openai;
