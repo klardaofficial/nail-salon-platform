@@ -18,15 +18,20 @@ import {
 import { DotsThreeIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
+import type { AdminIdentity } from "@/features/admin/contracts";
 import { apiMutation } from "@/lib/api/client";
+import { apiKeys } from "@/lib/api/keys";
 
 type Organization = { id: string; name: string; status: "active" | "archived" };
 
-export function OrganizationsClient({ canManage }: { canManage: boolean }) {
+export function OrganizationsClient() {
   const endpoint = "/api/admin/organizations";
+  const { data: admin } = useSWR<AdminIdentity>(apiKeys.adminIdentity);
+  const { mutate: mutateCache } = useSWRConfig();
+  const canManage = Boolean(admin?.isSystemAdmin);
   const { data, mutate } = useSWR<{ organizations: Organization[]; total: number }>(endpoint);
   const { trigger, isMutating } = useSWRMutation(endpoint, apiMutation);
   const [form] = Form.useForm();
@@ -34,7 +39,7 @@ export function OrganizationsClient({ canManage }: { canManage: boolean }) {
   const { message, modal } = App.useApp();
   async function lifecycle(id: string, archived: boolean) {
     await trigger({ method: "PATCH", body: { id, archived } });
-    await mutate();
+    await Promise.all([mutate(), mutateCache(apiKeys.organizations)]);
   }
   return (
     <Space orientation="vertical" size="large" style={{ width: "100%" }}>
@@ -136,7 +141,7 @@ export function OrganizationsClient({ canManage }: { canManage: boolean }) {
           onFinish={async ({ name }) => {
             await trigger({ method: "POST", body: { name } });
             form.resetFields();
-            await mutate();
+            await Promise.all([mutate(), mutateCache(apiKeys.organizations)]);
             setCreateOpen(false);
             message.success("Organization created");
           }}

@@ -1,10 +1,13 @@
 "use client";
 
 import { Alert, App, Button, Card, Form, Input } from "antd";
-import useSWRMutation from "swr/mutation";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
+import useSWRMutation from "swr/mutation";
 
+import type { AdminIdentity } from "@/features/admin/contracts";
 import { apiMutation } from "@/lib/api/client";
+import { apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
 type PasswordValues = {
@@ -13,21 +16,17 @@ type PasswordValues = {
   confirmPassword: string;
 };
 
-export function AccountClient({
-  email,
-  mustChangePassword,
-}: {
-  email: string;
-  mustChangePassword: boolean;
-}) {
+export function AccountClient() {
   const [form] = Form.useForm<PasswordValues>();
   const { message } = App.useApp();
   const router = useRouter();
+  const { data: admin, mutate: mutateAdmin } = useSWR<AdminIdentity>(apiKeys.adminIdentity);
   const { trigger, isMutating, error } = useSWRMutation("/api/admin/auth/password", apiMutation);
 
   async function changePassword(values: PasswordValues) {
     await trigger({ method: "PATCH", body: values });
     form.resetFields();
+    await mutateAdmin();
     message.success("Password changed. Use the new password on your next sign in.");
     router.replace("/admin");
     router.refresh();
@@ -35,9 +34,12 @@ export function AccountClient({
 
   return (
     <>
-      <PageHeading title="Account settings" description={`Signed in as ${email}`} />
+      <PageHeading
+        title="Account settings"
+        description={admin ? `Signed in as ${admin.email}` : "Loading account"}
+      />
       <Card title="Change password" style={{ maxWidth: 620 }}>
-        {mustChangePassword ? (
+        {admin?.mustChangePassword ? (
           <Alert
             type="warning"
             showIcon

@@ -1,15 +1,10 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import { useParams } from "next/navigation";
 
 import { OrganizationSettingsClient } from "@/components/admin/organization-settings-client";
-import { requireOrganizationAdmin } from "@/lib/auth/api-admin";
 
-export default async function OrganizationSettingsPage({
-  params,
-}: {
-  params: Promise<{ organizationId: string }>;
-}) {
-  const { organizationId } = await params;
-  const guard = await requireOrganizationAdmin(organizationId, { allowArchivedRead: true });
-  if (guard.error) notFound();
+export default function OrganizationSettingsPage() {
+  const { organizationId } = useParams<{ organizationId: string }>();
   return <OrganizationSettingsClient organizationId={organizationId} />;
 }

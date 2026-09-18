@@ -33,44 +33,46 @@ export async function POST(request: Request) {
   ) {
     return new Response("Unauthorized", { status: 401 });
   }
+  let events: ReturnType<typeof normalizeWhatsAppWebhook>;
   try {
-    const events = normalizeWhatsAppWebhook(JSON.parse(rawBody));
-    if (
-      !events.length ||
-      events.some((event) => !event.routing?.wabaId || !event.routing.phoneNumberId)
-    ) {
-      return new Response("Invalid webhook", { status: 400 });
-    }
-    const groups = new Map<string, typeof events>();
+    events = normalizeWhatsAppWebhook(JSON.parse(rawBody));
+  } catch {
+    return new Response("Invalid webhook", { status: 400 });
+  }
+  if (
+    !events.length ||
+    events.some((event) => !event.routing?.wabaId || !event.routing.phoneNumberId)
+  ) {
+    return new Response("Invalid webhook", { status: 400 });
+  }
+
+  try {
+    const groups = new Map<
+      string,
+      {
+        configuration: NonNullable<Awaited<ReturnType<typeof resolveOrganizationByPhoneNumberId>>>;
+        events: typeof events;
+      }
+    >();
     for (const event of events) {
       const configuration = await resolveOrganizationByPhoneNumberId(event.routing!.phoneNumberId!);
       if (
         !configuration ||
+        configuration.source !== "root" ||
         configuration.wabaId !== event.routing!.wabaId ||
         !configuration.credentials
       )
         continue;
       if (event.kind === "message" && configuration.readiness !== "enabled") continue;
-      if (
-        !verifyWhatsAppSignature(
-          rawBody,
-          request.headers.get("x-hub-signature-256"),
-          configuration.credentials.appSecret,
-        )
-      )
-        continue;
-      const group = groups.get(configuration.organizationId) ?? [];
-      group.push(event);
+      const group = groups.get(configuration.organizationId) ?? { configuration, events: [] };
+      group.events.push(event);
       groups.set(configuration.organizationId, group);
     }
     for (const group of groups.values()) {
-      const configuration = await resolveOrganizationByPhoneNumberId(
-        group[0].routing!.phoneNumberId!,
-      );
-      if (configuration) await registerOrganizationEvents(configuration, group);
+      await registerOrganizationEvents(group.configuration, group.events);
     }
     return new Response("EVENT_RECEIVED", { status: 200 });
   } catch {
-    return new Response("Invalid webhook", { status: 400 });
+    return new Response("Webhook processing failed", { status: 500 });
   }
 }

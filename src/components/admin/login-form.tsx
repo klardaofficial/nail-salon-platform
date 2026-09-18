@@ -3,20 +3,23 @@
 import { LockKeyIcon, UserIcon } from "@phosphor-icons/react";
 import { Alert, Button, Form, Input } from "antd";
 import { useRouter } from "next/navigation";
+import { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
 import { apiMutation } from "@/lib/api/client";
+import { apiKeys } from "@/lib/api/keys";
 
 type LoginValues = { email: string; password: string };
 
-export function LoginForm({ disabled = false }: { disabled?: boolean }) {
+export function LoginForm() {
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const { trigger, isMutating, error } = useSWRMutation("/api/admin/auth/login", apiMutation);
 
   async function onFinish(values: LoginValues) {
     await trigger({ method: "POST", body: values });
+    await mutate(apiKeys.adminIdentity);
     router.replace("/admin");
-    router.refresh();
   }
 
   return (
@@ -44,14 +47,7 @@ export function LoginForm({ disabled = false }: { disabled?: boolean }) {
           size="large"
         />
       </Form.Item>
-      <Button
-        type="primary"
-        htmlType="submit"
-        size="large"
-        block
-        loading={isMutating}
-        disabled={disabled}
-      >
+      <Button type="primary" htmlType="submit" size="large" block loading={isMutating}>
         Sign in
       </Button>
     </Form>

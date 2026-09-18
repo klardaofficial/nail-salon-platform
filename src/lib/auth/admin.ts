@@ -1,18 +1,8 @@
 import "server-only";
 
-import { redirect } from "next/navigation";
-
+import type { AdminIdentity } from "@/features/admin/contracts";
 import { hasSupabaseConfig } from "@/lib/config/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-export type AdminIdentity = {
-  id: string;
-  email: string;
-  displayName: string | null;
-  mustChangePassword: boolean;
-  isSystemAdmin: boolean;
-  organizationIds: string[];
-};
 
 export async function getAdminIdentity(): Promise<AdminIdentity | null> {
   if (!hasSupabaseConfig()) return null;
@@ -45,10 +35,4 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
     isSystemAdmin: admin.is_system_admin,
     organizationIds: memberships.map((membership) => membership.organization_id),
   };
-}
-
-export async function requireAdminIdentity(): Promise<AdminIdentity> {
-  const admin = await getAdminIdentity();
-  if (!admin) redirect("/admin/login");
-  return admin;
 }

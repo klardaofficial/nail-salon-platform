@@ -1,10 +1,7 @@
-import { notFound } from "next/navigation";
+"use client";
 
 import { SystemMetaClient } from "@/components/admin/system-meta-client";
-import { requireSystemAdmin } from "@/lib/auth/api-admin";
 
-export default async function SystemMetaPage() {
-  const guard = await requireSystemAdmin();
-  if (guard.error) notFound();
+export default function SystemMetaPage() {
   return <SystemMetaClient />;
 }

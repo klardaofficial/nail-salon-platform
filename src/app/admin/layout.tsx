@@ -1,24 +1,19 @@
-import type { Metadata } from "next";
-import { AntdRegistry } from "@ant-design/nextjs-registry";
+"use client";
 
 import { AdminProviders } from "@/components/admin/admin-providers";
+import { AdminClientBoundary } from "@/components/admin/admin-client-boundary";
 
 import "antd/dist/reset.css";
 import "../globals.css";
 import "./admin.css";
 
-export const metadata: Metadata = {
-  title: "Nail Salon Platform Admin",
-  description: "Platform operations and salon usage dashboard",
-};
-
 export default function AdminRootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body>
-        <AntdRegistry>
-          <AdminProviders>{children}</AdminProviders>
-        </AntdRegistry>
+        <AdminProviders>
+          <AdminClientBoundary>{children}</AdminClientBoundary>
+        </AdminProviders>
       </body>
     </html>
   );

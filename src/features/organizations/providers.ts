@@ -111,7 +111,7 @@ export async function resolveEffectiveMetaConfiguration(
         ? "unvalidated"
         : validation.status === "failed"
           ? "invalid"
-          : organization.status !== "active" || !provider.real_whatsapp_enabled
+          : organization.status !== "active"
             ? "ready_disabled"
             : "enabled";
   return {
@@ -121,7 +121,7 @@ export async function resolveEffectiveMetaConfiguration(
     phoneNumberId: provider.phone_number_id?.trim() || null,
     credentials,
     source,
-    callbackUrl: buildWebhookCallbackUrl(source === "organization" ? organizationId : undefined),
+    callbackUrl: buildWebhookCallbackUrl(organizationId),
     configurationVersion: provider.configuration_version,
     readiness,
     displayPhoneNumber: provider.display_phone_number,

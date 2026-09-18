@@ -18,10 +18,11 @@ import {
 } from "antd";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
 import { apiMutation } from "@/lib/api/client";
+import { apiKeys } from "@/lib/api/keys";
 import { languageOptions } from "@/lib/bot/language";
 import { timeZoneOptions } from "@/lib/timezones";
 import { PageHeading } from "./page-heading";
@@ -42,7 +43,6 @@ type SettingsResponse = {
     openaiConfigured: boolean;
     openaiChatModel: string;
     openaiImageModel: string;
-    realWhatsAppEnabled: boolean;
     source: string;
     readiness: string;
     callbackUrl: string;
@@ -52,8 +52,9 @@ type SettingsResponse = {
 };
 
 export function OrganizationSettingsClient({ organizationId }: { organizationId: string }) {
-  const endpoint = `/api/admin/organizations/${organizationId}/settings`;
+  const endpoint = apiKeys.organizationSettings(organizationId);
   const { data, error, mutate } = useSWR<SettingsResponse>(endpoint);
+  const { mutate: mutateCache } = useSWRConfig();
   const { trigger, isMutating } = useSWRMutation(endpoint, apiMutation);
   const { trigger: validate, isMutating: validating } = useSWRMutation(
     `/api/admin/organizations/${organizationId}/provider-validation`,
@@ -61,8 +62,19 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
   );
   const [form] = Form.useForm();
   const { message } = App.useApp();
-  const [showWhatsAppSettings, setShowWhatsAppSettings] = useState(false);
-  const [showOpenAISettings, setShowOpenAISettings] = useState(false);
+  const [showWhatsAppOverride, setShowWhatsAppOverride] = useState<boolean | null>(null);
+  const [showOpenAIOverride, setShowOpenAIOverride] = useState<boolean | null>(null);
+  const showWhatsAppSettings =
+    showWhatsAppOverride ??
+    Boolean(
+      data &&
+      [
+        data.provider.savedMetaOverride.accessToken,
+        data.provider.savedMetaOverride.appSecret,
+        data.provider.savedMetaOverride.webhookVerifyToken,
+      ].some(Boolean),
+    );
+  const showOpenAISettings = showOpenAIOverride ?? Boolean(data?.provider.openaiConfigured);
   useEffect(() => {
     if (!data) return;
     form.setFieldsValue({
@@ -80,20 +92,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       cancelledTemplate: data.provider.cancelledTemplate,
       openaiChatModel: data.provider.openaiChatModel,
       openaiImageModel: data.provider.openaiImageModel,
-      realWhatsAppEnabled: data.provider.realWhatsAppEnabled,
     });
-    setShowWhatsAppSettings(
-      [
-        data.provider.wabaId,
-        data.provider.phoneNumberId,
-        data.provider.savedMetaOverride.accessToken,
-        data.provider.savedMetaOverride.appSecret,
-        data.provider.savedMetaOverride.webhookVerifyToken,
-        data.provider.confirmedTemplate,
-        data.provider.cancelledTemplate,
-      ].some(Boolean),
-    );
-    setShowOpenAISettings(data.provider.openaiConfigured);
   }, [data, form]);
 
   async function save(values: Record<string, unknown>) {
@@ -102,10 +101,17 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       method: "PATCH",
       body: {
         ...rest,
-        meta: { accessToken, appSecret, webhookVerifyToken },
+        meta: {
+          accessToken: showWhatsAppSettings && typeof accessToken === "string" ? accessToken : null,
+          appSecret: showWhatsAppSettings && typeof appSecret === "string" ? appSecret : null,
+          webhookVerifyToken:
+            showWhatsAppSettings && typeof webhookVerifyToken === "string"
+              ? webhookVerifyToken
+              : null,
+        },
       },
     });
-    await mutate();
+    await Promise.all([mutate(), mutateCache(apiKeys.organizations)]);
     message.success("Organization settings saved");
   }
 
@@ -174,138 +180,157 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
             </Card>
 
             <Card
+              title="WhatsApp Account"
+              extra={
+                <Typography.Text type="secondary">Organization routing identifiers</Typography.Text>
+              }
+            >
+              <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+                <Space wrap>
+                  <Tag>{data.provider.source}</Tag>
+                  <Tag color={data.provider.readiness === "enabled" ? "green" : "orange"}>
+                    {data.provider.readiness}
+                  </Tag>
+                  <Button onClick={validateProvider} loading={validating}>
+                    Validate Meta mapping
+                  </Button>
+                </Space>
+
+                <Row gutter={[24, 0]}>
+                  <Col xs={24} lg={12}>
+                    <Form.Item name="wabaId" label="WhatsApp Business Account ID">
+                      <Input />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} lg={12}>
+                    <Form.Item name="phoneNumberId" label="Receiving phone-number ID">
+                      <Input />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Space>
+            </Card>
+
+            <Card
               title="WhatsApp Credentials"
               extra={
                 <Space size="small">
-                  <Typography.Text type="secondary">Configure organization settings</Typography.Text>
+                  <Typography.Text type="secondary">
+                    Use organization-specific Meta credentials
+                  </Typography.Text>
                   <Switch
                     checked={showWhatsAppSettings}
-                    onChange={setShowWhatsAppSettings}
+                    onChange={setShowWhatsAppOverride}
                     aria-label="Configure organization WhatsApp settings"
                   />
                 </Space>
               }
             >
-              {showWhatsAppSettings ? (
-                <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-                  <Space wrap>
-                    <Tag>{data.provider.source}</Tag>
-                    <Tag color={data.provider.readiness === "enabled" ? "green" : "orange"}>
-                      {data.provider.readiness}
-                    </Tag>
-                    <Button onClick={validateProvider} loading={validating}>
-                      Validate Meta mapping
-                    </Button>
-                  </Space>
+              <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+                {showWhatsAppSettings ? (
+                  <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+                    <Row gutter={[24, 0]}>
+                      <Col xs={24} lg={12}>
+                        <Form.Item name="accessToken" label="Meta access token">
+                          <Input.Password />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} lg={12}>
+                        <Form.Item name="appSecret" label="Meta app secret">
+                          <Input.Password />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} lg={12}>
+                        <Form.Item name="webhookVerifyToken" label="Webhook verify token">
+                          <Input.Password />
+                        </Form.Item>
+                      </Col>
+                    </Row>
 
-                  <div>
-                    <Typography.Text type="secondary">Webhook URL</Typography.Text>
-                    <br />
-                    <Typography.Text
-                      code
-                      copyable={{ text: data.provider.callbackUrl }}
-                      style={{ overflowWrap: "anywhere" }}
-                    >
-                      {data.provider.callbackUrl}
-                    </Typography.Text>
-                  </div>
-
-                  <Row gutter={[24, 0]}>
-                    <Col xs={24} lg={12}>
-                      <Form.Item name="wabaId" label="WhatsApp Business Account ID">
-                        <Input />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Form.Item name="phoneNumberId" label="Receiving phone-number ID">
-                        <Input />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Form.Item name="accessToken" label="Meta access token">
-                        <Input.Password />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Form.Item name="appSecret" label="Meta app secret">
-                        <Input.Password />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Form.Item name="webhookVerifyToken" label="Webhook verify token">
-                        <Input.Password />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Form.Item
-                        name="realWhatsAppEnabled"
-                        label="Accept real WhatsApp traffic"
-                        valuePropName="checked"
-                        extra="Enable only after the current Meta mapping validates successfully."
-                      >
-                        <Switch />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Form.Item
-                        name="confirmedTemplate"
-                        label="Technician confirmation template"
-                      >
-                        <Input />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} lg={12}>
-                      <Form.Item
-                        name="cancelledTemplate"
-                        label="Technician cancellation template"
-                      >
-                        <Input />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-
-                  {data.provider.clickToChatUrl ? (
-                    <Space align="start" wrap size="large">
-                      <Image
-                        unoptimized
-                        src={`/api/admin/organizations/${organizationId}/qr`}
-                        width={180}
-                        height={180}
-                        alt="WhatsApp click-to-chat QR code"
-                      />
-                      <Space orientation="vertical">
-                        <Typography.Text strong>Customer click-to-chat</Typography.Text>
-                        <Typography.Text>{data.provider.displayPhoneNumber}</Typography.Text>
-                        <Typography.Link
-                          href={data.provider.clickToChatUrl}
-                          target="_blank"
-                          copyable={{ text: data.provider.clickToChatUrl }}
+                    <Row gutter={[24, 0]}>
+                      <Col xs={24} lg={12}>
+                        <Form.Item
+                          name="confirmedTemplate"
+                          label="Technician confirmation template"
                         >
-                          {data.provider.clickToChatUrl}
-                        </Typography.Link>
-                        <Space wrap>
-                          <Button
-                            href={`/api/admin/organizations/${organizationId}/qr`}
-                            download="whatsapp-qr.svg"
-                          >
-                            Download QR
-                          </Button>
-                          <Button onClick={() => window.print()}>Print</Button>
-                        </Space>
+                          <Input />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={24} lg={12}>
+                        <Form.Item
+                          name="cancelledTemplate"
+                          label="Technician cancellation template"
+                        >
+                          <Input />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+
+                    <div>
+                      <Typography.Text type="secondary">Webhook URL</Typography.Text>
+                      <br />
+                      <Typography.Text
+                        code
+                        copyable={{ text: data.provider.callbackUrl }}
+                        style={{ overflowWrap: "anywhere" }}
+                      >
+                        {data.provider.callbackUrl}
+                      </Typography.Text>
+                      <br />
+                      <Typography.Text type="secondary">
+                        {data.provider.source === "organization"
+                          ? "This organization webhook URL uses organization-specific Meta credentials."
+                          : data.provider.source === "root"
+                            ? "This organization webhook URL uses the shared root Meta credentials."
+                            : "This organization webhook URL is ready, but Meta credentials are not configured yet."}
+                      </Typography.Text>
+                    </div>
+                  </Space>
+                ) : (
+                  <Typography.Text type="secondary">
+                    Shared root Meta credentials are used for this organization.
+                  </Typography.Text>
+                )}
+
+                {data.provider.clickToChatUrl ? (
+                  <Space align="start" wrap size="large">
+                    <Image
+                      unoptimized
+                      src={`/api/admin/organizations/${organizationId}/qr`}
+                      width={180}
+                      height={180}
+                      alt="WhatsApp click-to-chat QR code"
+                    />
+                    <Space orientation="vertical">
+                      <Typography.Text strong>Customer click-to-chat</Typography.Text>
+                      <Typography.Text>{data.provider.displayPhoneNumber}</Typography.Text>
+                      <Typography.Link
+                        href={data.provider.clickToChatUrl}
+                        target="_blank"
+                        copyable={{ text: data.provider.clickToChatUrl }}
+                      >
+                        {data.provider.clickToChatUrl}
+                      </Typography.Link>
+                      <Space wrap>
+                        <Button
+                          href={`/api/admin/organizations/${organizationId}/qr`}
+                          download="whatsapp-qr.svg"
+                        >
+                          Download QR
+                        </Button>
+                        <Button onClick={() => window.print()}>Print</Button>
                       </Space>
                     </Space>
-                  ) : null}
-                </Space>
-              ) : (
-                <Typography.Text type="secondary">
-                  Root config is used. Turn on to overwrite if need for organization-specific.
-                </Typography.Text>
-              )}
+                  </Space>
+                ) : null}
+              </Space>
             </Card>
 
             <Card
               title="Simulator"
-              extra={<Typography.Text type="secondary">Browser-based test conversations</Typography.Text>}
+              extra={
+                <Typography.Text type="secondary">Browser-based test conversations</Typography.Text>
+              }
             >
               <Form.Item
                 name="simulatorEnabled"
@@ -322,10 +347,12 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
               title="OpenAI"
               extra={
                 <Space size="small">
-                  <Typography.Text type="secondary">Configure organization settings</Typography.Text>
+                  <Typography.Text type="secondary">
+                    Configure organization settings
+                  </Typography.Text>
                   <Switch
                     checked={showOpenAISettings}
-                    onChange={setShowOpenAISettings}
+                    onChange={setShowOpenAIOverride}
                     aria-label="Configure organization OpenAI settings"
                   />
                 </Space>

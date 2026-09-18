@@ -1,16 +1,8 @@
-import { Alert } from "antd";
-import { redirect } from "next/navigation";
+"use client";
 
 import { LoginForm } from "@/components/admin/login-form";
-import { getAdminIdentity } from "@/lib/auth/admin";
-import { hasSupabaseConfig } from "@/lib/config/env";
 
-export default async function AdminLoginPage() {
-  const currentAdmin = await getAdminIdentity();
-  if (currentAdmin) {
-    redirect(currentAdmin.mustChangePassword ? "/admin/account" : "/admin");
-  }
-
+export default function AdminLoginPage() {
   return (
     <main className="admin-login-page">
       <section className="admin-login-panel">
@@ -21,16 +13,7 @@ export default async function AdminLoginPage() {
           </div>
           <h1>Welcome back</h1>
           <p>Sign in to manage salons, bookings, and platform usage.</p>
-          {!hasSupabaseConfig() ? (
-            <Alert
-              type="warning"
-              showIcon
-              title="Local configuration required"
-              description="Copy .env.example to .env.local and add your Supabase values before signing in."
-              style={{ marginBottom: 24 }}
-            />
-          ) : null}
-          <LoginForm disabled={!hasSupabaseConfig()} />
+          <LoginForm />
         </div>
       </section>
       <aside className="admin-login-aside">

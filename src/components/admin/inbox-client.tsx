@@ -180,16 +180,20 @@ function Conversation({
 
 export function InboxClient({
   organizationId = "00000000-0000-4000-8000-000000000101",
-  simulatorEnabled = true,
 }: {
   organizationId?: string;
-  simulatorEnabled?: boolean;
 }) {
   const [channel, setChannel] = useState<InboxChannel>("whatsapp");
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<InboxRole>("all");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<InboxThread | null>(null);
+  const { data: organizationData } = useSWR<{
+    organizations: { id: string; simulatorEnabled: boolean }[];
+  }>(apiKeys.organizations);
+  const simulatorEnabled = Boolean(
+    organizationData?.organizations.find((item) => item.id === organizationId)?.simulatorEnabled,
+  );
   const { data, error, isLoading, isValidating, mutate } = useSWR<InboxThreads>(
     apiKeys.inbox(organizationId, channel, search, role, page),
     { refreshInterval: 10000 },

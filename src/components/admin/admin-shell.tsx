@@ -12,14 +12,27 @@ import {
   UserCircleIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react";
-import { Alert, Avatar, Button, Dropdown, Layout, Menu, Select, Space, Typography } from "antd";
+import {
+  Alert,
+  Avatar,
+  Button,
+  Dropdown,
+  Layout,
+  Menu,
+  Select,
+  Skeleton,
+  Space,
+  Typography,
+} from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
+import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
-import type { AdminIdentity } from "@/lib/auth/admin";
+import type { AdminIdentity } from "@/features/admin/contracts";
 import { apiMutation } from "@/lib/api/client";
+import { apiKeys } from "@/lib/api/keys";
 
 const { Header, Content, Sider } = Layout;
 
@@ -36,19 +49,21 @@ function selectedNavigation(pathname: string, items = rootNavigation) {
     .slice(0, 1);
 }
 
-export function AdminShell({
-  admin,
-  organizations = [],
-  children,
-}: {
-  admin: AdminIdentity;
-  organizations?: { id: string; name: string; status: string; simulatorEnabled: boolean }[];
-  children: ReactNode;
-}) {
+export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const {
+    data: admin,
+    error: adminError,
+    mutate: mutateAdmin,
+  } = useSWR<AdminIdentity>(apiKeys.adminIdentity);
+  const { mutate: mutateCache } = useSWRConfig();
+  const { data: organizationData } = useSWR<{
+    organizations: { id: string; name: string; status: string; simulatorEnabled: boolean }[];
+  }>(admin ? apiKeys.organizations : null);
+  const organizations = organizationData?.organizations ?? [];
   const { trigger: logout, isMutating } = useSWRMutation("/api/admin/auth/logout", apiMutation);
-  const passwordChangeRequired = admin.mustChangePassword;
+  const passwordChangeRequired = admin?.mustChangePassword ?? false;
   const organizationId = pathname.match(/^\/admin\/organizations\/([^/]+)/)?.[1] ?? null;
   const currentOrganization = organizations.find((item) => item.id === organizationId);
   const organizationNavigation = organizationId
@@ -109,7 +124,7 @@ export function AdminShell({
     : rootNavigation;
   const visibleNavigation = [
     ...organizationNavigation,
-    ...(!organizationId && admin.isSystemAdmin
+    ...(!organizationId && admin?.isSystemAdmin
       ? [
           {
             key: "/admin/system/accounts",
@@ -126,15 +141,36 @@ export function AdminShell({
   ];
 
   useEffect(() => {
+    if (adminError) router.replace("/admin/login");
+  }, [adminError, router]);
+
+  useEffect(() => {
     if (passwordChangeRequired && pathname !== "/admin/account") {
       router.replace("/admin/account");
     }
   }, [passwordChangeRequired, pathname, router]);
 
+  if (!admin) {
+    return (
+      <Layout className="admin-shell">
+        <Content className="admin-content">
+          {adminError ? (
+            <Alert type="warning" showIcon title="Redirecting to sign in" />
+          ) : (
+            <Skeleton active paragraph={{ rows: 8 }} />
+          )}
+        </Content>
+      </Layout>
+    );
+  }
+
   async function handleLogout() {
     await logout({ method: "POST" });
+    await Promise.all([
+      mutateAdmin(undefined, { revalidate: false }),
+      mutateCache(apiKeys.organizations, undefined, { revalidate: false }),
+    ]);
     router.replace("/admin/login");
-    router.refresh();
   }
 
   const accountItems = [
@@ -188,7 +224,7 @@ export function AdminShell({
               style={{ minWidth: 220 }}
             />
             {currentOrganization ? (
-              <Typography.Text type="secondary">{currentOrganization.name}</Typography.Text>
+              <Typography.Text type="secondary">{currentOrganization.id}</Typography.Text>
             ) : null}
           </Space>
           <Dropdown menu={{ items: accountItems }} placement="bottomRight" trigger={["click"]}>

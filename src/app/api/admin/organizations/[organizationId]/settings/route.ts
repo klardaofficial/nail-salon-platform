@@ -36,7 +36,6 @@ const updateSchema = z.object({
   openaiChatModel: z.string().trim().min(1).max(120).optional(),
   openaiImageModel: z.string().trim().min(1).max(120).optional(),
   openaiPricing: z.record(z.string(), z.unknown()).optional(),
-  realWhatsAppEnabled: z.boolean().optional(),
 });
 
 const noStore = { headers: { "Cache-Control": "private, no-store" } };
@@ -92,7 +91,6 @@ export async function GET(_request: Request, { params }: Context) {
           openaiConfigured: Boolean(openAI),
           openaiChatModel: provider.openai_chat_model,
           openaiImageModel: provider.openai_image_model,
-          realWhatsAppEnabled: provider.real_whatsapp_enabled,
           source: effective?.source ?? "none",
           readiness: effective?.readiness ?? "incomplete",
           callbackUrl: effective?.callbackUrl,
@@ -177,8 +175,6 @@ export async function PATCH(request: Request, { params }: Context) {
         JSON.stringify(values.openaiPricing) !== JSON.stringify(current.data.openai_pricing));
     if (openAIChanged)
       providerValues.openai_configuration_version = current.data.openai_configuration_version + 1;
-    if (values.realWhatsAppEnabled !== undefined)
-      providerValues.real_whatsapp_enabled = values.realWhatsAppEnabled;
     const phoneChanged =
       values.phoneNumberId !== undefined &&
       (values.phoneNumberId || null) !== current.data.phone_number_id;
@@ -190,12 +186,6 @@ export async function PATCH(request: Request, { params }: Context) {
         normalizedMeta.appSecret !== current.data.app_secret ||
         normalizedMeta.webhookVerifyToken !== current.data.webhook_verify_token);
     const configurationChanged = phoneChanged || wabaChanged || metaChanged;
-    if (values.realWhatsAppEnabled === true) {
-      if (configurationChanged) throw new Error("validate_provider_changes_before_enabling");
-      const effective = await resolveEffectiveMetaConfiguration(organizationId);
-      if (!effective || !["ready_disabled", "enabled"].includes(effective.readiness))
-        throw new Error("provider_validation_required_before_enabling");
-    }
     if (configurationChanged)
       providerValues.configuration_version = current.data.configuration_version + 1;
     if (phoneChanged) {

@@ -18,7 +18,7 @@ Server secrets belong in `.env.local` or encrypted deployment variables. Never p
 
 Organization timezone, hours, interval, locale, preview limits, simulator enablement, Meta identifiers/overrides, technician templates, and OpenAI key/models/pricing are database settings edited through organization-scoped admin APIs. Root Meta credentials/default templates are system settings. Runtime provider code has no legacy Meta/OpenAI/simulator environment fallback.
 
-Meta overrides require access token, app secret, and verify token together. Organization editors receive only that organization's saved override; inherited root secrets are never returned. OpenAI keys are write-only. Changing routing/credentials invalidates provider validation, and real traffic cannot be enabled until the current mapping validates.
+Meta overrides require access token, app secret, and verify token together. Organization editors receive only that organization's saved override; inherited root secrets are never returned. OpenAI keys are write-only. Changing routing or credentials invalidates provider validation; an active mapping accepts real traffic automatically after it validates successfully.
 
 `VERCEL_AUTOMATION_BYPASS_SECRET` is never sent to the browser except as part of a system/organization-authorized callback URL display. It is not stored in QR codes, jobs, provider settings, or logs.
 

@@ -40,16 +40,20 @@ const Column = dynamic(() => import("@ant-design/charts").then((module) => modul
 
 export function DashboardClient({
   organizationId = "00000000-0000-4000-8000-000000000101",
-  simulatorEnabled = true,
 }: {
   organizationId?: string;
-  simulatorEnabled?: boolean;
 }) {
   const [range, setRange] = useState<[Dayjs, Dayjs]>([
     dayjs().startOf("month"),
     dayjs().endOf("month"),
   ]);
   const [source, setSource] = useState<"real" | "simulator" | "both">("real");
+  const { data: organizationData } = useSWR<{
+    organizations: { id: string; simulatorEnabled: boolean }[];
+  }>(apiKeys.organizations);
+  const simulatorEnabled = Boolean(
+    organizationData?.organizations.find((item) => item.id === organizationId)?.simulatorEnabled,
+  );
   const { data, error, isLoading } = useSWR<DashboardData>(
     apiKeys.dashboard(
       organizationId,

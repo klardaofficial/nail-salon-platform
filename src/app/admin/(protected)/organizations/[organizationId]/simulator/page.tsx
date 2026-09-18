@@ -1,15 +1,10 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import { useParams } from "next/navigation";
 
 import { SimulatorClient } from "@/components/admin/simulator-client";
-import { requireOrganizationAdmin } from "@/lib/auth/api-admin";
 
-export default async function OrganizationSimulatorPage({
-  params,
-}: {
-  params: Promise<{ organizationId: string }>;
-}) {
-  const { organizationId } = await params;
-  const guard = await requireOrganizationAdmin(organizationId);
-  if (guard.error) notFound();
+export default function OrganizationSimulatorPage() {
+  const { organizationId } = useParams<{ organizationId: string }>();
   return <SimulatorClient organizationId={organizationId} />;
 }

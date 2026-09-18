@@ -5,6 +5,10 @@ const activityParams = (from: string, to: string, channel: ActivityChannel) =>
   new URLSearchParams({ from, to, channel }).toString();
 
 export const apiKeys = {
+  adminIdentity: "/api/admin/auth/me",
+  organizations: "/api/admin/organizations?limit=500",
+  organizationSettings: (organizationId: string) =>
+    `/api/admin/organizations/${organizationId}/settings`,
   platform: (organizationId: string, from: string, to: string, channel: ActivityChannel) =>
     `/api/admin/organizations/${organizationId}/platform?${activityParams(from, to, channel)}`,
   platformCsv: (organizationId: string, from: string, to: string, channel: ActivityChannel) =>
