@@ -13,7 +13,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({ from: mocks.from, rpc: mocks.rpc }),
 }));
 vi.mock("@/lib/config/env", () => ({
-  getServerEnv: () => ({ OPENAI_CHAT_MODEL: "test" }),
+  getServerEnv: () => ({}),
 }));
 vi.mock("@/integrations/openai/client", () => ({
   hasOpenAIConfig: () => mocks.configured,

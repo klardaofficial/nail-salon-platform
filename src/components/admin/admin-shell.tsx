@@ -137,9 +137,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
             label: <Link href="/admin/system/accounts">System accounts</Link>,
           },
           {
-            key: "/admin/system/meta",
+            key: "/admin/system/settings",
             icon: <GearSixIcon size={18} />,
-            label: <Link href="/admin/system/meta">Root Meta</Link>,
+            label: <Link href="/admin/system/settings">System settings</Link>,
           },
         ]
       : []),

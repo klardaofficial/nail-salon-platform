@@ -4,9 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ insert: vi.fn(), update: vi.fn(), finish: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/config/env", () => ({
-  getServerEnv: () => ({
-    OPENAI_PRICING_JSON: { test: { kind: "chat_text", input: 1, cachedInput: 0.5, output: 2 } },
-  }),
+  getServerEnv: () => ({}),
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
@@ -14,7 +12,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-import { aiPricingSchema, estimateAIUsageCost } from "./pricing";
+import { aiPricingSchema, estimateAIUsageCost, pricingToRows, rowsToPricing } from "./pricing";
 import { summarizeChatUsage, summarizeImageUsage, withAIUsage } from "./record";
 
 const context = {
@@ -111,6 +109,41 @@ describe("AI usage pricing", () => {
     expect(
       summarizeChatUsage({ id: "response", status: "failed" } as OpenAIResponse),
     ).toMatchObject({ status: "failed", input_tokens: null, output_tokens: null });
+  });
+});
+
+describe("pricing row conversion", () => {
+  it("converts a pricing record into stably-ordered rows and back", () => {
+    const pricing = {
+      "gpt-image-1": {
+        kind: "image_generation" as const,
+        textInput: 5,
+        imageInput: 10,
+        imageOutput: 40,
+      },
+      "gpt-5-mini": { kind: "chat_text" as const, input: 0.25, cachedInput: 0.025, output: 2 },
+    };
+    const rows = pricingToRows(pricing);
+    expect(rows.map((row) => row.model)).toEqual(["gpt-5-mini", "gpt-image-1"]);
+    expect(rowsToPricing(rows)).toEqual(pricing);
+  });
+  it("drops rows with a blank model name and only the rate fields for the row's kind", () => {
+    const rows = [
+      { model: "", kind: "chat_text" as const, input: 1, cachedInput: 1, output: 1 },
+      {
+        model: "gpt-image-1",
+        kind: "image_generation" as const,
+        textInput: 1,
+        imageInput: 2,
+        imageOutput: 3,
+        input: 99,
+        cachedInput: 99,
+        output: 99,
+      },
+    ];
+    expect(rowsToPricing(rows)).toEqual({
+      "gpt-image-1": { kind: "image_generation", textInput: 1, imageInput: 2, imageOutput: 3 },
+    });
   });
 });
 

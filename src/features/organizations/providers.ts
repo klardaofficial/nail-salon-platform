@@ -85,7 +85,7 @@ export async function resolveEffectiveMetaConfiguration(
       .select("*")
       .eq("organization_id", organizationId)
       .maybeSingle(),
-    supabase.from("root_meta_settings").select("*").eq("singleton", true).maybeSingle(),
+    supabase.from("root_settings").select("*").eq("singleton", true).maybeSingle(),
     supabase
       .from("provider_configuration_validations")
       .select("*")
@@ -154,7 +154,7 @@ export async function resolveOrganizationByPhoneNumberId(phoneNumberId: string) 
 
 export async function resolveRootMetaCredentials() {
   const { data, error } = await createSupabaseAdminClient()
-    .from("root_meta_settings")
+    .from("root_settings")
     .select("*")
     .eq("singleton", true)
     .maybeSingle();
@@ -234,27 +234,48 @@ export type EffectiveOpenAIConfiguration = {
   chatModel: string;
   imageModel: string;
   pricing: Record<string, AIPricing>;
+  source: "root" | "organization";
   configurationVersion: number;
 };
 
 export async function resolveOpenAIConfiguration(
   organizationId: string,
 ): Promise<EffectiveOpenAIConfiguration | null> {
-  const { data, error } = await createSupabaseAdminClient()
-    .from("organization_provider_settings")
-    .select(
-      "organization_id,openai_api_key,openai_chat_model,openai_image_model,openai_pricing,openai_configuration_version",
-    )
-    .eq("organization_id", organizationId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data || !present(data.openai_api_key)) return null;
-  return {
-    organizationId: data.organization_id,
-    apiKey: data.openai_api_key.trim(),
-    chatModel: data.openai_chat_model,
-    imageModel: data.openai_image_model,
-    pricing: aiPricingSchema.catch({}).parse(data.openai_pricing),
-    configurationVersion: data.openai_configuration_version,
-  };
+  const supabase = createSupabaseAdminClient();
+  const [{ data: organization, error: organizationError }, { data: root, error: rootError }] =
+    await Promise.all([
+      supabase
+        .from("organization_provider_settings")
+        .select(
+          "organization_id,openai_api_key,openai_chat_model,openai_image_model,openai_pricing,openai_configuration_version",
+        )
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      supabase.from("root_settings").select("*").eq("singleton", true).maybeSingle(),
+    ]);
+  if (organizationError ?? rootError) throw organizationError ?? rootError;
+  if (!organization) return null;
+  if (present(organization.openai_api_key)) {
+    return {
+      organizationId: organization.organization_id,
+      apiKey: organization.openai_api_key.trim(),
+      chatModel: organization.openai_chat_model,
+      imageModel: organization.openai_image_model,
+      pricing: aiPricingSchema.catch({}).parse(organization.openai_pricing),
+      source: "organization",
+      configurationVersion: organization.openai_configuration_version,
+    };
+  }
+  if (root && present(root.openai_api_key)) {
+    return {
+      organizationId: organization.organization_id,
+      apiKey: root.openai_api_key.trim(),
+      chatModel: root.openai_chat_model,
+      imageModel: root.openai_image_model,
+      pricing: aiPricingSchema.catch({}).parse(root.openai_pricing),
+      source: "root",
+      configurationVersion: root.openai_configuration_version,
+    };
+  }
+  return null;
 }

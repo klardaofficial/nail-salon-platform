@@ -13,7 +13,10 @@ export function hasOpenAIConfig(
 }
 
 export function getOpenAIClient(configuration: EffectiveOpenAIConfiguration) {
-  const key = `${configuration.organizationId}:${configuration.configurationVersion}`;
+  const key =
+    configuration.source === "root"
+      ? `root:${configuration.configurationVersion}`
+      : `${configuration.organizationId}:${configuration.configurationVersion}`;
   const existing = organizationClients.get(key);
   if (existing) return existing;
   const created = new OpenAI({ apiKey: configuration.apiKey });

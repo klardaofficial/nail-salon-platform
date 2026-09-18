@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/config/env", () => ({
   isWhatsAppSimulatorEnabled: () => mocks.enabled,
-  getServerEnv: () => ({ OPENAI_API_KEY: "test-key" }),
+  getServerEnv: () => ({}),
 }));
 vi.mock("@/lib/auth/api-admin", () => ({
   requireApiAdmin: async () => ({

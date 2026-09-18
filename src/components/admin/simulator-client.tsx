@@ -332,7 +332,7 @@ export function SimulatorClient({ organizationId }: { organizationId: string }) 
           type="warning"
           showIcon
           title="OpenAI is not configured"
-          description="Greetings and fallback replies work. Add OPENAI_API_KEY and restart or redeploy to test natural conversations and booking tools."
+          description="Greetings and fallback replies work. Add an OpenAI API key on this organization's Settings page (or the root System settings page) to test natural conversations and booking tools."
         />
       ) : null}
       <div className={styles.toolbar}>

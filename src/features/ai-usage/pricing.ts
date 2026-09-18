@@ -15,6 +15,49 @@ export const aiPricingSchema = z.record(
   ]),
 );
 export type AIPricing = z.infer<typeof aiPricingSchema>[string];
+
+export type PricingRow = {
+  model: string;
+  kind: AIPricing["kind"];
+  input?: number;
+  cachedInput?: number;
+  output?: number;
+  textInput?: number;
+  imageInput?: number;
+  imageOutput?: number;
+  textOutput?: number;
+};
+
+export function pricingToRows(pricing: Record<string, AIPricing>): PricingRow[] {
+  return Object.entries(pricing)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([model, entry]) => ({ model, ...entry }));
+}
+
+export function rowsToPricing(rows: PricingRow[]): Record<string, AIPricing> {
+  const pricing: Record<string, AIPricing> = {};
+  for (const row of rows) {
+    const model = row.model?.trim();
+    if (!model) continue;
+    if (row.kind === "chat_text") {
+      pricing[model] = {
+        kind: "chat_text",
+        input: row.input ?? 0,
+        cachedInput: row.cachedInput ?? 0,
+        output: row.output ?? 0,
+      };
+    } else {
+      pricing[model] = {
+        kind: "image_generation",
+        textInput: row.textInput ?? 0,
+        imageInput: row.imageInput ?? 0,
+        imageOutput: row.imageOutput ?? 0,
+        ...(row.textOutput !== undefined ? { textOutput: row.textOutput } : {}),
+      };
+    }
+  }
+  return pricing;
+}
 export type AIUsage = {
   input_tokens: number | null;
   cached_input_tokens?: number | null;

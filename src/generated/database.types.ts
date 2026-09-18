@@ -1337,12 +1337,17 @@ export type Database = {
           },
         ]
       }
-      root_meta_settings: {
+      root_settings: {
         Row: {
           access_token: string | null
           app_secret: string | null
           configuration_version: number
           created_at: string
+          openai_api_key: string | null
+          openai_chat_model: string
+          openai_configuration_version: number
+          openai_image_model: string
+          openai_pricing: Json
           singleton: boolean
           technician_booking_cancelled_template: string | null
           technician_booking_confirmed_template: string | null
@@ -1354,6 +1359,11 @@ export type Database = {
           app_secret?: string | null
           configuration_version?: number
           created_at?: string
+          openai_api_key?: string | null
+          openai_chat_model?: string
+          openai_configuration_version?: number
+          openai_image_model?: string
+          openai_pricing?: Json
           singleton?: boolean
           technician_booking_cancelled_template?: string | null
           technician_booking_confirmed_template?: string | null
@@ -1365,6 +1375,11 @@ export type Database = {
           app_secret?: string | null
           configuration_version?: number
           created_at?: string
+          openai_api_key?: string | null
+          openai_chat_model?: string
+          openai_configuration_version?: number
+          openai_image_model?: string
+          openai_pricing?: Json
           singleton?: boolean
           technician_booking_cancelled_template?: string | null
           technician_booking_confirmed_template?: string | null

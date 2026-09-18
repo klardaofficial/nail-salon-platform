@@ -7,7 +7,6 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test:run
-pnpm build
 ```
 
 `pnpm check` runs these in order. Application tests cover WhatsApp signature verification/normalization, analytics cohorts/timezone grouping, simulator routing/authorization, and UI behavior. They do not execute or inspect Supabase migration SQL. Do not add or maintain automated migration tests; the quality workflow runs application checks only.

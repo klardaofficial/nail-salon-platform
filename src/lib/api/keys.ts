@@ -11,6 +11,7 @@ const activityParams = (from: string, to: string, channel: ActivityChannel) =>
 
 export const apiKeys = {
   adminIdentity: apiKey("admin-identity", "/api/admin/auth/me"),
+  systemSettings: apiKey("system-settings", "/api/admin/system/settings"),
   organizations: apiKey("organizations", "/api/admin/organizations?limit=500"),
   organizationSettings: (organizationId: string) =>
     apiKey(

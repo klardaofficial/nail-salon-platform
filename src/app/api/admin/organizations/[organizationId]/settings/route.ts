@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-import { apiException, apiSuccess } from "@/lib/api/response";
+import { apiError, apiException, apiSuccess } from "@/lib/api/response";
 import { requireOrganizationAdmin } from "@/lib/auth/api-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { aiPricingSchema } from "@/features/ai-usage/pricing";
 import {
   clickToChatUrl,
   resolveEffectiveMetaConfiguration,
@@ -21,6 +22,16 @@ const metaFields = z.object({
   appSecret: z.string().nullable(),
   webhookVerifyToken: z.string().nullable(),
 });
+const openaiOverrideSchema = z.discriminatedUnion("enabled", [
+  z.object({ enabled: z.literal(false) }),
+  z.object({
+    enabled: z.literal(true),
+    apiKey: z.string().trim().nullable(),
+    chatModel: z.string().trim().min(1).max(120),
+    imageModel: z.string().trim().min(1).max(120),
+    pricing: aiPricingSchema,
+  }),
+]);
 const updateSchema = z.object({
   organizationName: z.string().trim().min(1).max(120).optional(),
   ownerWaIds: z.string().max(2000).optional(),
@@ -32,10 +43,7 @@ const updateSchema = z.object({
   meta: metaFields.optional(),
   confirmedTemplate: z.string().trim().max(512).nullable().optional(),
   cancelledTemplate: z.string().trim().max(512).nullable().optional(),
-  openaiApiKey: z.string().trim().min(1).optional(),
-  openaiChatModel: z.string().trim().min(1).max(120).optional(),
-  openaiImageModel: z.string().trim().min(1).max(120).optional(),
-  openaiPricing: z.record(z.string(), z.unknown()).optional(),
+  openai: openaiOverrideSchema.optional(),
 });
 
 const noStore = { headers: { "Cache-Control": "private, no-store" } };
@@ -88,9 +96,17 @@ export async function GET(_request: Request, { params }: Context) {
           },
           confirmedTemplate: provider.technician_booking_confirmed_template,
           cancelledTemplate: provider.technician_booking_cancelled_template,
-          openaiConfigured: Boolean(openAI),
-          openaiChatModel: provider.openai_chat_model,
-          openaiImageModel: provider.openai_image_model,
+          openai: {
+            overrideConfigured: Boolean(provider.openai_api_key?.trim()),
+            chatModel: provider.openai_chat_model,
+            imageModel: provider.openai_image_model,
+            pricing: provider.openai_pricing,
+            effective: {
+              source: openAI?.source ?? "none",
+              chatModel: openAI?.chatModel ?? null,
+              imageModel: openAI?.imageModel ?? null,
+            },
+          },
           source: effective?.source ?? "none",
           readiness: effective?.readiness ?? "incomplete",
           callbackUrl: effective?.callbackUrl,
@@ -146,8 +162,13 @@ export async function PATCH(request: Request, { params }: Context) {
       : null;
     if (normalizedMeta) {
       const metaValues = Object.values(normalizedMeta);
-      if (metaValues.some(Boolean) && !metaValues.every(Boolean))
-        throw new Error("meta_override_must_be_complete");
+      if (metaValues.some(Boolean) && !metaValues.every(Boolean)) {
+        return apiError(
+          "incomplete_meta_override",
+          "Access token, app secret, and webhook verify token must all be filled in, or all left blank to use the root credentials.",
+          422,
+        );
+      }
       providerValues.access_token = normalizedMeta.accessToken;
       providerValues.app_secret = normalizedMeta.appSecret;
       providerValues.webhook_verify_token = normalizedMeta.webhookVerifyToken;
@@ -159,22 +180,47 @@ export async function PATCH(request: Request, { params }: Context) {
       providerValues.technician_booking_confirmed_template = values.confirmedTemplate || null;
     if (values.cancelledTemplate !== undefined)
       providerValues.technician_booking_cancelled_template = values.cancelledTemplate || null;
-    if (values.openaiApiKey !== undefined) providerValues.openai_api_key = values.openaiApiKey;
-    if (values.openaiChatModel !== undefined)
-      providerValues.openai_chat_model = values.openaiChatModel;
-    if (values.openaiImageModel !== undefined)
-      providerValues.openai_image_model = values.openaiImageModel;
-    if (values.openaiPricing !== undefined) providerValues.openai_pricing = values.openaiPricing;
-    const openAIChanged =
-      (values.openaiApiKey !== undefined && values.openaiApiKey !== current.data.openai_api_key) ||
-      (values.openaiChatModel !== undefined &&
-        values.openaiChatModel !== current.data.openai_chat_model) ||
-      (values.openaiImageModel !== undefined &&
-        values.openaiImageModel !== current.data.openai_image_model) ||
-      (values.openaiPricing !== undefined &&
-        JSON.stringify(values.openaiPricing) !== JSON.stringify(current.data.openai_pricing));
+
+    let openAIChanged = false;
+    if (values.openai) {
+      if (!values.openai.enabled) {
+        openAIChanged =
+          current.data.openai_api_key !== null ||
+          Object.keys(current.data.openai_pricing ?? {}).length > 0;
+        providerValues.openai_api_key = null;
+        providerValues.openai_pricing = {};
+      } else {
+        const { apiKey, chatModel, imageModel, pricing } = values.openai;
+        const resolvedKey = apiKey?.trim() || current.data.openai_api_key;
+        if (!resolvedKey) {
+          return apiError(
+            "incomplete_openai_override",
+            "An OpenAI API key is required to enable an organization-specific override.",
+            422,
+          );
+        }
+        const missingPricing = [chatModel, imageModel].filter((model) => !pricing[model]);
+        if (missingPricing.length) {
+          return apiError(
+            "incomplete_openai_override",
+            `Add a pricing row for: ${missingPricing.join(", ")}`,
+            422,
+          );
+        }
+        openAIChanged =
+          resolvedKey !== current.data.openai_api_key ||
+          chatModel !== current.data.openai_chat_model ||
+          imageModel !== current.data.openai_image_model ||
+          JSON.stringify(pricing) !== JSON.stringify(current.data.openai_pricing);
+        providerValues.openai_api_key = resolvedKey;
+        providerValues.openai_chat_model = chatModel;
+        providerValues.openai_image_model = imageModel;
+        providerValues.openai_pricing = pricing;
+      }
+    }
     if (openAIChanged)
       providerValues.openai_configuration_version = current.data.openai_configuration_version + 1;
+
     const phoneChanged =
       values.phoneNumberId !== undefined &&
       (values.phoneNumberId || null) !== current.data.phone_number_id;

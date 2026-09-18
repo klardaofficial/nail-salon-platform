@@ -1,6 +1,6 @@
 # OpenAI integration
 
-`OPENAI_CHAT_MODEL` and `OPENAI_IMAGE_MODEL` pin deployment-selected models; defaults are `gpt-5-mini` and `gpt-image-1`. Confirm model availability and cost in the target OpenAI project before release. Code uses the installed official JavaScript SDK.
+The chat and image models are database settings, not environment variables: root defaults (`gpt-5-mini` and `gpt-image-1`) live in `root_settings`, editable at `/admin/system/settings`, and an organization may override its key, models, and pricing together at its own Settings page. Confirm model availability and cost in the target OpenAI project before release. Code uses the installed official JavaScript SDK.
 
 Natural chat uses the Responses API with `store: false`, a stable safety identifier, serial tool calls, and app-owned context replay. The developer instructions in `features/conversation/respond.ts` define adaptive language, flexible booking policy, date/time basis, verified-role assistance, permissions, and response style. They include a bounded active catalog and draft, not arbitrary database content.
 
