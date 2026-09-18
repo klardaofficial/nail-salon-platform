@@ -20,6 +20,7 @@ export const processWhatsAppEvent = inngest.createFunction(
       inboxEventId: string;
       jobOutboxId?: string;
     };
+    console.log("[inngest] process-whatsapp-event started", data);
     const supabase = createSupabaseAdminClient();
     if (data.jobOutboxId) {
       await supabase
@@ -34,8 +35,13 @@ export const processWhatsAppEvent = inngest.createFunction(
       if (data.jobOutboxId) {
         await supabase.from("job_outbox").update({ state: "completed" }).eq("id", data.jobOutboxId);
       }
+      console.log("[inngest] process-whatsapp-event completed", { inboxEventId: data.inboxEventId, result });
       return result;
     } catch (error) {
+      console.error("[inngest] process-whatsapp-event failed", {
+        inboxEventId: data.inboxEventId,
+        error,
+      });
       if (data.jobOutboxId) {
         await supabase
           .from("job_outbox")
@@ -60,7 +66,17 @@ export const deliverWhatsAppMessage = inngest.createFunction(
   },
   async ({ event, step }) => {
     const { outboxId } = event.data as { outboxId: string };
-    return step.run("deliver-message", () => deliverWhatsAppOutboxMessage(outboxId));
+    console.log("[inngest] deliver-whatsapp-message started", { outboxId });
+    try {
+      const result = await step.run("deliver-message", () =>
+        deliverWhatsAppOutboxMessage(outboxId),
+      );
+      console.log("[inngest] deliver-whatsapp-message completed", { outboxId, result });
+      return result;
+    } catch (error) {
+      console.error("[inngest] deliver-whatsapp-message failed", { outboxId, error });
+      throw error;
+    }
   },
 );
 

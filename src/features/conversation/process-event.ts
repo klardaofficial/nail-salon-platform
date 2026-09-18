@@ -36,7 +36,10 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     .eq("id", inboxEventId)
     .single();
   if (inboxResult.error) throw inboxResult.error;
-  if (inboxResult.data.processed_at) return { duplicate: true };
+  if (inboxResult.data.processed_at) {
+    console.log("[whatsapp] inbox event already processed, skipping", { inboxEventId });
+    return { duplicate: true };
+  }
   const organizationId = inboxResult.data.organization_id;
   async function markProcessed() {
     const result = await supabase
@@ -55,7 +58,13 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
       .single();
     if (error) throw error;
     messageSettings = data;
-    if (event.simulated && !data.simulator_enabled) throw new Error("simulator_disabled");
+    if (event.simulated && !data.simulator_enabled) {
+      console.error("[whatsapp] simulator event received but simulator_enabled=false", {
+        organizationId,
+        inboxEventId,
+      });
+      throw new Error("simulator_disabled");
+    }
   }
 
   if (event.kind === "status") {
@@ -192,7 +201,14 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     currentMediaId: recentMedia?.media_id ?? null,
     locale,
   };
+  console.log("[whatsapp] calling createNaturalReply", { conversationId, transport, locale });
   const reply = await createNaturalReply(actor);
+  console.log("[whatsapp] createNaturalReply result", {
+    conversationId,
+    hasReply: Boolean(reply),
+    optionCount: reply?.options.length ?? 0,
+    text: reply?.text,
+  });
   const localeResult = await supabase
     .from("conversations")
     .update({
@@ -221,6 +237,10 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
       },
     });
   }
+  console.log("[whatsapp] reply queued, marking inbox event processed", {
+    conversationId,
+    deduplicationKey: replyTarget.deduplicationKey,
+  });
   await markProcessed();
   return { processed: "message" };
 }

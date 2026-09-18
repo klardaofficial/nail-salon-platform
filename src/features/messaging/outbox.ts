@@ -46,9 +46,17 @@ export async function queueWhatsAppMessage(input: {
   }
 
   if (outbox.state !== "sent") {
+    console.log("[whatsapp] sending whatsapp/message.queued", {
+      outboxId: outbox.id,
+      state: outbox.state,
+    });
     await inngest.send({
       name: "whatsapp/message.queued",
       data: { outboxId: outbox.id },
+    });
+  } else {
+    console.log("[whatsapp] outbox message already sent, skipping requeue", {
+      outboxId: outbox.id,
     });
   }
   return outbox.id;
@@ -69,9 +77,18 @@ export async function deliverWhatsAppOutboxMessage(outboxId: string) {
     .eq("id", outboxId)
     .single();
   if (error) throw error;
-  if (outbox.state === "sent" && outbox.provider_message_id) return outbox.provider_message_id;
+  if (outbox.state === "sent" && outbox.provider_message_id) {
+    console.log("[whatsapp] outbox already sent, short-circuiting", { outboxId });
+    return outbox.provider_message_id;
+  }
 
   const simulated = outbox.payload.transport === "simulator";
+  console.log("[whatsapp] delivering outbox message", {
+    outboxId,
+    simulated,
+    recipientWaId: outbox.recipient_wa_id,
+    kind: outbox.payload.kind,
+  });
   const sending = await supabase
     .from("message_outbox")
     .update({
@@ -129,9 +146,11 @@ export async function deliverWhatsAppOutboxMessage(outboxId: string) {
       );
       if (historyError) throw historyError;
     }
+    console.log("[whatsapp] outbox message delivered", { outboxId, providerMessageId, simulated });
     return providerMessageId;
   } catch (error) {
     const code = error instanceof Error ? error.message.slice(0, 120) : "delivery_failed";
+    console.error("[whatsapp] outbox delivery failed", { outboxId, code, error });
     await supabase
       .from("message_outbox")
       .update({ state: "failed", failure_code: code })

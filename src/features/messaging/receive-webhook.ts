@@ -25,6 +25,12 @@ export async function registerOrganizationEvents(
     if (error) throw error;
     const registered = Array.isArray(data) ? data[0] : data;
     if (registered?.accepted) {
+      console.log("[whatsapp] event accepted, sending whatsapp/event.received", {
+        organizationId: configuration.organizationId,
+        inboxEventId: registered.inbox_event_id,
+        jobOutboxId: registered.job_outbox_id,
+        simulated,
+      });
       try {
         await inngest.send({
           name: "whatsapp/event.received",
@@ -40,9 +46,22 @@ export async function registerOrganizationEvents(
           .update({ state: "dispatched" })
           .eq("id", registered.job_outbox_id)
           .eq("organization_id", configuration.organizationId);
-      } catch {
+        console.log("[whatsapp] job_outbox marked dispatched", {
+          jobOutboxId: registered.job_outbox_id,
+        });
+      } catch (sendError) {
         // Recovery reads the organization-scoped durable job row.
+        console.error("[whatsapp] inngest.send failed, relying on recoverDurableOutboxes cron", {
+          jobOutboxId: registered.job_outbox_id,
+          error: sendError,
+        });
       }
+    } else {
+      console.log("[whatsapp] event not accepted by register_whatsapp_event", {
+        organizationId: configuration.organizationId,
+        providerEventId: event.providerEventId,
+        registered,
+      });
     }
   }
 }
