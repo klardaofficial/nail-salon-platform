@@ -97,7 +97,7 @@ export function SystemSettingsClient() {
       />
       {error ? <Alert type="error" showIcon title={error.message} /> : null}
       {data ? (
-        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" className="w-full">
           <SettingsSection
             form={metaForm}
             title="WhatsApp (Meta)"

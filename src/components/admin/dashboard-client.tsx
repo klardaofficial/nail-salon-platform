@@ -90,7 +90,7 @@ export function DashboardClient({
         title="Business overview"
         description="Bookings, customer return signals, messaging activity, and AI usage."
       />
-      <Space wrap style={{ marginBottom: 22 }}>
+      <Space wrap className="mb-[22px]">
         <DatePicker.RangePicker
           aria-label="Reporting date range"
           value={range}
@@ -102,7 +102,7 @@ export function DashboardClient({
           renderExtraFooter={() => {
             const today = dayjs();
             return (
-              <div className="admin-date-range-presets">
+              <div className="flex justify-between gap-3">
                 <Typography.Link
                   onClick={() => setPreset(today.startOf("month"), today.endOf("month"))}
                 >
@@ -143,9 +143,7 @@ export function DashboardClient({
         ) : null}
       </Space>
 
-      {error ? (
-        <Alert type="error" showIcon title={error.message} style={{ marginBottom: 20 }} />
-      ) : null}
+      {error ? <Alert type="error" showIcon title={error.message} className="mb-5" /> : null}
       {isLoading ? (
         <Skeleton active paragraph={{ rows: 10 }} />
       ) : data ? (
@@ -192,9 +190,9 @@ export function DashboardClient({
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+          <Row gutter={[16, 16]} className="mt-4">
             <Col xs={24} xl={16}>
-              <Card title="Booking trend" className="admin-chart-card">
+              <Card title="Booking trend" className="min-h-[390px]">
                 {lineData.length ? (
                   <Line
                     data={lineData}
@@ -210,7 +208,7 @@ export function DashboardClient({
               </Card>
             </Col>
             <Col xs={24} xl={8}>
-              <Card title="Current status" className="admin-chart-card">
+              <Card title="Current status" className="min-h-[390px]">
                 {data.totals.total ? (
                   <Column
                     data={statusData}
@@ -226,7 +224,7 @@ export function DashboardClient({
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+          <Row gutter={[16, 16]} className="mt-4">
             <Col xs={24} xl={16}>
               <Card title="Recent bookings">
                 <Table
@@ -255,7 +253,7 @@ export function DashboardClient({
             </Col>
             <Col xs={24} xl={8}>
               <Card title="Current queue health">
-                <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                <Space orientation="vertical" size="large" className="w-full">
                   <Statistic title="Failed jobs" value={data.health.failedJobs} />
                   <Statistic title="Pending messages" value={data.health.pendingMessages} />
                   <Statistic title="Preview failures" value={data.health.previewFailures} />
@@ -268,7 +266,7 @@ export function DashboardClient({
             </Col>
           </Row>
 
-          <Card title="Accessible trend data" style={{ marginTop: 16 }}>
+          <Card title="Accessible trend data" className="mt-4">
             <Table
               rowKey="date"
               size="small"

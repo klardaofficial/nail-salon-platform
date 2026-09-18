@@ -63,7 +63,7 @@ export function SystemAccountsClient() {
         description="System-only account, role, membership, password, and removal management."
       />
       {error ? <Alert type="error" showIcon title={error.message} /> : null}
-      <Space style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+      <Space className="mb-4 flex justify-end">
         <Button type="primary" onClick={() => setCreateOpen(true)}>
           Create account
         </Button>

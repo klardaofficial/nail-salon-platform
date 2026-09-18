@@ -37,7 +37,7 @@ export function LoginForm() {
           type="error"
           showIcon
           title={error instanceof Error ? error.message : "Sign in failed"}
-          style={{ marginBottom: 20 }}
+          className="mb-5"
         />
       ) : null}
       <Form.Item name="email" label="Email address" rules={[{ required: true }, { type: "email" }]}>

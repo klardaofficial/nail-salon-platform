@@ -1,0 +1,63 @@
+/*
+ * Design tokens shared by the marketing entry (`globals.css`) and the admin
+ * entry (`admin/admin.css`). Each entry compiles as its own independent
+ * Tailwind build, so this file is imported by both rather than merged once.
+ *
+ * Cross-reference: `colorPrimary`/`colorInfo` in
+ * `src/components/admin/admin-providers.tsx`'s `ConfigProvider` are the same
+ * `#a62f5c` as `--color-accent` below — antd's own theming is unchanged, this
+ * is only for the Tailwind utilities the project renders around it.
+ */
+@theme {
+  --color-accent: #a62f5c;
+  --color-accent-strong: #862047;
+  --color-ink: #191a1e;
+  --color-muted: #575b65;
+  --color-line: #c7cad2;
+  --color-surface: #f4f5f7;
+  --color-surface-raised: #e7e9ed;
+  --color-surface-soft: #dde0e6;
+  --color-on-accent: #fff8fb;
+  --color-on-accent-soft: #ffe8f1;
+
+  /* Admin greys — kept at their current values, deliberately not merged with the marketing palette above. */
+  --color-admin-bg: #f4f6f8;
+  --color-admin-ink: #18202a;
+  --color-admin-muted: #687383;
+  --color-admin-line: #e5e9ee;
+  --color-admin-line-strong: #dde3e8;
+  --font-admin: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --shadow-marketing: 0 30px 90px rgb(91 37 62 / 14%);
+
+  --animate-enter: enter 700ms both cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-visual-enter: visual-enter 900ms 100ms both cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Admin's four historically inconsistent breakpoints, preserved exactly rather than rounded to Tailwind's defaults. */
+  --breakpoint-admin-sm: 600px;
+  --breakpoint-admin-md: 700px;
+  --breakpoint-admin-lg: 900px;
+  --breakpoint-admin-xl: 1000px;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes visual-enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

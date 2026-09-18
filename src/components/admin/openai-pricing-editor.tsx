@@ -11,7 +11,7 @@ const kindOptions = [
 function Rate({ name, label }: { name: (string | number)[]; label: string }) {
   return (
     <Form.Item name={name} label={label} rules={[{ required: true, message: "Required" }]}>
-      <InputNumber min={0} step={0.01} style={{ width: "100%" }} />
+      <InputNumber min={0} step={0.01} className="w-full" />
     </Form.Item>
   );
 }
@@ -20,9 +20,9 @@ export function OpenAIPricingEditor({ name }: { name: string }) {
   return (
     <Form.List name={name}>
       {(fields, { add, remove }) => (
-        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" className="w-full">
           {fields.map((field) => (
-            <div key={field.key} className="admin-pricing-row">
+            <div key={field.key}>
               <Row gutter={[16, 0]} align="top">
                 <Col xs={24} lg={7}>
                   <Form.Item

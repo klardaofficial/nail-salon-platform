@@ -35,7 +35,10 @@ export const processWhatsAppEvent = inngest.createFunction(
       if (data.jobOutboxId) {
         await supabase.from("job_outbox").update({ state: "completed" }).eq("id", data.jobOutboxId);
       }
-      console.log("[inngest] process-whatsapp-event completed", { inboxEventId: data.inboxEventId, result });
+      console.log("[inngest] process-whatsapp-event completed", {
+        inboxEventId: data.inboxEventId,
+        result,
+      });
       return result;
     } catch (error) {
       console.error("[inngest] process-whatsapp-event failed", {

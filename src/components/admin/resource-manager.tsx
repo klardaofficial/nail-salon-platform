@@ -129,14 +129,9 @@ export function ResourceManager({
     <>
       <PageHeading title={definition.title} description={definition.description} />
       {(error || mutationError) && (
-        <Alert
-          type="error"
-          showIcon
-          title={(error || mutationError)?.message}
-          style={{ marginBottom: 16 }}
-        />
+        <Alert type="error" showIcon title={(error || mutationError)?.message} className="mb-4" />
       )}
-      <div className="admin-table-toolbar">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <span />
         <Button type="primary" icon={<PlusIcon size={17} />} onClick={showCreate}>
           Add {definition.singular}

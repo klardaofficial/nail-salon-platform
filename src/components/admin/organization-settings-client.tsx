@@ -31,9 +31,9 @@ import {
   type AIPricing,
   type PricingRow,
 } from "@/features/ai-usage/pricing";
-import {OpenAIPricingEditor} from "./openai-pricing-editor";
+import { OpenAIPricingEditor } from "./openai-pricing-editor";
 import { PageHeading } from "./page-heading";
-import {SettingsSection} from "./settings-section";
+import { SettingsSection } from "./settings-section";
 
 type SettingsResponse = {
   organization: { name: string; status: string; ownerWaIds: string };
@@ -125,12 +125,10 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       data.provider.savedMetaOverride.accessToken,
       data.provider.savedMetaOverride.appSecret,
       data.provider.savedMetaOverride.webhookVerifyToken,
-    ].some(Boolean)
-  )
+    ].some(Boolean),
+  );
 
-  const showWhatsAppSettings =
-    showWhatsAppOverride ??
-    haveWhatsAppSettings;
+  const showWhatsAppSettings = showWhatsAppOverride ?? haveWhatsAppSettings;
   const showOpenAISettings =
     showOpenAIOverride ?? Boolean(data?.provider.openai.overrideConfigured);
 
@@ -153,7 +151,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       confirmedTemplate: data.provider.confirmedTemplate,
       cancelledTemplate: data.provider.cancelledTemplate,
     });
-    simulatorForm.setFieldsValue({simulatorEnabled: data.settings.simulator_enabled});
+    simulatorForm.setFieldsValue({ simulatorEnabled: data.settings.simulator_enabled });
     openaiForm.setFieldsValue({
       apiKey: null,
       chatModel: data.provider.openai.chatModel ?? "",
@@ -164,9 +162,9 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
 
   async function patch(body: Record<string, unknown>) {
     const updated = await apiMutation<SettingsResponse>(settingsKey, {
-      arg: {method: "PATCH", body},
+      arg: { method: "PATCH", body },
     });
-    await mutate(updated, {revalidate: false});
+    await mutate(updated, { revalidate: false });
     return updated;
   }
 
@@ -180,13 +178,13 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
   }
 
   async function saveWhatsAppCredentials(values: WhatsAppCredentialsFormValues) {
-    const {confirmedTemplate, cancelledTemplate, ...meta} = values;
+    const { confirmedTemplate, cancelledTemplate, ...meta } = values;
     await patch({
       confirmedTemplate,
       cancelledTemplate,
       meta: showWhatsAppSettings
         ? meta
-        : {accessToken: null, appSecret: null, webhookVerifyToken: null},
+        : { accessToken: null, appSecret: null, webhookVerifyToken: null },
     });
   }
 
@@ -199,20 +197,20 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
     await patch({
       openai: showOpenAISettings
         ? {
-          enabled: true,
-          apiKey: values.apiKey,
-          chatModel: values.chatModel,
-          imageModel: values.imageModel,
-          pricing: rowsToPricing(values.pricing ?? []),
-        }
-        : {enabled: false},
+            enabled: true,
+            apiKey: values.apiKey,
+            chatModel: values.chatModel,
+            imageModel: values.imageModel,
+            pricing: rowsToPricing(values.pricing ?? []),
+          }
+        : { enabled: false },
     });
   }
 
   async function clearMetaOverride() {
     setClearingMeta(true);
     try {
-      await patch({meta: {accessToken: null, appSecret: null, webhookVerifyToken: null}});
+      await patch({ meta: { accessToken: null, appSecret: null, webhookVerifyToken: null } });
       setShowWhatsAppOverride(false);
       message.success("Cleared organization WhatsApp credentials; root credentials are now used");
     } catch (err) {
@@ -225,7 +223,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
   async function clearOpenAIOverride() {
     setClearingOpenAI(true);
     try {
-      await patch({openai: {enabled: false}});
+      await patch({ openai: { enabled: false } });
       setShowOpenAIOverride(false);
       message.success("Cleared organization OpenAI override; root configuration is now used");
     } catch (err) {
@@ -259,7 +257,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       />
       {error ? <Alert type="error" showIcon title={error.message} /> : null}
       {data ? (
-        <Space orientation="vertical" size="large" style={{width: "100%"}}>
+        <Space orientation="vertical" size="large" className="w-full">
           <SettingsSection
             form={orgForm}
             title="Organization"
@@ -272,15 +270,15 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                 <Form.Item
                   name="organizationName"
                   label="Organization name"
-                  rules={[{required: true}]}
+                  rules={[{ required: true }]}
                 >
-                  <Input maxLength={120}/>
+                  <Input maxLength={120} />
                 </Form.Item>
               </Col>
               <Col xs={24} lg={12}>
                 <Form.Item name="platformTimezone" label="Platform timezone">
                   <Select
-                    showSearch={{optionFilterProp: "label"}}
+                    showSearch={{ optionFilterProp: "label" }}
                     options={timeZoneOptions}
                     placeholder="Select a timezone"
                   />
@@ -292,7 +290,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                   label="Owner WhatsApp IDs"
                   extra="Enter one WhatsApp ID or international number per line."
                 >
-                  <Input.TextArea rows={3}/>
+                  <Input.TextArea rows={3} />
                 </Form.Item>
               </Col>
               <Col xs={24} lg={12}>
@@ -302,7 +300,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                   extra="Used when a conversation does not have a detected language yet."
                 >
                   <Select
-                    showSearch={{optionFilterProp: "label"}}
+                    showSearch={{ optionFilterProp: "label" }}
                     options={[...languageOptions]}
                     placeholder="Select a language"
                   />
@@ -325,7 +323,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
               </Button>
             }
           >
-            <Space wrap style={{marginBottom: 16}}>
+            <Space wrap className="mb-4">
               <Tag>{data.provider.source}</Tag>
               <Tag color={data.provider.readiness === "enabled" ? "green" : "orange"}>
                 {data.provider.readiness}
@@ -334,12 +332,12 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
             <Row gutter={[24, 0]}>
               <Col xs={24} lg={12}>
                 <Form.Item name="wabaId" label="WhatsApp Business Account ID">
-                  <Input/>
+                  <Input />
                 </Form.Item>
               </Col>
               <Col xs={24} lg={12}>
                 <Form.Item name="phoneNumberId" label="Receiving phone-number ID">
-                  <Input/>
+                  <Input />
                 </Form.Item>
               </Col>
             </Row>
@@ -358,7 +356,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                   <Typography.Link
                     href={data.provider.clickToChatUrl}
                     target="_blank"
-                    copyable={{text: data.provider.clickToChatUrl}}
+                    copyable={{ text: data.provider.clickToChatUrl }}
                   >
                     {data.provider.clickToChatUrl}
                   </Typography.Link>
@@ -407,33 +405,33 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
             }
           >
             {showWhatsAppSettings ? (
-              <Space orientation="vertical" size="middle" style={{width: "100%"}}>
+              <Space orientation="vertical" size="middle" className="w-full">
                 <Row gutter={[24, 0]}>
                   <Col xs={24} lg={12}>
                     <Form.Item
                       name="accessToken"
                       label="Meta access token"
-                      rules={[{required: true, message: "Required"}]}
+                      rules={[{ required: true, message: "Required" }]}
                     >
-                      <Input.Password/>
+                      <Input.Password />
                     </Form.Item>
                   </Col>
                   <Col xs={24} lg={12}>
                     <Form.Item
                       name="appSecret"
                       label="Meta app secret"
-                      rules={[{required: true, message: "Required"}]}
+                      rules={[{ required: true, message: "Required" }]}
                     >
-                      <Input.Password/>
+                      <Input.Password />
                     </Form.Item>
                   </Col>
                   <Col xs={24} lg={12}>
                     <Form.Item
                       name="webhookVerifyToken"
                       label="Webhook verify token"
-                      rules={[{required: true, message: "Required"}]}
+                      rules={[{ required: true, message: "Required" }]}
                     >
-                      <Input.Password/>
+                      <Input.Password />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -441,27 +439,27 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                 <Row gutter={[24, 0]}>
                   <Col xs={24} lg={12}>
                     <Form.Item name="confirmedTemplate" label="Technician confirmation template">
-                      <Input/>
+                      <Input />
                     </Form.Item>
                   </Col>
                   <Col xs={24} lg={12}>
                     <Form.Item name="cancelledTemplate" label="Technician cancellation template">
-                      <Input/>
+                      <Input />
                     </Form.Item>
                   </Col>
                 </Row>
 
                 <div>
                   <Typography.Text type="secondary">Webhook URL</Typography.Text>
-                  <br/>
+                  <br />
                   <Typography.Text
                     code
-                    copyable={{text: data.provider.callbackUrl}}
-                    style={{overflowWrap: "anywhere"}}
+                    copyable={{ text: data.provider.callbackUrl }}
+                    className="[overflow-wrap:anywhere]"
                   >
                     {data.provider.callbackUrl}
                   </Typography.Text>
-                  <br/>
+                  <br />
                   <Typography.Text type="secondary">
                     {data.provider.source === "organization"
                       ? "This organization webhook URL uses organization-specific Meta credentials."
@@ -492,9 +490,9 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
               label="Enable simulator"
               valuePropName="checked"
               extra="Allows authenticated admins to test conversations without sending messages through Meta."
-              style={{marginBottom: 0}}
+              className="mb-0"
             >
-              <Switch/>
+              <Switch />
             </Form.Item>
           </SettingsSection>
 
@@ -547,7 +545,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                     <Form.Item
                       name="chatModel"
                       label="OpenAI chat model"
-                      rules={[{required: true, message: "Required"}]}
+                      rules={[{ required: true, message: "Required" }]}
                     >
                       <Input />
                     </Form.Item>
@@ -556,14 +554,14 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                     <Form.Item
                       name="imageModel"
                       label="OpenAI image model"
-                      rules={[{required: true, message: "Required"}]}
+                      rules={[{ required: true, message: "Required" }]}
                     >
                       <Input />
                     </Form.Item>
                   </Col>
                 </Row>
                 <Form.Item label="Per-model pricing">
-                  <OpenAIPricingEditor name="pricing"/>
+                  <OpenAIPricingEditor name="pricing" />
                 </Form.Item>
               </>
             ) : (

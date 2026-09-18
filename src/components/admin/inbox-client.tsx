@@ -30,7 +30,6 @@ import { apiGet } from "@/lib/api/client";
 import { apiKeys } from "@/lib/api/keys";
 import { ChatMessageBubble } from "./chat-message";
 import { PageHeading } from "./page-heading";
-import styles from "./inbox.module.css";
 
 function Roles({ roles }: { roles: InboxThread["roles"] }) {
   return roles.length ? (
@@ -87,19 +86,19 @@ function Conversation({
   }, [messages]);
 
   return (
-    <section className={styles.conversation} aria-label={`Chat with ${thread.name}`}>
-      <div className={styles.chatHeader}>
+    <section className="flex min-h-0 min-w-0 flex-col" aria-label={`Chat with ${thread.name}`}>
+      <div className="max-admin-md:py-3 max-admin-md:px-3 max-admin-md:gap-2 flex items-center gap-3 px-5 py-4">
         <Button
-          className={styles.back}
+          className="max-admin-md:inline-flex hidden"
           type="text"
           icon={<ArrowLeftIcon size={18} />}
           aria-label="Back to conversations"
           onClick={onBack}
         />
         <Avatar>{thread.name.slice(0, 1).toUpperCase()}</Avatar>
-        <div className={styles.identity}>
-          <h2>{thread.name}</h2>
-          <span>+{thread.waId}</span>
+        <div className="min-w-0 flex-1">
+          <h2 className="[margin:0_0_3px] text-[17px] [overflow-wrap:anywhere]">{thread.name}</h2>
+          <span className="text-admin-muted mb-[5px] block text-xs">+{thread.waId}</span>
           <div>
             <Roles roles={thread.roles} />
           </div>
@@ -127,7 +126,7 @@ function Conversation({
       ) : null}
       <div
         ref={transcript}
-        className={styles.transcript}
+        className="border-admin-line max-admin-md:px-3 max-admin-md:py-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto [overscroll-behavior:contain] border-y bg-[#f0f3f1] p-6 [overflow-anchor:none]"
         role="log"
         aria-label={`Messages for ${thread.name}`}
         aria-live="polite"
@@ -141,7 +140,7 @@ function Conversation({
       >
         {data?.at(-1)?.nextCursor ? (
           <Button
-            className={styles.older}
+            className="shrink-0 self-center"
             size="small"
             loading={isValidating && size > (data?.length ?? 0)}
             disabled={isValidating}
@@ -173,7 +172,7 @@ function Conversation({
           />
         ))}
       </div>
-      <div className={styles.footer}>
+      <div className="text-admin-muted px-5 py-3 text-center text-[11px]">
         Stored message history · Times shown in your browser timezone · Refreshes every 10 seconds
       </div>
     </section>
@@ -210,7 +209,7 @@ export function InboxClient({
         title="WhatsApp inbox"
         description="Read customer, owner, and technician conversations with your business account."
       />
-      <div className={styles.toolbar}>
+      <div className="mb-5 flex flex-wrap items-center gap-4">
         {simulatorEnabled ? (
           <Segmented
             aria-label="Inbox source"
@@ -230,10 +229,13 @@ export function InboxClient({
           Browse stored conversations and staff notifications.
         </Typography.Text>
       </div>
-      <div className={`${styles.inbox} ${selectedThread ? styles.hasSelection : ""}`}>
-        <aside className={styles.sidebar} aria-label="Conversations">
-          <div className={styles.filters}>
-            <Space style={{ justifyContent: "space-between", width: "100%" }}>
+      <div className="border-admin-line-strong max-admin-xl:grid-cols-[280px_minmax(0,1fr)] max-admin-md:grid-cols-1 max-admin-md:h-[calc(100dvh-210px)] max-admin-md:min-h-[420px] grid h-[min(760px,calc(100dvh-240px))] min-h-[480px] grid-cols-[320px_minmax(0,1fr)] overflow-hidden rounded-xl border bg-white">
+        <aside
+          className={`border-admin-line-strong max-admin-md:border-r-0 flex min-h-0 flex-col border-r ${selectedThread ? "max-admin-md:hidden" : ""}`}
+          aria-label="Conversations"
+        >
+          <div className="border-admin-line flex flex-col gap-3 border-b px-4 pt-3 pb-4">
+            <Space className="w-full justify-between">
               <Typography.Text strong>
                 Conversations{data ? ` (${data.total})` : ""}
               </Typography.Text>
@@ -283,7 +285,7 @@ export function InboxClient({
               }
             />
           ) : null}
-          <div className={styles.threadList}>
+          <div className="admin-thread-list min-h-0 flex-1 overflow-y-auto">
             {isLoading ? <Skeleton active paragraph={{ rows: 8 }} /> : null}
             {!isLoading && !error && !data?.conversations.length ? (
               <Empty description="No matching conversations" />
@@ -292,22 +294,22 @@ export function InboxClient({
               <button
                 type="button"
                 key={thread.waId}
-                className={`${styles.thread} ${selected?.waId === thread.waId ? styles.selected : ""}`}
+                className={`focus-visible:outline-accent-strong flex w-full cursor-pointer items-start gap-3 border-0 border-b border-[#edf0f2] bg-white p-4 text-left text-inherit [font:inherit] hover:bg-[#f7f9f8] focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${selected?.waId === thread.waId ? "bg-[#edf5ef] hover:bg-[#edf5ef]" : ""}`}
                 aria-pressed={selected?.waId === thread.waId}
                 onClick={() => setSelected(thread)}
               >
                 <Avatar>{thread.name.slice(0, 1).toUpperCase()}</Avatar>
-                <span className={styles.threadText}>
-                  <strong>{thread.name}</strong>
-                  <span className={styles.number}>+{thread.waId}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <strong className="[overflow-wrap:anywhere]">{thread.name}</strong>
+                  <span className="text-admin-muted text-[11px]">+{thread.waId}</span>
                   <span>
                     <Roles roles={thread.roles} />
                   </span>
-                  <span className={styles.preview}>
+                  <span className="truncate text-[13px] text-[#58695e]">
                     {thread.direction === "outbound" ? "You: " : ""}
                     {thread.lastMessage}
                   </span>
-                  <time dateTime={thread.lastMessageAt}>
+                  <time className="text-admin-muted text-[11px]" dateTime={thread.lastMessageAt}>
                     {new Date(thread.lastMessageAt).toLocaleString("en-GB", {
                       day: "2-digit",
                       month: "short",
@@ -321,7 +323,7 @@ export function InboxClient({
           </div>
           {data && data.total > data.pageSize ? (
             <Pagination
-              className={styles.pagination}
+              className="border-admin-line border-t p-3.5"
               simple
               current={page}
               pageSize={data.pageSize}
@@ -340,7 +342,7 @@ export function InboxClient({
             onBack={() => setSelected(null)}
           />
         ) : (
-          <div className={styles.placeholder}>
+          <div className="text-admin-muted max-admin-md:hidden flex flex-col items-center justify-center bg-[#f7f9f8] p-[30px] text-center">
             <ChatCircleDotsIcon size={48} />
             <Typography.Title level={4}>Your WhatsApp conversations</Typography.Title>
             <Typography.Text type="secondary">

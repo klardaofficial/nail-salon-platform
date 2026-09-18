@@ -41,18 +41,16 @@ export function AccountClient() {
         title="Account settings"
         description={admin ? `Signed in as ${admin.email}` : "Loading account"}
       />
-      <Card title="Change password" style={{ maxWidth: 620 }}>
+      <Card title="Change password" className="max-w-[620px]">
         {admin?.mustChangePassword ? (
           <Alert
             type="warning"
             showIcon
             title="Change the initial password before continuing"
-            style={{ marginBottom: 18 }}
+            className="mb-[18px]"
           />
         ) : null}
-        {error ? (
-          <Alert type="error" showIcon title={error.message} style={{ marginBottom: 18 }} />
-        ) : null}
+        {error ? <Alert type="error" showIcon title={error.message} className="mb-[18px]" /> : null}
         <Form<PasswordValues>
           form={form}
           layout="vertical"

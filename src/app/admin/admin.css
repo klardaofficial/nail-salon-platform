@@ -1,159 +1,33 @@
-body {
-  min-width: 320px;
-  min-height: 100dvh;
-  background: #f4f6f8;
-  color: #18202a;
-  font-family:
-    ui-sans-serif,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
+/*
+ * Admin Tailwind entry — deliberately omits Preflight (`tailwindcss/preflight.css`)
+ * because antd/dist/reset.css is the reset here, and Preflight would add
+ * properties antd's reset never sets (notably `img,svg{display:block}`),
+ * which would silently shift antd Avatars/icons. See
+ * docs/development/admin-ui.md.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme) source(none);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "../theme.css";
 
-.admin-shell {
-  min-height: 100dvh;
-}
+@source "./**/*.{ts,tsx}";
+@source "../../components/admin/**/*.{ts,tsx}";
+
+/*
+ * Everything below reaches into antd's internal DOM/unlayered runtime
+ * styles and therefore cannot be expressed as Tailwind utilities — a
+ * layered utility (including `!important`) always loses to antd's
+ * unlayered CSS-in-JS. See docs/development/admin-ui.md.
+ */
 
 .admin-sider {
   position: sticky !important;
-  top: 0;
-  height: 100dvh;
-  overflow: auto;
-  border-right: 1px solid #e5e9ee;
   background: #fff !important;
-}
-
-.admin-brand {
-  display: flex;
-  height: 64px;
-  align-items: center;
-  gap: 10px;
-  padding: 0 19px;
-  color: #18202a;
-  font-size: 15px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.admin-brand-mark {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 9px;
-  background: #a62f5c;
-  color: white;
-  font-size: 13px;
-}
-
-.admin-header {
-  display: flex;
-  height: 64px;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e5e9ee;
-  background: rgb(255 255 255 / 94%);
-  padding: 0 24px;
-}
-
-.admin-content {
-  width: 100%;
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 28px;
-}
-
-.admin-page-heading {
-  margin-bottom: 24px;
-}
-
-.admin-page-heading h1 {
-  margin: 0;
-  font-size: 26px;
-  letter-spacing: -0.025em;
-}
-
-.admin-page-heading p {
-  margin: 7px 0 0;
-  color: #687383;
-}
-
-.admin-login-page {
-  display: grid;
-  min-height: 100dvh;
-  grid-template-columns: minmax(360px, 0.85fr) minmax(460px, 1.15fr);
-  background: #eef1f4;
-}
-
-.admin-login-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  padding: 40px;
-}
-
-.admin-login-form {
-  width: min(100%, 390px);
-}
-
-.admin-login-form h1 {
-  margin: 32px 0 8px;
-  font-size: 31px;
-  letter-spacing: -0.04em;
-}
-
-.admin-login-form > p {
-  margin: 0 0 30px;
-  color: #687383;
-}
-
-.admin-login-aside {
-  display: flex;
-  min-height: 100%;
-  flex-direction: column;
-  justify-content: space-between;
-  background: #22242b;
-  color: #f7f8fa;
-  padding: clamp(44px, 7vw, 96px);
-}
-
-.admin-login-aside strong {
-  max-width: 12ch;
-  font-size: clamp(40px, 5vw, 72px);
-  letter-spacing: -0.055em;
-  line-height: 1.02;
-}
-
-.admin-login-aside p {
-  max-width: 48ch;
-  color: #b7bec8;
-  line-height: 1.6;
 }
 
 .admin-stat-card .ant-statistic-content {
   font-weight: 700;
   letter-spacing: -0.04em;
-}
-
-.admin-chart-card {
-  min-height: 390px;
-}
-
-.admin-org-card {
-  overflow: hidden;
-  border-radius: 14px;
-  box-shadow: 0 1px 2px rgb(16 24 40 / 5%);
-  transition:
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-.admin-org-card:hover {
-  box-shadow: 0 8px 20px rgb(16 24 40 / 9%);
-  transform: translateY(-1px);
 }
 
 .admin-org-card .ant-card-head {
@@ -162,64 +36,13 @@ body {
   padding: 8px 12px 0 20px;
 }
 
-.admin-org-link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 20px 20px;
-  color: inherit;
-  text-decoration: none;
+.admin-thread-list > .ant-skeleton,
+.admin-thread-list > .ant-empty {
+  padding: 24px 16px;
 }
 
-.admin-org-avatar {
-  border-radius: 10px;
-  background: #a62f5c;
-  font-weight: 700;
-}
-
-.admin-org-name {
-  font-size: 15px;
-}
-
-.admin-org-arrow {
-  flex: 0 0 auto;
-  color: #9aa4b2;
-  opacity: 0;
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
-}
-
-.admin-org-card:hover .admin-org-arrow {
-  opacity: 1;
-  transform: translateX(2px);
-}
-
-.admin-table-toolbar {
-  display: flex;
-  margin-bottom: 16px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.admin-date-range-presets {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-@media (max-width: 900px) {
-  .admin-login-page {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-login-aside {
-    display: none;
-  }
-
-  .admin-content {
-    padding: 20px 14px;
-  }
+.admin-chat-choice {
+  height: auto !important;
+  padding-block: 6px !important;
+  white-space: normal !important;
 }

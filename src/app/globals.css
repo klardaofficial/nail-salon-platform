@@ -1,30 +1,47 @@
+@import "tailwindcss" source(none);
+@import "./theme.css";
+
+@source "./(marketing)/**/*.{ts,tsx}";
+
+@theme {
+  --font-sans: var(--font-marketing), system-ui, sans-serif;
+}
+
+/* No Tailwind utility covers grid-template-areas; `.benefits` is the one spot that needs it. */
+@utility benefits-areas {
+  grid-template-areas: "lead" "chat" "choice";
+}
+
+@utility benefits-areas-desktop {
+  grid-template-areas: "lead chat" "lead choice";
+}
+
+/*
+ * Dark-mode token overrides — marketing only, matches the previous
+ * `.page` custom-property overrides. Unlayered so it always wins over the
+ * layered `@theme` defaults regardless of cascade-layer order.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #16171a;
+    --color-surface-raised: #222329;
+    --color-surface-soft: #2b2d34;
+    --color-ink: #f2f1f4;
+    --color-muted: #b7b8c0;
+    --color-line: #3c3e47;
+    --color-accent: #c94f7c;
+    --color-accent-strong: #ae3d68;
+  }
+}
+
 :root {
   color-scheme: light dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
-* {
-  box-sizing: border-box;
-}
-
 html {
   scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-a {
-  color: inherit;
 }
 
 @media (prefers-reduced-motion: reduce) {

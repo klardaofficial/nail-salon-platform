@@ -38,7 +38,6 @@ import { apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 import { ChatMessageBubble } from "./chat-message";
-import styles from "./simulator.module.css";
 
 const customerStorageKey = (organizationId: string) =>
   `nail-salon.simulator.customers.${organizationId}`;
@@ -142,12 +141,17 @@ function ChatWindow({
   }
 
   return (
-    <section className={styles.chat} aria-label={`Chat with ${actor.name}`}>
-      <div className={styles.chatHeader}>
-        <Avatar className={styles.avatar}>{actor.name.slice(0, 1).toUpperCase()}</Avatar>
-        <div className={styles.identity}>
-          <h2>{actor.name}</h2>
-          <span className={styles.waId}>{actor.waId}</span>
+    <section
+      className="border-admin-line-strong min-w-0 overflow-hidden rounded-xl border bg-white"
+      aria-label={`Chat with ${actor.name}`}
+    >
+      <div className="flex items-center gap-2.5 px-4 pt-4 pb-2">
+        <Avatar className="text-accent-strong shrink-0 bg-[#f7e8ee]">
+          {actor.name.slice(0, 1).toUpperCase()}
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <h2 className="m-0 text-base leading-[1.4] [overflow-wrap:anywhere]">{actor.name}</h2>
+          <span className="text-admin-muted text-xs tabular-nums">{actor.waId}</span>
         </div>
         {onRemove ? (
           <Button
@@ -158,7 +162,7 @@ function ChatWindow({
           />
         ) : null}
       </div>
-      <div className={styles.roleLine}>
+      <div className="text-admin-muted min-h-[34px] px-4 pb-3 text-xs [overflow-wrap:anywhere]">
         {actor.roles.length ? (
           actor.roles.map((role) => (
             <Tag key={role} color={role === "owner" ? "purple" : "blue"}>
@@ -186,7 +190,7 @@ function ChatWindow({
       ) : null}
       <div
         ref={transcript}
-        className={styles.transcript}
+        className="max-admin-sm:h-[340px] border-admin-line flex h-[380px] flex-col gap-3 overflow-y-auto [overscroll-behavior:contain] border-y bg-[#f0f3f1] px-3 py-4"
         role="log"
         aria-label={`Messages for ${actor.name}`}
         aria-live="polite"
@@ -200,13 +204,15 @@ function ChatWindow({
       >
         {isLoading ? <Skeleton active paragraph={{ rows: 5 }} /> : null}
         {!isLoading && !error && !messages?.length ? (
-          <div className={styles.emptyChat}>
+          <div className="text-admin-muted m-auto px-[18px] py-8 text-center text-[13px]">
             <ChatCircleDotsIcon size={32} />
             <p>Send a message to start this conversation.</p>
           </div>
         ) : null}
         {messages?.length === data?.limit ? (
-          <p className={styles.historyNotice}>Showing the latest {data?.limit} messages.</p>
+          <p className="text-admin-muted m-0 text-center text-[11px]">
+            Showing the latest {data?.limit} messages.
+          </p>
         ) : null}
         {messages?.map((item) => (
           <ChatMessageBubble
@@ -219,14 +225,14 @@ function ChatWindow({
         ))}
       </div>
       <form
-        className={styles.composer}
+        className="flex flex-col gap-2 p-3"
         onSubmit={(event) => {
           event.preventDefault();
           sendText();
         }}
       >
         {sendError ? <Alert type="error" showIcon title={sendError} /> : null}
-        <label className={styles.composerLabel} htmlFor={`message-${actor.waId}`}>
+        <label className="text-xs font-semibold" htmlFor={`message-${actor.waId}`}>
           Message as {actor.name}
         </label>
         <Input.TextArea
@@ -243,8 +249,10 @@ function ChatWindow({
             }
           }}
         />
-        <div className={styles.composerFooter}>
-          <span>Enter to send · Shift+Enter for a new line</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-admin-muted text-[10px]">
+            Enter to send · Shift+Enter for a new line
+          </span>
           <Button
             type="primary"
             htmlType="submit"
@@ -320,7 +328,7 @@ export function SimulatorClient({ organizationId }: { organizationId: string }) 
         description="Try customer, owner, and technician conversations side by side."
       />
       <Alert
-        className={styles.notice}
+        className="mb-4"
         type="info"
         showIcon
         title="Simulated chats run alongside real WhatsApp"
@@ -328,14 +336,14 @@ export function SimulatorClient({ organizationId }: { organizationId: string }) 
       />
       {data && !data.aiConfigured ? (
         <Alert
-          className={styles.notice}
+          className="mb-4"
           type="warning"
           showIcon
           title="OpenAI is not configured"
           description="Greetings and fallback replies work. Add an OpenAI API key on this organization's Settings page (or the root System settings page) to test natural conversations and booking tools."
         />
       ) : null}
-      <div className={styles.toolbar}>
+      <div className="max-admin-sm:items-stretch mt-6 mb-3 flex flex-wrap items-center justify-between gap-3">
         <Segmented
           aria-label="Filter chat windows"
           value={filter}
@@ -379,7 +387,7 @@ export function SimulatorClient({ organizationId }: { organizationId: string }) 
       {isLoading ? <Skeleton active paragraph={{ rows: 6 }} /> : null}
       {!isLoading && !error && !visible.length ? (
         <Empty
-          className={styles.empty}
+          className="rounded-xl border border-dashed border-[#d9e0e6] bg-white px-5 py-16"
           description={
             filter === "Owners" || filter === "Technicians"
               ? "No matching identities. Add owner mappings under Business or active records under Technicians, then refresh."
@@ -388,7 +396,7 @@ export function SimulatorClient({ organizationId }: { organizationId: string }) 
         />
       ) : null}
       {!error && data ? (
-        <div className={styles.grid}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,330px),1fr))] items-start gap-5">
           {visible.map((actor) => (
             <ChatWindow
               key={actor.waId}

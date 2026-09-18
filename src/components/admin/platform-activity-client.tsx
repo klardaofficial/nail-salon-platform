@@ -49,9 +49,9 @@ function AISummary({ rows, kind }: { rows: AIBreakdown[]; kind: AIBreakdown["kin
   const unpriced = selected.reduce((total, row) => total + row.unpriced_calls, 0);
   const cost = selected.reduce((total, row) => total + row.cost, 0);
   return (
-    <Card title={kindLabel(kind)} style={{ height: "100%" }}>
+    <Card title={kindLabel(kind)} className="h-full">
       <Statistic title="AI requests" value={calls} />
-      <Typography.Paragraph style={{ marginTop: 12, marginBottom: 8 }}>
+      <Typography.Paragraph className="mt-3 mb-2">
         {number(selected.reduce((total, row) => total + row.input_tokens, 0))} input tokens ·{" "}
         {number(selected.reduce((total, row) => total + row.output_tokens, 0))} output tokens
         {kind === "image_generation"
@@ -95,7 +95,7 @@ function UsageLog({
   return (
     <Card
       title="AI request log"
-      style={{ marginTop: 16 }}
+      className="mt-4"
       extra={
         <Select
           aria-label="Filter AI request type"
@@ -213,9 +213,9 @@ export function PlatformActivityClient({
   const hasPricedUsage = data?.ai.some((row) => row.calls > row.unpriced_calls);
 
   return (
-    <section aria-label="Platform activity" style={{ marginTop: 36 }}>
-      <Space wrap style={{ width: "100%", justifyContent: "space-between", marginBottom: 12 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>
+    <section aria-label="Platform activity" className="mt-9">
+      <Space wrap className="mb-3 w-full justify-between">
+        <Typography.Title level={3} className="m-0">
           Platform activity
         </Typography.Title>
         <Space wrap>
@@ -283,7 +283,7 @@ export function PlatformActivityClient({
               </Card>
             </Col>
           </Row>
-          <Card title="Messaging and active user trend" style={{ marginTop: 16 }}>
+          <Card title="Messaging and active user trend" className="mt-4">
             {data.received || data.sent ? (
               <Line
                 data={messageTrend}
@@ -296,7 +296,7 @@ export function PlatformActivityClient({
               <Empty description="No messages in this period" />
             )}
           </Card>
-          <Typography.Title level={4} style={{ marginTop: 24 }}>
+          <Typography.Title level={4} className="mt-6">
             AI usage and estimated cost
           </Typography.Title>
           <Typography.Paragraph type="secondary">
@@ -312,14 +312,14 @@ export function PlatformActivityClient({
               <AISummary rows={data.ai} kind="image_generation" />
             </Col>
           </Row>
-          <Card title="Known estimated AI cost by day (USD)" style={{ marginTop: 16 }}>
+          <Card title="Known estimated AI cost by day (USD)" className="mt-4">
             {hasPricedUsage ? (
               <Line data={costTrend} xField="date" yField="value" colorField="kind" height={260} />
             ) : (
               <Empty description="No priced AI usage in this period" />
             )}
           </Card>
-          <Card title="AI usage by model and source" style={{ marginTop: 16 }}>
+          <Card title="AI usage by model and source" className="mt-4">
             <Table
               rowKey={(row) => `${row.kind}:${row.model}:${row.channel}`}
               size="small"
@@ -352,7 +352,7 @@ export function PlatformActivityClient({
               ]}
             />
           </Card>
-          <Card title="Accessible platform trend data" style={{ marginTop: 16 }}>
+          <Card title="Accessible platform trend data" className="mt-4">
             <Table
               rowKey="date"
               size="small"

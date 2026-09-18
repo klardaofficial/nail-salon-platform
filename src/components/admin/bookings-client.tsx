@@ -37,7 +37,7 @@ export function BookingsClient({ organizationId }: { organizationId: string }) {
         title="Bookings"
         description="Confirmed and cancelled booking records. Attendance is not inferred."
       />
-      <div className="admin-table-toolbar">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <Select
           allowClear
           placeholder="All statuses"

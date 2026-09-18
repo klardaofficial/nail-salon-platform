@@ -157,8 +157,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   if (!admin) {
     return (
-      <Layout className="admin-shell">
-        <Content className="admin-content">
+      <Layout className="min-h-dvh">
+        <Content className="max-admin-lg:px-[14px] max-admin-lg:py-5 mx-auto w-full max-w-[1500px] p-7">
           {adminError ? (
             <Alert type="warning" showIcon title="Redirecting to sign in" />
           ) : (
@@ -199,10 +199,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
   ];
 
   return (
-    <Layout className="admin-shell">
-      <Sider className="admin-sider" breakpoint="lg" collapsedWidth="0" width={232}>
-        <Link href={passwordChangeRequired ? "/admin/account" : "/admin"} className="admin-brand">
-          <span className="admin-brand-mark">N</span>
+    <Layout className="min-h-dvh">
+      <Sider
+        className="admin-sider border-admin-line top-0 h-dvh overflow-auto border-r"
+        breakpoint="lg"
+        collapsedWidth="0"
+        width={232}
+      >
+        <Link
+          href={passwordChangeRequired ? "/admin/account" : "/admin"}
+          className="text-admin-ink flex h-16 items-center gap-2.5 px-[19px] text-[15px] font-bold whitespace-nowrap"
+        >
+          <span className="bg-accent grid size-[30px] flex-none place-items-center rounded-[9px] text-[13px] text-white">
+            N
+          </span>
           <span>Nail Platform</span>
         </Link>
         <Menu
@@ -219,7 +229,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         />
       </Sider>
       <Layout>
-        <Header className="admin-header">
+        <Header className="border-admin-line flex h-16 items-center justify-between border-b bg-[rgb(255_255_255/94%)] px-6">
           <Space>
             <Select
               aria-label="Organization"
@@ -247,7 +257,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </Button>
           </Dropdown>
         </Header>
-        <Content className="admin-content">
+        <Content className="max-admin-lg:px-[14px] max-admin-lg:py-5 mx-auto w-full max-w-[1500px] p-7">
           {passwordChangeRequired && pathname !== "/admin/account" ? (
             <Alert
               type="warning"

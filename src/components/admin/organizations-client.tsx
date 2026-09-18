@@ -48,7 +48,7 @@ export function OrganizationsClient() {
     }
   }
   return (
-    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" className="w-full">
       <div>
         <Typography.Title level={2}>Organizations</Typography.Title>
         <Typography.Text type="secondary">
@@ -56,7 +56,7 @@ export function OrganizationsClient() {
         </Typography.Text>
       </div>
       {canManage ? (
-        <Space style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Space className="flex justify-end">
           <Button type="primary" onClick={() => setCreateOpen(true)}>
             Create organization
           </Button>
@@ -69,7 +69,7 @@ export function OrganizationsClient() {
           {data.organizations.map((organization) => (
             <Col xs={24} md={12} xl={8} key={organization.id}>
               <Card
-                className="admin-org-card"
+                className="admin-org-card group overflow-hidden rounded-[14px] shadow-[0_1px_2px_rgb(16_24_40/5%)] transition-[box-shadow,transform] duration-150 ease-linear hover:-translate-y-px hover:shadow-[0_8px_20px_rgb(16_24_40/9%)]"
                 styles={{ body: { padding: 0 } }}
                 extra={
                   canManage ? (
@@ -111,13 +111,16 @@ export function OrganizationsClient() {
                   ) : undefined
                 }
               >
-                <Link href={`/admin/organizations/${organization.id}`} className="admin-org-link">
+                <Link
+                  href={`/admin/organizations/${organization.id}`}
+                  className="flex items-center justify-between gap-3 px-5 pt-[14px] pb-5 text-inherit no-underline"
+                >
                   <Space size={14}>
-                    <Avatar className="admin-org-avatar" size={40} shape="square">
+                    <Avatar className="bg-accent rounded-[10px] font-bold" size={40} shape="square">
                       {organization.name.charAt(0).toUpperCase()}
                     </Avatar>
                     <div>
-                      <Typography.Text strong className="admin-org-name">
+                      <Typography.Text strong className="text-[15px]">
                         {organization.name}
                       </Typography.Text>
                       <div>
@@ -127,7 +130,10 @@ export function OrganizationsClient() {
                       </div>
                     </div>
                   </Space>
-                  <ArrowRightIcon size={18} className="admin-org-arrow" />
+                  <ArrowRightIcon
+                    size={18}
+                    className="flex-none text-[#9aa4b2] opacity-0 transition-[opacity,transform] duration-150 ease-linear group-hover:translate-x-0.5 group-hover:opacity-100"
+                  />
                 </Link>
               </Card>
             </Col>
