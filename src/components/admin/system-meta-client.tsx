@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import useSWR from "swr";
 import useSWRMutation from "swr/mutation";
 
-import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiErrorMessage, apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
@@ -47,8 +47,14 @@ export function SystemMetaClient() {
               form={form}
               layout="vertical"
               onFinish={async (values) => {
-                await trigger({ method: "PATCH", body: values });
-                message.success("Root Meta settings saved; inherited validations were invalidated");
+                try {
+                  await trigger({ method: "PATCH", body: values });
+                  message.success(
+                    "Root Meta settings saved; inherited validations were invalidated",
+                  );
+                } catch (err) {
+                  message.error(apiErrorMessage(err));
+                }
               }}
             >
               <Form.Item name="accessToken" label="Access token">

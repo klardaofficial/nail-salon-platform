@@ -29,7 +29,7 @@ import {
   type ResourceName,
   type ResourceResponse,
 } from "@/features/admin/resources";
-import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiErrorMessage, apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
@@ -99,17 +99,25 @@ export function ResourceManager({
   }
 
   async function save(values: Record<string, unknown>) {
-    await trigger({
-      method: editing ? "PATCH" : "POST",
-      body: { ...requestValues(values), ...(editing ? { id: editing.id } : {}) },
-    });
-    setOpen(false);
-    message.success(`${definition.singular} ${editing ? "updated" : "created"}`);
+    try {
+      await trigger({
+        method: editing ? "PATCH" : "POST",
+        body: { ...requestValues(values), ...(editing ? { id: editing.id } : {}) },
+      });
+      setOpen(false);
+      message.success(`${definition.singular} ${editing ? "updated" : "created"}`);
+    } catch (err) {
+      message.error(apiErrorMessage(err));
+    }
   }
 
   async function deactivate(item: AdminResourceItem) {
-    await trigger({ method: "DELETE", body: { id: item.id } });
-    message.success(`${definition.singular} deactivated`);
+    try {
+      await trigger({ method: "DELETE", body: { id: item.id } });
+      message.success(`${definition.singular} deactivated`);
+    } catch (err) {
+      message.error(apiErrorMessage(err));
+    }
   }
 
   function options() {

@@ -14,6 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import {
   Alert,
+  App,
   Avatar,
   Button,
   Dropdown,
@@ -31,7 +32,7 @@ import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
 import type { AdminIdentity } from "@/features/admin/contracts";
-import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiErrorMessage, apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey, apiKeys } from "@/lib/api/keys";
 
 const { Header, Content, Sider } = Layout;
@@ -52,6 +53,7 @@ function selectedNavigation(pathname: string, items = rootNavigation) {
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { message } = App.useApp();
   const {
     data: admin,
     error: adminError,
@@ -168,12 +170,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }
 
   async function handleLogout() {
-    await logout({ method: "POST" });
-    await Promise.all([
-      mutateAdmin(undefined, { revalidate: false }),
-      mutateCache(apiKeys.organizations, undefined, { revalidate: false }),
-    ]);
-    router.replace("/admin/login");
+    try {
+      await logout({ method: "POST" });
+      await Promise.all([
+        mutateAdmin(undefined, { revalidate: false }),
+        mutateCache(apiKeys.organizations, undefined, { revalidate: false }),
+      ]);
+      router.replace("/admin/login");
+    } catch (err) {
+      message.error(apiErrorMessage(err));
+    }
   }
 
   const accountItems = [

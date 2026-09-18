@@ -26,7 +26,7 @@ export function AdminProviders({ children }: { children: ReactNode }) {
       <App>
         <SWRConfig
           value={{
-            revalidateOnFocus: false,
+            revalidateOnFocus: true,
             shouldRetryOnError: false,
             dedupingInterval: 2_000,
           }}

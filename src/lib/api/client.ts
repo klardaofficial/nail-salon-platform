@@ -40,6 +40,10 @@ export async function apiGet<T>(key: ApiKey): Promise<T> {
   return parseResponse(response.data, response.status);
 }
 
+export function apiErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "The request could not be completed";
+}
+
 export async function apiMutation<T, TBody = unknown>(
   key: ApiKey,
   { arg }: { arg: { method?: "POST" | "PATCH" | "DELETE"; body?: TBody } },

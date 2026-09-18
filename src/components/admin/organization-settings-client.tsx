@@ -21,7 +21,7 @@ import { useEffect, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
-import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiErrorMessage, apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey, apiKeys } from "@/lib/api/keys";
 import { languageOptions } from "@/lib/bot/language";
 import { timeZoneOptions } from "@/lib/timezones";
@@ -97,28 +97,37 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
 
   async function save(values: Record<string, unknown>) {
     const { accessToken, appSecret, webhookVerifyToken, ...rest } = values;
-    await trigger({
-      method: "PATCH",
-      body: {
-        ...rest,
-        meta: {
-          accessToken: showWhatsAppSettings && typeof accessToken === "string" ? accessToken : null,
-          appSecret: showWhatsAppSettings && typeof appSecret === "string" ? appSecret : null,
-          webhookVerifyToken:
-            showWhatsAppSettings && typeof webhookVerifyToken === "string"
-              ? webhookVerifyToken
-              : null,
+    try {
+      await trigger({
+        method: "PATCH",
+        body: {
+          ...rest,
+          meta: {
+            accessToken:
+              showWhatsAppSettings && typeof accessToken === "string" ? accessToken : null,
+            appSecret: showWhatsAppSettings && typeof appSecret === "string" ? appSecret : null,
+            webhookVerifyToken:
+              showWhatsAppSettings && typeof webhookVerifyToken === "string"
+                ? webhookVerifyToken
+                : null,
+          },
         },
-      },
-    });
-    await mutateCache(apiKeys.organizations);
-    message.success("Organization settings saved");
+      });
+      await mutateCache(apiKeys.organizations);
+      message.success("Organization settings saved");
+    } catch (err) {
+      message.error(apiErrorMessage(err));
+    }
   }
 
   async function validateProvider() {
-    await validate({ method: "POST" });
-    await mutate();
-    message.success("Provider validation completed");
+    try {
+      await validate({ method: "POST" });
+      await mutate();
+      message.success("Provider validation completed");
+    } catch (err) {
+      message.error(apiErrorMessage(err));
+    }
   }
 
   return (

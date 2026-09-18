@@ -22,7 +22,7 @@ import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 
 import type { AdminIdentity } from "@/features/admin/contracts";
-import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiErrorMessage, apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey, apiKeys } from "@/lib/api/keys";
 
 type Organization = { id: string; name: string; status: "active" | "archived" };
@@ -39,8 +39,12 @@ export function OrganizationsClient() {
   const [createOpen, setCreateOpen] = useState(false);
   const { message, modal } = App.useApp();
   async function lifecycle(id: string, archived: boolean) {
-    await trigger({ method: "PATCH", body: { id, archived } });
-    await mutateCache(apiKeys.organizations);
+    try {
+      await trigger({ method: "PATCH", body: { id, archived } });
+      await mutateCache(apiKeys.organizations);
+    } catch (err) {
+      message.error(apiErrorMessage(err));
+    }
   }
   return (
     <Space orientation="vertical" size="large" style={{ width: "100%" }}>
@@ -140,11 +144,15 @@ export function OrganizationsClient() {
           form={form}
           layout="vertical"
           onFinish={async ({ name }) => {
-            await trigger({ method: "POST", body: { name } });
-            form.resetFields();
-            await mutateCache(apiKeys.organizations);
-            setCreateOpen(false);
-            message.success("Organization created");
+            try {
+              await trigger({ method: "POST", body: { name } });
+              form.resetFields();
+              await mutateCache(apiKeys.organizations);
+              setCreateOpen(false);
+              message.success("Organization created");
+            } catch (err) {
+              message.error(apiErrorMessage(err));
+            }
           }}
         >
           <Form.Item

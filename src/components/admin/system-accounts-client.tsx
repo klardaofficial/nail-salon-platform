@@ -18,7 +18,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import useSWRMutation from "swr/mutation";
 
-import { apiGet, apiMutation } from "@/lib/api/client";
+import { apiErrorMessage, apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey, apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 
@@ -48,7 +48,13 @@ export function SystemAccountsClient() {
   const [resetTarget, setResetTarget] = useState<Account | null>(null);
   const { message } = App.useApp();
   async function action(body: Record<string, unknown>) {
-    await trigger({ method: "PATCH", body });
+    try {
+      await trigger({ method: "PATCH", body });
+      return true;
+    } catch (err) {
+      message.error(apiErrorMessage(err));
+      return false;
+    }
   }
   return (
     <>
@@ -97,9 +103,7 @@ export function SystemAccountsClient() {
                 checked={row.is_system_admin}
                 disabled={!row.active || isMutating}
                 onChange={(enabled) =>
-                  void action({ action: "set_system_role", userId: row.user_id, enabled }).catch(
-                    (reason) => message.error(String(reason)),
-                  )
+                  void action({ action: "set_system_role", userId: row.user_id, enabled })
                 }
               />
             ),
@@ -121,7 +125,7 @@ export function SystemAccountsClient() {
                     action: "set_memberships",
                     userId: row.user_id,
                     organizationIds,
-                  }).catch((reason) => message.error(String(reason)))
+                  })
                 }
               />
             ),
@@ -169,10 +173,14 @@ export function SystemAccountsClient() {
           layout="vertical"
           initialValues={{ organizationIds: [], isSystemAdmin: false }}
           onFinish={async (values) => {
-            await trigger({ method: "POST", body: values });
-            createForm.resetFields();
-            setCreateOpen(false);
-            message.success("Account created; an initial password change is required");
+            try {
+              await trigger({ method: "POST", body: values });
+              createForm.resetFields();
+              setCreateOpen(false);
+              message.success("Account created; an initial password change is required");
+            } catch (err) {
+              message.error(apiErrorMessage(err));
+            }
           }}
         >
           <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
@@ -212,7 +220,12 @@ export function SystemAccountsClient() {
         <Form
           form={resetForm}
           onFinish={async ({ password }) => {
-            await action({ action: "reset_password", userId: resetTarget!.user_id, password });
+            const ok = await action({
+              action: "reset_password",
+              userId: resetTarget!.user_id,
+              password,
+            });
+            if (!ok) return;
             setResetTarget(null);
             message.success("Password reset; change is required at next login");
           }}
