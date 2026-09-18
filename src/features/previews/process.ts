@@ -20,7 +20,7 @@ export async function processStylePreview(organizationId: string, previewId: str
   const supabase = createSupabaseAdminClient();
   const previewResult = await supabase
     .from("preview_requests")
-    .select("*,contact:contacts(wa_id)")
+    .select("*,contact:contacts!preview_requests_organization_contact_fkey(wa_id)")
     .eq("organization_id", organizationId)
     .eq("id", previewId)
     .single();
@@ -110,7 +110,9 @@ export async function queueStylePreviews(
   const supabase = createSupabaseAdminClient();
   const previewResult = await supabase
     .from("preview_requests")
-    .select("organization_id,conversation_id,contact:contacts(wa_id)")
+    .select(
+      "organization_id,conversation_id,contact:contacts!preview_requests_organization_contact_fkey(wa_id)",
+    )
     .eq("organization_id", organizationId)
     .eq("id", previewId)
     .single();

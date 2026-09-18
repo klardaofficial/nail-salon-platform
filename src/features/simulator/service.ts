@@ -39,11 +39,13 @@ export async function listSimulatorIdentities(organizationId: string) {
   const [owners, technicians] = await Promise.all([
     supabase
       .from("business_owners")
-      .select("contact:contacts!inner(wa_id,display_name),business:businesses!inner(name)")
+      .select(
+        "contact:contacts!business_owners_organization_contact_fkey!inner(wa_id,display_name),business:businesses!business_owners_organization_business_fkey!inner(name)",
+      )
       .eq("organization_id", organizationId),
     supabase
       .from("technicians")
-      .select("wa_id,display_name,salon:salons!inner(name)")
+      .select("wa_id,display_name,salon:salons!technicians_organization_salon_fkey!inner(name)")
       .eq("organization_id", organizationId)
       .eq("active", true)
       .is("deleted_at", null),

@@ -579,7 +579,7 @@ async function listCustomerBookings(actor: ConversationActor) {
   const { data, error } = await createSupabaseAdminClient()
     .from("bookings")
     .select(
-      "id,salon_id,technician_ref,additional_request,starts_at,local_time_label,status,salon:salons(name),booking_services(service_id,service_name_snapshot)",
+      "id,salon_id,technician_ref,additional_request,starts_at,local_time_label,status,salon:salons!bookings_organization_salon_fkey(name),booking_services!booking_services_organization_booking_fkey(service_id,service_name_snapshot)",
     )
     .eq("contact_id", actor.contactId)
     .eq("organization_id", actor.organizationId)
@@ -596,7 +596,7 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
   const supabase = createSupabaseAdminClient();
   const before = await supabase
     .from("bookings")
-    .select("id,technician_ref,starts_at,salon:salons(name)")
+    .select("id,technician_ref,starts_at,salon:salons!bookings_organization_salon_fkey(name)")
     .eq("id", values.bookingId)
     .eq("contact_id", actor.contactId)
     .eq("organization_id", actor.organizationId)
@@ -694,7 +694,9 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
   const [before, settings, salons] = await Promise.all([
     supabase
       .from("bookings")
-      .select("id,starts_at,business_id,technician_ref,salon:salons(name)")
+      .select(
+        "id,starts_at,business_id,technician_ref,salon:salons!bookings_organization_salon_fkey(name)",
+      )
       .eq("id", values.bookingId)
       .eq("contact_id", actor.contactId)
       .eq("organization_id", actor.organizationId)
@@ -980,7 +982,7 @@ async function ownerListBookings(actor: ConversationActor, raw: unknown) {
   let query = supabase
     .from("bookings")
     .select(
-      "id,status,local_time_label,starts_at,technician_name_snapshot,additional_request,salon:salons(name),customer:contacts(display_name,wa_id),booking_services(service_name_snapshot)",
+      "id,status,local_time_label,starts_at,technician_name_snapshot,additional_request,salon:salons!bookings_organization_salon_fkey(name),customer:contacts!bookings_organization_contact_fkey(display_name,wa_id),booking_services!booking_services_organization_booking_fkey(service_name_snapshot)",
       { count: "exact" },
     )
     .eq("organization_id", actor.organizationId)
@@ -1143,7 +1145,7 @@ async function technicianBookings(actor: ConversationActor, raw: unknown) {
   const { data, count, error } = await createSupabaseAdminClient()
     .from("bookings")
     .select(
-      "id,starts_at,local_time_label,status,additional_request,salon:salons(name),customer:contacts(display_name,wa_id),booking_services(service_name_snapshot)",
+      "id,starts_at,local_time_label,status,additional_request,salon:salons!bookings_organization_salon_fkey(name),customer:contacts!bookings_organization_contact_fkey(display_name,wa_id),booking_services!booking_services_organization_booking_fkey(service_name_snapshot)",
       { count: "exact" },
     )
     .eq("organization_id", actor.organizationId)

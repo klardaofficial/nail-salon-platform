@@ -115,13 +115,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ai_usage_events_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "ai_usage_events_organization_conversation_fkey"
             columns: ["organization_id", "conversation_id"]
             isOneToOne: false
@@ -141,13 +134,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "preview_requests"
             referencedColumns: ["organization_id", "id"]
-          },
-          {
-            foreignKeyName: "ai_usage_events_preview_request_id_fkey"
-            columns: ["preview_request_id"]
-            isOneToOne: false
-            referencedRelation: "preview_requests"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -246,13 +232,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "booking_drafts_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: true
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "booking_drafts_organization_conversation_fkey"
             columns: ["organization_id", "conversation_id"]
             isOneToOne: false
@@ -312,13 +291,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "booking_events_booking_id_fkey"
-            columns: ["booking_id"]
-            isOneToOne: false
-            referencedRelation: "bookings"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "booking_events_organization_booking_fkey"
             columns: ["organization_id", "booking_id"]
             isOneToOne: false
@@ -364,13 +336,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "booking_services_booking_id_fkey"
-            columns: ["booking_id"]
-            isOneToOne: false
-            referencedRelation: "bookings"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "booking_services_organization_booking_fkey"
             columns: ["organization_id", "booking_id"]
             isOneToOne: false
@@ -390,13 +355,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "services"
             referencedColumns: ["organization_id", "id"]
-          },
-          {
-            foreignKeyName: "booking_services_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -466,20 +424,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "bookings_business_id_fkey"
-            columns: ["business_id"]
-            isOneToOne: false
-            referencedRelation: "businesses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookings_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "bookings_organization_business_fkey"
             columns: ["organization_id", "business_id"]
             isOneToOne: false
@@ -506,13 +450,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "salons"
             referencedColumns: ["organization_id", "id"]
-          },
-          {
-            foreignKeyName: "bookings_salon_id_fkey"
-            columns: ["salon_id"]
-            isOneToOne: false
-            referencedRelation: "salons"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -588,20 +525,6 @@ export type Database = {
           organization_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "business_owners_business_id_fkey"
-            columns: ["business_id"]
-            isOneToOne: false
-            referencedRelation: "businesses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "business_owners_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "business_owners_organization_business_fkey"
             columns: ["organization_id", "business_id"]
@@ -755,13 +678,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "conversation_messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "conversation_messages_organization_conversation_fkey"
             columns: ["organization_id", "conversation_id"]
             isOneToOne: false
@@ -835,13 +751,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "conversations_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "conversations_organization_contact_fkey"
             columns: ["organization_id", "contact_id"]
             isOneToOne: false
@@ -900,13 +809,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "interactive_prompts_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "interactive_prompts_organization_conversation_fkey"
             columns: ["organization_id", "conversation_id"]
             isOneToOne: false
@@ -963,13 +865,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "job_outbox_inbox_event_id_fkey"
-            columns: ["inbox_event_id"]
-            isOneToOne: false
-            referencedRelation: "whatsapp_inbox_events"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "job_outbox_organization_id_fkey"
             columns: ["organization_id"]
@@ -1039,13 +934,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "message_outbox_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "message_outbox_organization_conversation_fkey"
             columns: ["organization_id", "conversation_id"]
@@ -1353,13 +1241,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "preview_requests_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "preview_requests_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
@@ -1543,13 +1424,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "salons_business_id_fkey"
-            columns: ["business_id"]
-            isOneToOne: false
-            referencedRelation: "businesses"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "salons_organization_business_fkey"
             columns: ["organization_id", "business_id"]
             isOneToOne: false
@@ -1602,20 +1476,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "services"
             referencedColumns: ["organization_id", "id"]
-          },
-          {
-            foreignKeyName: "service_salons_salon_id_fkey"
-            columns: ["salon_id"]
-            isOneToOne: false
-            referencedRelation: "salons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_salons_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -1760,13 +1620,6 @@ export type Database = {
             referencedRelation: "salons"
             referencedColumns: ["organization_id", "id"]
           },
-          {
-            foreignKeyName: "technicians_salon_id_fkey"
-            columns: ["salon_id"]
-            isOneToOne: false
-            referencedRelation: "salons"
-            referencedColumns: ["id"]
-          },
         ]
       }
       tool_executions: {
@@ -1807,13 +1660,6 @@ export type Database = {
           tool_name?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "tool_executions_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "tool_executions_organization_conversation_fkey"
             columns: ["organization_id", "conversation_id"]
@@ -2187,3 +2033,4 @@ export const Constants = {
     },
   },
 } as const
+

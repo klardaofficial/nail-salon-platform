@@ -13,7 +13,7 @@ export async function recipientLocale(
   const [conversation, settings] = await Promise.all([
     supabase
       .from("conversations")
-      .select("reply_locale,contact:contacts!inner(wa_id)")
+      .select("reply_locale,contact:contacts!conversations_organization_contact_fkey!inner(wa_id)")
       .eq("contact.wa_id", waId)
       .eq("organization_id", organizationId)
       .eq("channel", transport === "simulator" ? "whatsapp_simulator" : "whatsapp")
