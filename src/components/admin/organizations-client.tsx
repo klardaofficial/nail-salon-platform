@@ -2,6 +2,7 @@
 
 import {
   App,
+  Avatar,
   Button,
   Card,
   Col,
@@ -15,7 +16,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { DotsThreeIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, DotsThreeIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
@@ -68,56 +69,65 @@ export function OrganizationsClient() {
           {data.organizations.map((organization) => (
             <Col xs={24} md={12} xl={8} key={organization.id}>
               <Card
-                actions={
-                  canManage
-                    ? [
-                        <Dropdown
-                          key="actions"
-                          menu={{
-                            items: [
-                              {
-                                key: "lifecycle",
-                                danger: organization.status === "active",
-                                label: organization.status === "active" ? "Archive" : "Recover",
-                                onClick: () => {
-                                  const action =
-                                    organization.status === "active" ? "Archive" : "Recover";
-                                  modal.confirm({
-                                    title: `${action} this organization?`,
-                                    content:
-                                      organization.status === "active"
-                                        ? "Archived organizations are read-only."
-                                        : undefined,
-                                    okText: action,
-                                    okButtonProps: {
-                                      danger: organization.status === "active",
-                                    },
-                                    onOk: () =>
-                                      lifecycle(organization.id, organization.status === "active"),
-                                  });
+                className="admin-org-card"
+                styles={{ body: { padding: 0 } }}
+                extra={
+                  canManage ? (
+                    <Dropdown
+                      menu={{
+                        items: [
+                          {
+                            key: "lifecycle",
+                            danger: organization.status === "active",
+                            label: organization.status === "active" ? "Archive" : "Recover",
+                            onClick: () => {
+                              const action =
+                                organization.status === "active" ? "Archive" : "Recover";
+                              modal.confirm({
+                                title: `${action} this organization?`,
+                                content:
+                                  organization.status === "active"
+                                    ? "Archived organizations are read-only."
+                                    : undefined,
+                                okText: action,
+                                okButtonProps: {
+                                  danger: organization.status === "active",
                                 },
-                              },
-                            ],
-                          }}
-                          trigger={["click"]}
-                        >
-                          <Button
-                            aria-label={`More actions for ${organization.name}`}
-                            icon={<DotsThreeIcon size={20} />}
-                            type="text"
-                          />
-                        </Dropdown>,
-                      ]
-                    : undefined
+                                onOk: () =>
+                                  lifecycle(organization.id, organization.status === "active"),
+                              });
+                            },
+                          },
+                        ],
+                      }}
+                      trigger={["click"]}
+                    >
+                      <Button
+                        aria-label={`More actions for ${organization.name}`}
+                        icon={<DotsThreeIcon size={20} />}
+                        type="text"
+                      />
+                    </Dropdown>
+                  ) : undefined
                 }
               >
-                <Link href={`/admin/organizations/${organization.id}`}>
-                  <Space>
-                    <Typography.Text strong>{organization.name}</Typography.Text>
-                    <Tag color={organization.status === "active" ? "green" : "default"}>
-                      {organization.status}
-                    </Tag>
+                <Link href={`/admin/organizations/${organization.id}`} className="admin-org-link">
+                  <Space size={14}>
+                    <Avatar className="admin-org-avatar" size={40} shape="square">
+                      {organization.name.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <div>
+                      <Typography.Text strong className="admin-org-name">
+                        {organization.name}
+                      </Typography.Text>
+                      <div>
+                        <Tag color={organization.status === "active" ? "green" : "default"}>
+                          {organization.status}
+                        </Tag>
+                      </div>
+                    </div>
                   </Space>
+                  <ArrowRightIcon size={18} className="admin-org-arrow" />
                 </Link>
               </Card>
             </Col>
