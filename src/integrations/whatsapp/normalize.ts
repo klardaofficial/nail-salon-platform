@@ -7,9 +7,13 @@ const webhookSchema = z.object({
   entry: z
     .array(
       z.object({
+        id: z.union([z.string(), z.number()]).optional(),
         changes: z.array(
           z.object({
             value: z.object({
+              metadata: z
+                .object({ phone_number_id: z.union([z.string(), z.number()]).optional() })
+                .optional(),
               contacts: z
                 .array(
                   z.object({
@@ -46,6 +50,13 @@ export function normalizeWhatsAppWebhook(input: unknown): NormalizedWhatsAppEven
 
   for (const entry of body.entry) {
     for (const change of entry.changes) {
+      const routing = {
+        wabaId: entry.id === undefined ? null : String(entry.id),
+        phoneNumberId:
+          change.value.metadata?.phone_number_id === undefined
+            ? null
+            : String(change.value.metadata.phone_number_id),
+      };
       const contact = change.value.contacts?.[0];
       for (const message of change.value.messages ?? []) {
         const id = String(message.id ?? "");
@@ -60,6 +71,7 @@ export function normalizeWhatsAppWebhook(input: unknown): NormalizedWhatsAppEven
         events.push({
           providerEventId: id,
           kind: "message",
+          routing,
           contactWaId: from,
           profileName: contact?.profile?.name ?? null,
           occurredAt: timestamp(message.timestamp),
@@ -94,6 +106,7 @@ export function normalizeWhatsAppWebhook(input: unknown): NormalizedWhatsAppEven
         events.push({
           providerEventId: `${id}:${value}:${String(status.timestamp ?? "")}`,
           kind: "status",
+          routing,
           contactWaId: typeof status.recipient_id === "string" ? status.recipient_id : null,
           occurredAt: timestamp(status.timestamp),
           status: {

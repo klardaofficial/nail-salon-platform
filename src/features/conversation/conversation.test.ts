@@ -13,12 +13,27 @@ vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({ from: mocks.from, rpc: mocks.rpc }),
 }));
 vi.mock("@/lib/config/env", () => ({
-  getBotLocale: () => "de",
-  getServerEnv: () => ({ BOT_LOCALE: "de", OPENAI_CHAT_MODEL: "test" }),
+  getServerEnv: () => ({ OPENAI_CHAT_MODEL: "test" }),
 }));
 vi.mock("@/integrations/openai/client", () => ({
   hasOpenAIConfig: () => mocks.configured,
   getOpenAIClient: () => ({ responses: { create: mocks.response } }),
+}));
+vi.mock("@/features/organizations/providers", () => ({
+  resolveOpenAIConfiguration: async () => ({
+    organizationId: "00000000-0000-4000-8000-000000000101",
+    apiKey: "test",
+    chatModel: "test",
+    imageModel: "test-image",
+    pricing: {},
+    configurationVersion: 1,
+  }),
+  resolveEffectiveMetaConfiguration: async () => ({
+    templates: {
+      confirmed: { name: null, source: "none" },
+      cancelled: { name: null, source: "none" },
+    },
+  }),
 }));
 vi.mock("@/features/ai-usage/record", () => ({
   summarizeChatUsage: vi.fn(),
@@ -38,6 +53,8 @@ import { recipientLocale, templateLanguageCode } from "./notifications";
 const tables = new Map<string, unknown>();
 const operations: { table: string; method: string; args: unknown[] }[] = [];
 const actor: ConversationActor = {
+  organizationId: "00000000-0000-4000-8000-000000000101",
+  businessId: "00000000-0000-4000-8000-000000000201",
   conversationId: "conversation",
   contactId: "contact",
   waId: "49151111111",
@@ -80,7 +97,7 @@ beforeEach(() => {
   tables.clear();
   operations.length = 0;
   tables.set("businesses", { id: "business", name: "Nails", active: true });
-  tables.set("platform_settings", { platform_timezone: "Asia/Bangkok" });
+  tables.set("organization_settings", { platform_timezone: "Asia/Bangkok", bot_locale: "de" });
   tables.set("salons", []);
   tables.set("booking_drafts", null);
   tables.set("tool_executions", null);
@@ -245,14 +262,26 @@ describe("unrestricted language and generated controls", () => {
     )?.args[0] as string;
     expect(columns.split(",")).toContain("booking_interval_minutes");
     expect(columns.split(",")).not.toContain("default_booking_interval_minutes");
+    expect(operations).toContainEqual({
+      table: "services",
+      method: "select",
+      args: [
+        "id,name,description,active,deleted_at,service_salons!service_salons_organization_service_fkey(salon_id)",
+      ],
+    });
   });
   it("uses the recipient language for supporting messages and handles unavailable AI", async () => {
     tables.set("conversations", { reply_locale: "ja" });
-    expect(await recipientLocale("49151111111", "simulator")).toBe("ja");
+    expect(await recipientLocale("49151111111", "simulator", actor.organizationId)).toBe("ja");
     mocks.response.mockResolvedValue({ output_text: "予約が確定しました。" });
-    expect(await createLocalizedText({ locale: "ja", task: "Confirm booking", details: {} })).toBe(
-      "予約が確定しました。",
-    );
+    expect(
+      await createLocalizedText({
+        organizationId: actor.organizationId,
+        locale: "ja",
+        task: "Confirm booking",
+        details: {},
+      }),
+    ).toBe("予約が確定しました。");
     expect(mocks.response.mock.calls[0][0].instructions).toContain("language ja");
     expect(mocks.response.mock.calls[0][0].instructions).toContain(
       "without timezone names, abbreviations, UTC/GMT offsets",
@@ -260,7 +289,12 @@ describe("unrestricted language and generated controls", () => {
     mocks.configured = false;
     expect(await createNaturalReply(actor)).toBeNull();
     expect(
-      await createLocalizedText({ locale: "ja", task: "Confirm booking", details: {} }),
+      await createLocalizedText({
+        organizationId: actor.organizationId,
+        locale: "ja",
+        task: "Confirm booking",
+        details: {},
+      }),
     ).toBeNull();
     expect(templateLanguageCode("pt-BR")).toBe("pt_BR");
   });
@@ -290,7 +324,7 @@ describe("minimal booking conditions", () => {
     expect(result).not.toHaveProperty("salon");
     expect(result).not.toHaveProperty("technician");
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "create_booking_from_conversation",
+      "create_organization_booking",
       expect.objectContaining({
         p_business_id: "business",
         p_salon_id: null,
@@ -342,7 +376,7 @@ describe("minimal booking conditions", () => {
     expect(await create()).toMatchObject({ ok: false, error: "business_is_not_active" });
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
-  it("preserves custom services and unresolved soft technician references", async () => {
+  it("preserves custom services and clears a technician preference without a salon", async () => {
     tables.set("salons", [salon]);
     expect(
       await create({
@@ -352,7 +386,7 @@ describe("minimal booking conditions", () => {
       }),
     ).toMatchObject({ ok: true });
     expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
-      p_technician_ref: technicianId,
+      p_technician_ref: null,
       p_technician_name_snapshot: null,
       p_services: [{ serviceId: null, name: "Custom art" }],
       p_additional_request: "Simple design",
@@ -404,12 +438,14 @@ describe("minimal booking conditions", () => {
       salon_id: salonId,
       active: true,
     });
-    tables.set("services", {
-      id: technicianId,
-      name: "Manicure",
-      service_salons: [{ salon_id: salonId }],
-    });
-    mocks.rpc.mockResolvedValueOnce({ data: true, error: null });
+    tables.set("services", [
+      {
+        id: technicianId,
+        name: "Manicure",
+        service_salons: [{ salon_id: salonId }],
+      },
+    ]);
+    mocks.rpc.mockResolvedValueOnce({ data: "booking-id", error: null });
 
     expect(
       await update({
@@ -428,7 +464,7 @@ describe("minimal booking conditions", () => {
       additionalRequest: "Glossy finish",
     });
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "reschedule_customer_booking",
+      "reschedule_organization_booking",
       expect.objectContaining({
         p_booking_id: salonId,
         p_salon_id: salonId,
@@ -561,6 +597,7 @@ describe("staff conversations and authorization", () => {
       });
       expect(result).toEqual({ ok: true, summary });
       expect(mocks.rpc).toHaveBeenCalledWith("get_staff_booking_summary", {
+        p_organization_id: actor.organizationId,
         p_contact_id: actor.contactId,
         p_role: role,
         p_from: "2099-09-01T00:00:00+07:00",
@@ -613,7 +650,7 @@ describe("conversation date/time presentation", () => {
   ])(
     "formats %s booking instants across midnight and seasonal offsets",
     async (timezone, startsAt, label) => {
-      tables.set("platform_settings", { platform_timezone: timezone });
+      tables.set("organization_settings", { platform_timezone: timezone, bot_locale: "de" });
       expect(await create({ startsAt })).toMatchObject({ ok: true, startsAt: label });
       expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
         p_timezone_snapshot: timezone,
@@ -669,7 +706,7 @@ describe("conversation date/time presentation", () => {
       mocks.response.mockRejectedValue(new Error("provider unavailable"));
       const result =
         status === "confirmed"
-          ? await create({ technicianRef: technicianId })
+          ? await create({ salonId, technicianRef: technicianId })
           : await executeConversationTool(actor, {
               type: "function_call",
               name: "cancel_booking",

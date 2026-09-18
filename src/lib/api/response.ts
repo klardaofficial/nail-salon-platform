@@ -20,6 +20,10 @@ export function apiException(error: unknown) {
     return apiError("validation_error", "The submitted data is invalid", 422, error.issues);
   }
 
-  const message = error instanceof Error ? error.message : "Unexpected server error";
+  const message =
+    (error as any)?.message ||
+    (error as any)?.detail?.message ||
+    (error as any)?.detail ||
+    "Unexpected server error";
   return apiError("server_error", message, 500);
 }

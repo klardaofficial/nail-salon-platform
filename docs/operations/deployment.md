@@ -13,7 +13,7 @@ Prepare these accounts before connecting the repository:
 - OpenAI production project and restricted API key.
 - Inngest production environment.
 
-Choose the final HTTPS domain and default reference language before deployment. `BOT_LOCALE` accepts any valid language tag, such as `de`, `vi`, `th`, or `en-US`. Changing that default requires redeployment; actual conversations and AI-written WhatsApp labels follow each person's language immediately.
+Choose the final HTTPS domain before deployment. Each organization's default reference language is selected in Organization settings; changing it does not require redeployment. Actual conversations and AI-written WhatsApp labels follow each person's language immediately.
 
 ## 2. Protect `main` in GitHub
 
@@ -93,39 +93,21 @@ Add these variables to Vercel's **Production** environment:
 ```text
 APP_ENV=prod
 APP_URL=https://YOUR_DOMAIN
-BOT_LOCALE=de
-NEXT_PUBLIC_WHATSAPP_NUMBER=YOUR_NUMBER_DIGITS_ONLY
+VERCEL_AUTOMATION_BYPASS_SECRET=...
 
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 
-WHATSAPP_SIMULATOR_ENABLED=0
-WHATSAPP_PHONE_NUMBER_ID=...
-WHATSAPP_BUSINESS_ACCOUNT_ID=...
-WHATSAPP_ACCESS_TOKEN=...
-WHATSAPP_APP_SECRET=...
-WHATSAPP_WEBHOOK_VERIFY_TOKEN=...
-
-OPENAI_API_KEY=...
-OPENAI_CHAT_MODEL=gpt-5-mini
-OPENAI_IMAGE_MODEL=gpt-image-1
-
 INNGEST_EVENT_KEY=...
 INNGEST_SIGNING_KEY=...
 INNGEST_DEV=0
 
-PLATFORM_TIMEZONE=Europe/Berlin
-DEFAULT_OPEN_TIME=09:00
-DEFAULT_CLOSE_TIME=18:00
-DEFAULT_BOOKING_INTERVAL_MINUTES=30
-PREVIEW_REQUESTS_PER_DAY=3
-PREVIEWS_PER_REQUEST=3
 ```
 
-Use the current values from `.env.example` and [configuration reference](../development/configuration.md). Vercel must keep the service-role, WhatsApp, OpenAI, and Inngest keys server-only.
+Use the current values from `.env.example` and [configuration reference](../development/configuration.md). Vercel must keep service-role, bypass, and Inngest keys server-only. Provider/runtime settings are stored per organization through the dashboard; legacy provider environment variables are used only by the one-time bootstrap command during upgrade.
 
-For browser simulation on a hosted environment, set `WHATSAPP_SIMULATOR_ENABLED=1` and redeploy, then open `/admin/simulator` as an administrator. Use the same environment's Supabase/OpenAI and cloud Inngest setup. Simulated and real WhatsApp traffic run alongside each other with separate conversation histories; simulated replies/notifications are captured, while tools still change the configured database. Meta credentials are optional for simulation alone. Set the flag back to `0` and redeploy to disable access. See [browser simulator setup](../development/local-setup.md#browser-whatsapp-simulator).
+For hosted simulation, enable Simulator on that organization and open its scoped Simulator page. Configure its OpenAI key for natural conversations. Meta credentials remain optional for simulation alone.
 
 ## 6. First production rollout
 
@@ -137,17 +119,17 @@ Vercel and Supabase respond independently to a Git push. Follow this order for t
 4. Verify `https://YOUR_DOMAIN/api/health` returns `status: ok`, `environment: prod`, the intended bot locale, and `databaseConfigured: true`.
 5. Open `/admin/login` and sign in as `admin@gmail.com` with the initial password `Pass1234`.
 6. Complete the required **Account settings** password change before using the other dashboard pages. Sign out and verify the new password works while `Pass1234` fails.
-7. In the admin dashboard, edit the migration-created business profile, then add salon name/location and owner WA IDs. Services and technicians may remain empty.
+7. In the admin dashboard, choose the default organization, review its settings/provider readiness, edit its organization name and owner WhatsApp IDs in Organization Settings, then configure optional salons and catalog.
 8. Sync/check the Inngest endpoint and functions.
 
 Every migration must be backward compatible with the previous application revision because Vercel and Supabase deploy independently. Use expand, migrate, then contract across separate releases for breaking schema changes.
 
 ## 7. Connect the Meta webhook
 
-After the production domain and environment variables are live:
+After the production domain and database provider settings are live:
 
 1. Set Meta's callback URL to `https://YOUR_DOMAIN/api/whatsapp/webhook`.
-2. Enter the exact `WHATSAPP_WEBHOOK_VERIFY_TOKEN` value.
+2. Enter the root verify token saved by a system administrator.
 3. Complete verification and subscribe the WhatsApp account to the `messages` webhook field.
 4. Send a test message from a non-staff number.
 5. Confirm the greeting language/content, salon choices, natural typed replies, and delivery status in the database/Inngest dashboard.

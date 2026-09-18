@@ -13,12 +13,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/config/env", () => ({
   isWhatsAppSimulatorEnabled: () => mocks.enabled,
-  getBotLocale: () => "en",
-  getServerEnv: () => ({ OPENAI_API_KEY: "test-key", BOT_LOCALE: "en" }),
+  getServerEnv: () => ({ OPENAI_API_KEY: "test-key" }),
 }));
 vi.mock("@/lib/auth/api-admin", () => ({
   requireApiAdmin: async () => ({
     admin: mocks.authenticated ? { id: "admin" } : null,
+    error: mocks.authenticated ? null : new Response(null, { status: 401 }),
+  }),
+  requireOrganizationAdmin: async () => ({
+    context: mocks.authenticated
+      ? { organizationId: "00000000-0000-4000-8000-000000000101" }
+      : null,
     error: mocks.authenticated ? null : new Response(null, { status: 401 }),
   }),
 }));
@@ -28,13 +33,37 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/inngest/client", () => ({ inngest: { send: mocks.dispatch } }));
 vi.mock("@/integrations/whatsapp/client", () => ({ sendWhatsAppMessage: mocks.graphSend }));
 vi.mock("@/features/conversation/respond", () => ({ createNaturalReply: mocks.reply }));
+vi.mock("@/features/organizations/providers", () => ({
+  resolveEffectiveMetaConfiguration: async () => ({
+    organizationId: "00000000-0000-4000-8000-000000000101",
+    organizationStatus: "active",
+    phoneNumberId: "phone",
+    credentials: { accessToken: "token", appSecret: "secret", verifyToken: "verify" },
+    readiness: "enabled",
+    templates: {
+      confirmed: { name: "technician_booking_confirmed", source: "organization" },
+      cancelled: { name: "technician_booking_cancelled", source: "organization" },
+    },
+  }),
+  resolveOpenAIConfiguration: async () => ({
+    organizationId: "00000000-0000-4000-8000-000000000101",
+    apiKey: "test",
+    chatModel: "test",
+    imageModel: "test-image",
+    pricing: {},
+    configurationVersion: 1,
+  }),
+}));
 
-import { GET as getActors } from "@/app/api/admin/simulator/actors/route";
-import { GET as getMessages, POST as postMessage } from "@/app/api/admin/simulator/messages/route";
+import { GET as getActors } from "@/app/api/admin/organizations/[organizationId]/simulator/actors/route";
+import {
+  GET as getMessages,
+  POST as postMessage,
+} from "@/app/api/admin/organizations/[organizationId]/simulator/messages/route";
 import { processWhatsAppInboxEvent } from "@/features/conversation/process-event";
 import { executeConversationTool, type ConversationActor } from "@/features/conversation/tools";
 import { deliverWhatsAppOutboxMessage, queueWhatsAppMessage } from "@/features/messaging/outbox";
-import { receiveWhatsAppWebhook } from "@/features/messaging/receive-webhook";
+import { receiveOrganizationWhatsAppWebhook } from "@/features/messaging/receive-webhook";
 import { normalizeWhatsAppWebhook } from "@/integrations/whatsapp/normalize";
 import { verifyWhatsAppSignature } from "@/integrations/whatsapp/security";
 import { simulatorSendSchema } from "./contracts";
@@ -51,6 +80,25 @@ const input = {
   message: { kind: "text" as const, text: "Hallo" },
 };
 const secret = "synthetic-signing-key";
+const organizationId = "00000000-0000-4000-8000-000000000101";
+const routeContext = { params: Promise.resolve({ organizationId }) };
+const webhookConfiguration = {
+  organizationId,
+  organizationStatus: "active" as const,
+  wabaId: "simulator-account",
+  phoneNumberId: "simulator",
+  credentials: { accessToken: "test", appSecret: secret, verifyToken: "test" },
+  source: "organization" as const,
+  callbackUrl: "",
+  configurationVersion: 1,
+  readiness: "enabled" as const,
+  displayPhoneNumber: null,
+  e164Digits: null,
+  templates: {
+    confirmed: { name: null, source: "none" as const },
+    cancelled: { name: null, source: "none" as const },
+  },
+};
 const naturalReply = {
   locale: "en",
   text: "Hello! How can I help?",
@@ -74,6 +122,8 @@ beforeEach(() => {
   mocks.enabled = true;
   mocks.authenticated = true;
   tables.clear();
+  setTable("organizations", { status: "active" });
+  setTable("organization_settings", { simulator_enabled: true });
   operations.length = 0;
   mocks.from.mockImplementation((table: string) => {
     const query: Record<string, unknown> = {};
@@ -192,7 +242,9 @@ describe("signed webhook and durable registration", () => {
   );
 
   it("rejects invalid signatures before database access", async () => {
-    expect((await receiveWhatsAppWebhook("{}", "invalid", secret)).status).toBe(401);
+    expect(
+      (await receiveOrganizationWhatsAppWebhook("{}", "invalid", webhookConfiguration)).status,
+    ).toBe(401);
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
@@ -200,7 +252,14 @@ describe("signed webhook and durable registration", () => {
     mocks.dispatch.mockRejectedValueOnce(new Error("Inngest unavailable"));
     const webhook = createSimulatorWebhook(input, input.identity, secret);
     expect(
-      (await receiveWhatsAppWebhook(webhook.rawBody, webhook.signature, secret, true)).status,
+      (
+        await receiveOrganizationWhatsAppWebhook(
+          webhook.rawBody,
+          webhook.signature,
+          webhookConfiguration,
+          { simulated: true },
+        )
+      ).status,
     ).toBe(200);
     expect(mocks.rpc).toHaveBeenCalledWith(
       "register_whatsapp_event",
@@ -208,7 +267,12 @@ describe("signed webhook and durable registration", () => {
     );
     expect(writes("job_outbox", "update")).toEqual([]);
     mocks.rpc.mockResolvedValueOnce({ data: [{ accepted: false }], error: null });
-    await receiveWhatsAppWebhook(webhook.rawBody, webhook.signature, secret, true);
+    await receiveOrganizationWhatsAppWebhook(
+      webhook.rawBody,
+      webhook.signature,
+      webhookConfiguration,
+      { simulated: true },
+    );
     expect(mocks.dispatch).toHaveBeenCalledTimes(1);
   });
 
@@ -219,39 +283,47 @@ describe("signed webhook and durable registration", () => {
     payload.entry[0].changes[0].value.messages[0].simulated = true;
     const rawBody = JSON.stringify(payload);
     const signature = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
-    await receiveWhatsAppWebhook(rawBody, signature, secret);
+    await receiveOrganizationWhatsAppWebhook(rawBody, signature, webhookConfiguration);
     expect(mocks.rpc.mock.calls[0][1].p_payload).not.toHaveProperty("simulated");
   });
 });
 
 describe("authenticated simulator APIs", () => {
   const request = () =>
-    new Request("http://localhost/api/admin/simulator/messages", {
+    new Request(`http://localhost/api/admin/organizations/${organizationId}/simulator/messages`, {
       method: "POST",
       body: JSON.stringify(input),
     });
   it.each([false, true])("requires an admin when enabled=%s", async (enabled) => {
     mocks.enabled = enabled;
     mocks.authenticated = false;
-    expect((await getActors()).status).toBe(401);
-    expect((await getMessages(new Request("http://localhost/?waId=4912345"))).status).toBe(401);
-    expect((await postMessage(request())).status).toBe(401);
+    expect((await getActors(new Request("http://localhost/"), routeContext)).status).toBe(401);
+    expect(
+      (await getMessages(new Request("http://localhost/?waId=4912345"), routeContext)).status,
+    ).toBe(401);
+    expect((await postMessage(request(), routeContext)).status).toBe(401);
     expect(mocks.from).not.toHaveBeenCalled();
   });
   it("returns 404 for every endpoint when disabled", async () => {
     mocks.enabled = false;
-    expect((await getActors()).status).toBe(404);
-    expect((await getMessages(new Request("http://localhost/?waId=4912345"))).status).toBe(404);
-    expect((await postMessage(request())).status).toBe(404);
-    expect(mocks.from).not.toHaveBeenCalled();
+    setTable("organization_settings", { simulator_enabled: false });
+    expect((await getActors(new Request("http://localhost/"), routeContext)).status).toBe(404);
+    expect(
+      (await getMessages(new Request("http://localhost/?waId=4912345"), routeContext)).status,
+    ).toBe(404);
+    expect((await postMessage(request(), routeContext)).status).toBe(404);
+    expect(mocks.from).toHaveBeenCalled();
   });
   it("accepts synthetic messages without Meta credentials and rechecks staff mappings", async () => {
-    expect((await postMessage(request())).status).toBe(202);
-    const stale = new Request("http://localhost/api/admin/simulator/messages", {
-      method: "POST",
-      body: JSON.stringify({ ...input, identity: { kind: "staff", waId: input.identity.waId } }),
-    });
-    expect((await postMessage(stale)).status).toBe(409);
+    expect((await postMessage(request(), routeContext)).status).toBe(202);
+    const stale = new Request(
+      `http://localhost/api/admin/organizations/${organizationId}/simulator/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({ ...input, identity: { kind: "staff", waId: input.identity.waId } }),
+      },
+    );
+    expect((await postMessage(stale, routeContext)).status).toBe(409);
     expect(operations).toContainEqual({
       table: "technicians",
       method: "eq",
@@ -265,7 +337,12 @@ describe("authenticated simulator APIs", () => {
   });
   it("returns validation errors for malformed JSON", async () => {
     expect(
-      (await postMessage(new Request("http://localhost/", { method: "POST", body: "{" }))).status,
+      (
+        await postMessage(
+          new Request("http://localhost/", { method: "POST", body: "{" }),
+          routeContext,
+        )
+      ).status,
     ).toBe(422);
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
@@ -288,7 +365,7 @@ describe("coexisting real and simulated conversations", () => {
     });
     setTable("conversation_messages", { id: "history" });
     setTable("booking_drafts", null);
-    setTable("platform_settings", {});
+    setTable("organization_settings", { bot_locale: "en", simulator_enabled: true });
     setTable("message_outbox", { id: "outbox", state: "pending" });
   }
   it.each([false, true])(
@@ -313,7 +390,7 @@ describe("coexisting real and simulated conversations", () => {
   );
   it("pauses simulated inbound work when the flag is disabled", async () => {
     conversationFixture(true);
-    mocks.enabled = false;
+    setTable("organization_settings", { bot_locale: "en", simulator_enabled: false });
     await expect(processWhatsAppInboxEvent("inbox")).rejects.toThrow("simulator_disabled");
     expect(writes("contacts")).toEqual([]);
   });
@@ -433,13 +510,16 @@ describe("coexisting real and simulated conversations", () => {
     });
     setTable("technicians", { wa_id: "4915999999999" });
     setTable("contacts", { display_name: "Test Ada", wa_id: input.identity.waId });
-    setTable("platform_settings", {
-      technician_booking_cancelled_template: "technician_booking_cancelled",
+    setTable("organization_settings", {
+      bot_locale: "en",
       platform_timezone: "Asia/Bangkok",
+      simulator_enabled: true,
     });
     setTable("message_outbox", { id: "notification", state: "pending" });
     mocks.rpc.mockResolvedValue({ data: true, error: null });
     const actor: ConversationActor = {
+      organizationId: "00000000-0000-4000-8000-000000000101",
+      businessId: "00000000-0000-4000-8000-000000000201",
       conversationId: "conversation",
       contactId: "contact",
       waId: input.identity.waId,
@@ -506,6 +586,7 @@ describe("coexisting real and simulated conversations", () => {
     expect(mocks.graphSend).toHaveBeenCalledWith(
       input.identity.waId,
       expect.objectContaining({ text: "Real-path test" }),
+      { phoneNumberId: "phone", accessToken: "token" },
     );
   });
   it("fails simulated delivery on the same outgoing button limits as Meta delivery", async () => {
@@ -528,6 +609,7 @@ describe("coexisting real and simulated conversations", () => {
   it("defaults unmarked new messages to real delivery", async () => {
     setTable("message_outbox", { id: "outbox", state: "pending" });
     await queueWhatsAppMessage({
+      organizationId: "00000000-0000-4000-8000-000000000101",
       recipientWaId: input.identity.waId,
       payload: { kind: "text", text: "Real path" },
       deduplicationKey: "test-key",
@@ -548,7 +630,7 @@ describe("coexisting real and simulated conversations", () => {
         created_at: "2026-09-15T10:00:00Z",
       },
     ]);
-    const result = await listSimulatorMessages(input.identity.waId);
+    const result = await listSimulatorMessages(organizationId, input.identity.waId);
     expect(result.messages[0]).toMatchObject({
       state: "captured",
       text: "booking_confirmed\nTest salon\nTomorrow\ntest-booking",

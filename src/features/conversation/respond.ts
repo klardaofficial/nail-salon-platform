@@ -13,21 +13,23 @@ import { dateTimeDisplayInstructions } from "./datetime";
 import { unavailableFallback } from "@/lib/bot/language";
 import { summarizeChatUsage, withAIUsage } from "@/features/ai-usage/record";
 import { getOpenAIClient, hasOpenAIConfig } from "@/integrations/openai/client";
-import { getBotLocale, getServerEnv } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveOpenAIConfiguration } from "@/features/organizations/providers";
 
 function functionCalls(output: { type: string }[]): ResponseFunctionToolCall[] {
   return output.filter((item) => item.type === "function_call") as ResponseFunctionToolCall[];
 }
 
 export async function createNaturalReply(actor: ConversationActor) {
-  if (!hasOpenAIConfig()) return null;
+  const openAI = await resolveOpenAIConfiguration(actor.organizationId);
+  if (!hasOpenAIConfig(openAI)) return null;
   const supabase = createSupabaseAdminClient();
   const [history, salons, services, draft, settings, business] = await Promise.all([
     supabase
       .from("conversation_messages")
       .select("direction,text_content,message_type,structured_content,created_at")
       .eq("conversation_id", actor.conversationId)
+      .eq("organization_id", actor.organizationId)
       .not("text_content", "is", null)
       .order("created_at", { ascending: false })
       .limit(18),
@@ -36,27 +38,37 @@ export async function createNaturalReply(actor: ConversationActor) {
       .select(
         "id,name,location_label,default_open_time,default_close_time,booking_interval_minutes,technicians(id,display_name,active,deleted_at,technician_time_off(starts_at,ends_at))",
       )
+      .eq("organization_id", actor.organizationId)
       .eq("active", true)
       .is("deleted_at", null),
     supabase
       .from("services")
-      .select("id,name,description,active,deleted_at,service_salons(salon_id)")
+      .select(
+        "id,name,description,active,deleted_at,service_salons!service_salons_organization_service_fkey(salon_id)",
+      )
+      .eq("organization_id", actor.organizationId)
       .eq("active", true)
       .is("deleted_at", null),
     supabase
       .from("booking_drafts")
       .select("*")
       .eq("conversation_id", actor.conversationId)
+      .eq("organization_id", actor.organizationId)
       .eq("state", "collecting")
       .maybeSingle(),
     supabase
-      .from("platform_settings")
+      .from("organization_settings")
       .select(
-        "platform_timezone,default_open_time,default_close_time,default_booking_interval_minutes",
+        "platform_timezone,default_open_time,default_close_time,default_booking_interval_minutes,bot_locale",
       )
-      .eq("singleton", true)
+      .eq("organization_id", actor.organizationId)
       .single(),
-    supabase.from("businesses").select("name,active").eq("singleton", true).single(),
+    supabase
+      .from("businesses")
+      .select("name,active")
+      .eq("organization_id", actor.organizationId)
+      .eq("id", actor.businessId)
+      .single(),
   ]);
   if (history.error) throw history.error;
   if (salons.error) throw salons.error;
@@ -65,7 +77,7 @@ export async function createNaturalReply(actor: ConversationActor) {
   if (settings.error) throw settings.error;
   if (business.error) throw business.error;
 
-  const locale = actor.locale ?? getBotLocale();
+  const locale = actor.locale ?? settings.data.bot_locale;
   const roleInstructions = actor.isOwner
     ? "This is a verified business OWNER. Start in owner-assistance mode. On a greeting or request for help, briefly explain you can list business bookings/customer details, show booking summaries, and manage salon information, services, and technicians. Offer relevant owner actions. If also a technician, mention assigned bookings and time off. Do not greet them as a customer or ask booking intake questions unless they explicitly want a personal booking."
     : actor.technicianIds.length
@@ -98,7 +110,7 @@ export async function createNaturalReply(actor: ConversationActor) {
   }));
 
   const instructions = `You are the friendly WhatsApp assistant for one nail business with one WhatsApp Business Account and multiple salon locations.
-BOT_LOCALE=${getBotLocale()} is only the default when the customer's language is unclear. Infer and follow the customer's language, including greetings, in ANY language. Honor explicit language requests. There is no language allowlist. The current conversation language is ${locale}; retain it for numbers, dates, names, photos, and interactive selections that do not express a new language. Never infer language from internal option IDs or catalog names. Return its valid BCP 47 language code in locale (for example vi, th, fr, ar, ja, en-US). Generate ALL displayed text in that language: text, option titles/descriptions, buttonLabel, and sectionTitle. Also generate unavailableText: a brief localized message asking the customer to retry shortly if a provider is unavailable. It is stored for outages, not displayed with this reply.
+DEFAULT_LANGUAGE=${settings.data.bot_locale} is only the organization default when the customer's language is unclear. Infer and follow the customer's language, including greetings, in ANY language. Honor explicit language requests. There is no language allowlist. The current conversation language is ${locale}; retain it for numbers, dates, names, photos, and interactive selections that do not express a new language. Never infer language from internal option IDs or catalog names. Return its valid BCP 47 language code in locale (for example vi, th, fr, ar, ja, en-US). Generate ALL displayed text in that language: text, option titles/descriptions, buttonLabel, and sectionTitle. Also generate unavailableText: a brief localized message asking the customer to retry shortly if a provider is unavailable. It is stored for outages, not displayed with this reply.
 Keep replies warm, concise, and suitable for WhatsApp. Use plain text with short lines. Ask at most ONE focused question per reply. Date and time may be requested together. Never send a questionnaire.
 Generate a contextual welcome for greetings or a new conversation. If the message already contains a request, address it immediately in the same reply. Do not repeat a welcome or ask for a location before understanding the intent. Never use a configured greeting script.
 ${roleInstructions}
@@ -137,18 +149,20 @@ Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.
     ...(message.direction === "outbound" ? { phase: "final_answer" as const } : {}),
   }));
   let input: ResponseInput = messages;
-  const client = getOpenAIClient();
+  const client = getOpenAIClient(openAI);
   const tools = toolsForActor(actor);
   let completedReply: NaturalReply | null = null;
 
   for (let round = 0; round < 5; round += 1) {
-    const model = getServerEnv().OPENAI_CHAT_MODEL;
+    const model = openAI!.chatModel;
     const response = await withAIUsage(
       {
+        organizationId: actor.organizationId,
         conversationId: actor.conversationId,
         channel: actor.transport === "simulator" ? "whatsapp_simulator" : "whatsapp",
         kind: "chat_text",
         model,
+        pricing: openAI!.pricing,
       },
       () =>
         client.responses.create({

@@ -73,11 +73,21 @@ function AISummary({ rows, kind }: { rows: AIBreakdown[]; kind: AIBreakdown["kin
   );
 }
 
-function UsageLog({ from, to, channel }: { from: string; to: string; channel: ActivityChannel }) {
+function UsageLog({
+  organizationId,
+  from,
+  to,
+  channel,
+}: {
+  organizationId: string;
+  from: string;
+  to: string;
+  channel: ActivityChannel;
+}) {
   const [page, setPage] = useState(1);
   const [kind, setKind] = useState("all");
   const { data, error, isLoading, mutate } = useSWR<AIUsageLogs>(
-    apiKeys.aiUsage(from, to, channel, page, kind),
+    apiKeys.aiUsage(organizationId, from, to, channel, page, kind),
     { refreshInterval: 15000 },
   );
   return (
@@ -170,10 +180,20 @@ function UsageLog({ from, to, channel }: { from: string; to: string; channel: Ac
   );
 }
 
-export function PlatformActivityClient({ from, to }: { from: string; to: string }) {
+export function PlatformActivityClient({
+  organizationId = "00000000-0000-4000-8000-000000000101",
+  simulatorEnabled = true,
+  from,
+  to,
+}: {
+  organizationId?: string;
+  simulatorEnabled?: boolean;
+  from: string;
+  to: string;
+}) {
   const [channel, setChannel] = useState<ActivityChannel>("whatsapp");
   const { data, error, isLoading, mutate } = useSWR<PlatformActivity>(
-    apiKeys.platform(from, to, channel),
+    apiKeys.platform(organizationId, from, to, simulatorEnabled ? channel : "whatsapp"),
     { refreshInterval: 15000 },
   );
   const messageTrend =
@@ -196,18 +216,28 @@ export function PlatformActivityClient({ from, to }: { from: string; to: string 
           Platform activity
         </Typography.Title>
         <Space wrap>
-          <Select
-            aria-label="Activity source"
-            value={channel}
-            onChange={setChannel}
-            style={{ width: 170 }}
-            options={[
-              { label: "WhatsApp", value: "whatsapp" },
-              { label: "Simulator", value: "whatsapp_simulator" },
-              { label: "All sources", value: "all" },
-            ]}
-          />
-          <Button href={apiKeys.platformCsv(from, to, channel)} disabled={!data || Boolean(error)}>
+          {simulatorEnabled ? (
+            <Select
+              aria-label="Activity source"
+              value={channel}
+              onChange={setChannel}
+              style={{ width: 170 }}
+              options={[
+                { label: "WhatsApp", value: "whatsapp" },
+                { label: "Simulator", value: "whatsapp_simulator" },
+                { label: "All sources", value: "all" },
+              ]}
+            />
+          ) : null}
+          <Button
+            href={apiKeys.platformCsv(
+              organizationId,
+              from,
+              to,
+              simulatorEnabled ? channel : "whatsapp",
+            )}
+            disabled={!data || Boolean(error)}
+          >
             Export activity CSV
           </Button>
         </Space>
@@ -341,7 +371,13 @@ export function PlatformActivityClient({ from, to }: { from: string; to: string 
           </Card>
         </>
       ) : null}
-      <UsageLog key={`${from}:${to}:${channel}`} from={from} to={to} channel={channel} />
+      <UsageLog
+        key={`${organizationId}:${from}:${to}:${channel}`}
+        organizationId={organizationId}
+        from={from}
+        to={to}
+        channel={simulatorEnabled ? channel : "whatsapp"}
+      />
     </section>
   );
 }

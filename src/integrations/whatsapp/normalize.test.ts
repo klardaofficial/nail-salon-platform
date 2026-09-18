@@ -5,6 +5,7 @@ import { normalizeWhatsAppWebhook } from "./normalize";
 describe("normalizeWhatsAppWebhook", () => {
   it("normalizes text, image identifiers, interactive replies, and statuses", () => {
     const value = {
+      metadata: { phone_number_id: "phone-1" },
       contacts: [{ wa_id: "491234", profile: { name: "Ada" } }],
       messages: [
         {
@@ -41,13 +42,14 @@ describe("normalizeWhatsAppWebhook", () => {
     };
     const events = normalizeWhatsAppWebhook({
       object: "whatsapp_business_account",
-      entry: [{ changes: [{ value }] }],
+      entry: [{ id: "waba-1", changes: [{ value }] }],
     });
 
     expect(events).toHaveLength(4);
     expect(events[0]).toMatchObject({
       providerEventId: "m1",
       kind: "message",
+      routing: { wabaId: "waba-1", phoneNumberId: "phone-1" },
       contactWaId: "491234",
       profileName: "Ada",
       message: { type: "text", text: "Hallo" },

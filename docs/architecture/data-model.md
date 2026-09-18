@@ -2,40 +2,27 @@
 
 ```mermaid
 erDiagram
-  BUSINESSES ||--o{ SALONS : owns
-  CONTACTS }o--o{ BUSINESSES : business_owners
-  SERVICES }o--o{ SALONS : restricted_to
-  SALONS ||--o{ TECHNICIANS : staffs
-  TECHNICIANS ||--o{ TECHNICIAN_TIME_OFF : records
-  CONTACTS ||--o{ BOOKINGS : creates
-  SALONS |o--o{ BOOKINGS : receives
-  BOOKINGS ||--o{ BOOKING_SERVICES : snapshots
-  CONTACTS ||--o{ CONVERSATIONS : chats
+  ORGANIZATIONS ||--|| BUSINESSES : profile
+  ORGANIZATIONS ||--|| ORGANIZATION_SETTINGS : configures
+  ORGANIZATIONS ||--|| ORGANIZATION_PROVIDER_SETTINGS : configures
+  ORGANIZATIONS ||--o{ ORGANIZATION_ADMIN_MEMBERSHIPS : authorizes
+  ORGANIZATIONS ||--o{ CONTACTS : owns
+  ORGANIZATIONS ||--o{ SALONS : owns
+  ORGANIZATIONS ||--o{ SERVICES : owns
+  ORGANIZATIONS ||--o{ BOOKINGS : owns
+  CONTACTS ||--o{ CONVERSATIONS : has
   CONVERSATIONS ||--o{ CONVERSATION_MESSAGES : contains
-  CONVERSATIONS ||--o| BOOKING_DRAFTS : builds
-  CONVERSATIONS ||--o{ TOOL_EXECUTIONS : deduplicates
-  CONTACTS ||--o{ PREVIEW_REQUESTS : requests
-  CONTACTS ||--o{ PREVIEW_USAGE : limits
+  BOOKINGS ||--o{ BOOKING_SERVICES : snapshots
   WHATSAPP_INBOX_EVENTS ||--o| JOB_OUTBOX : dispatches
   CONVERSATIONS ||--o{ MESSAGE_OUTBOX : queues
 ```
 
-`businesses` is a singleton configuration row: a deployment supports one business and one WhatsApp Business Account. Internal `business_id` relations preserve historical integrity, but they never represent a tenant boundary. Contacts are WhatsApp identities so preview quotas and cross-salon customer identity do not reset. `business_customers` keeps first/last booking markers for the configured business.
+`organizations` is the non-inferred tenant root. Each organization has exactly one `businesses`, `organization_settings`, and `organization_provider_settings` row. All operational tables store a non-null organization ID. Parent tables expose `(organization_id,id)` uniqueness and children use composite foreign keys, so a child cannot claim another organization's contact, conversation, booking, preview, salon, or service.
 
-Conversations are unique per contact/channel: `whatsapp` for real messages and `whatsapp_simulator` for admin tests. Simulator ingress marks its existing inbox JSON payload; outgoing JSON payloads retain `transport=simulator` through durable retries. These use existing columns and need no schema migration.
+Contacts are unique by `(organization_id,wa_id)`. Inbox provider IDs, outbox/tool/booking deduplication keys, preview request keys, quotas, and conversation identities are likewise unique within organization scope. WABA and receiving phone IDs are unique platform-wide, including archived organizations, because they route provider traffic.
 
-Bookings always belong to the singleton business, but `salon_id` is nullable whether or not active salons exist. The conversation offers an active salon as an optional preference and never infers one; a null selection has no technician catalog. Every new conversation booking snapshots the configured platform timezone, regardless of salon. The booking RPC rechecks the platform timezone while holding a shared settings-row lock. Existing booking instants and timezone snapshots remain historical; conversation lists and notifications reformat appointment instants in the current platform timezone without visible timezone labels. Salon/technician placeholders such as [N/A] are display values, not stored UUIDs. Conversations store an unrestricted `reply_locale` language tag and the latest AI-written `reply_unavailable_text`; obsolete platform greeting columns have been removed.
+Each booking belongs to the organization business and may have a null salon. Services are immutable name snapshots. `bookings.technician_ref` intentionally remains nullable without a foreign key so historical references survive technician deletion; domain functions accept a current technician only inside the selected organization/salon. `bookings.simulated` is derived from verified conversation channel and protected against updates.
 
-`services` are reference catalog entries. A service with no `service_salons` rows is available at every salon; one or more rows restrict it to exactly those salons. Existing one-salon services were migrated into scope rows. Booking services keep names even after catalog removal, and a customer's described service is recorded even when it does not match the catalog or selected salon. Technician name is snapshotted; `technician_ref` is a nullable UUID without a foreign key by design, so missing/stale staff never invalidates history or flexible booking. When a selected salon has active technicians, customers may choose one or continue without preference. Soft deletion uses `active` and `deleted_at` for mutable catalog records.
+Organization provider settings contain routing IDs, an optional atomic Meta override, validation version/result, sanitized display/E.164 number, template overrides, real-traffic enablement, and organization OpenAI configuration. Root Meta settings are system-scoped. Credentials are server-only database text and never appear in tenant operational rows, jobs, logs, exports, audit details, or browser-direct queries.
 
-A customer booking update retains the existing confirmed future `bookings` row, including its immutable ID/reference and reporting identity. It updates appointment time labels/timezone snapshot, salon, service snapshots, technician snapshot, and additional request, then appends a `booking.rescheduled` audit event containing prior/new scheduling and service values plus a conversation-call idempotency key. It never creates a cancelled row or replacement booking.
-
-High-volume indexes cover booking business/cohort, salon/start, customer history, technician/start, recent conversation messages, pending inbox/outbox work, and contact/day preview usage. The initial migration enables RLS on all private tables and grants a platform-admin policy; background services use the service role after trusted edge checks.
-
-No column stores image bytes. `conversation_messages.media_id`, `preview_requests.source_media_id`, and `output_media_ids` are provider identifiers. Raw base64 and temporary image files are prohibited.
-
-`ai_usage_events` holds numeric chat/image usage and price snapshots. Service-only read models project inbox/outbox history and aggregate platform metrics without duplicating transcripts; see [platform observability](platform-observability.md).
-
-After applying migrations locally, run `pnpm db:types`. Commit the generated `src/generated/database.types.ts` with the migration. The generator preserves the existing file on failure and can use the running local metadata service if Docker management is unavailable.
-
-The service-only `get_staff_booking_summary` RPC rechecks owner business membership or active technician mappings inside SQL. It aggregates total/confirmed/cancelled/distinct customers over all authorized records, including bookings without salons, with optional timestamp bounds and explicit appointment/created date basis. It does not change dashboard metric definitions.
+Inbox/job/message/preview/AI rows retain immutable organization scope through retries. Audit rows explicitly distinguish platform scope (no organization ID) from organization scope (required organization ID). RLS mirrors system/active-membership access, while service-role code still filters explicitly.

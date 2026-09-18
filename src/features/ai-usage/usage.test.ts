@@ -18,10 +18,12 @@ import { aiPricingSchema, estimateAIUsageCost } from "./pricing";
 import { summarizeChatUsage, summarizeImageUsage, withAIUsage } from "./record";
 
 const context = {
+  organizationId: "00000000-0000-4000-8000-000000000101",
   conversationId: "synthetic-conversation",
   channel: "whatsapp_simulator" as const,
   kind: "chat_text" as const,
   model: "test",
+  pricing: { test: { kind: "chat_text" as const, input: 1, cachedInput: 0.5, output: 2 } },
 };
 const summary = {
   status: "completed" as const,

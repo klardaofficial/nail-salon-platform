@@ -1,6 +1,6 @@
 # Feature workflow
 
-1. Read `AGENTS.md`, current status, requirement ID, affected ADR, and existing tests.
+1. Read `AGENTS.md`, the relevant requirement ID and task-specific document, and existing tests.
 2. Trace the request from route/job to feature service, provider adapter, and SQL. Put each rule in one feature/domain location.
 3. Make the smallest complete change, including failure and retry behavior.
 4. Update required docs and meaningful tests, then run `pnpm check`.

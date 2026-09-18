@@ -2,28 +2,32 @@ import "server-only";
 
 import { summarizeChatUsage, withAIUsage } from "@/features/ai-usage/record";
 import { getOpenAIClient, hasOpenAIConfig } from "@/integrations/openai/client";
-import { getServerEnv } from "@/lib/config/env";
 import { dateTimeDisplayInstructions } from "./datetime";
+import { resolveOpenAIConfiguration } from "@/features/organizations/providers";
 
 export async function createLocalizedText(input: {
+  organizationId: string;
   locale: string;
   task: string;
   details: unknown;
   conversationId?: string | null;
   transport?: string;
 }): Promise<string | null> {
-  if (!hasOpenAIConfig()) return null;
-  const model = getServerEnv().OPENAI_CHAT_MODEL;
+  const openAI = await resolveOpenAIConfiguration(input.organizationId);
+  if (!hasOpenAIConfig(openAI)) return null;
+  const model = openAI!.chatModel;
   try {
     const response = await withAIUsage(
       {
+        organizationId: input.organizationId,
         conversationId: input.conversationId ?? null,
         channel: input.transport === "simulator" ? "whatsapp_simulator" : "whatsapp",
         kind: "chat_text",
         model,
+        pricing: openAI!.pricing,
       },
       () =>
-        getOpenAIClient().responses.create({
+        getOpenAIClient(openAI).responses.create({
           model,
           store: false,
           instructions:

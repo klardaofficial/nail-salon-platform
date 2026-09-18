@@ -2,11 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ authenticated: true, rpc: vi.fn(), from: vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/config/env", () => ({
-  getServerEnv: () => ({ PLATFORM_TIMEZONE: "Europe/Berlin" }),
-}));
 vi.mock("@/lib/auth/api-admin", () => ({
-  requireApiAdmin: async () => ({
+  requireOrganizationAdmin: async () => ({
     error: mocks.authenticated ? null : new Response(null, { status: 401 }),
   }),
 }));
@@ -14,11 +11,11 @@ vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({ rpc: mocks.rpc, from: mocks.from }),
 }));
 
-import { GET as activity } from "@/app/api/admin/platform/route";
-import { GET as usage } from "@/app/api/admin/ai-usage/route";
-import { GET as csv } from "@/app/api/admin/reports/platform.csv/route";
-import { GET as inbox } from "@/app/api/admin/inbox/route";
-import { GET as messages } from "@/app/api/admin/inbox/messages/route";
+import { GET as activityHandler } from "@/app/api/admin/organizations/[organizationId]/platform/route";
+import { GET as usageHandler } from "@/app/api/admin/organizations/[organizationId]/ai-usage/route";
+import { GET as csvHandler } from "@/app/api/admin/organizations/[organizationId]/reports/platform.csv/route";
+import { GET as inboxHandler } from "@/app/api/admin/organizations/[organizationId]/inbox/route";
+import { GET as messagesHandler } from "@/app/api/admin/organizations/[organizationId]/inbox/messages/route";
 import { reportingBounds, reportingQuerySchema } from "./period";
 import { platformActivityCsv } from "./platform-csv";
 import type { PlatformActivity } from "./platform-types";
@@ -61,6 +58,13 @@ const report: Omit<PlatformActivity, "period"> = {
   ],
 };
 const params = "from=2026-03-29&to=2026-03-29&channel=all";
+const organizationId = "00000000-0000-4000-8000-000000000101";
+const context = { params: Promise.resolve({ organizationId }) };
+const activity = (request: Request) => activityHandler(request, context);
+const usage = (request: Request) => usageHandler(request, context);
+const csv = (request: Request) => csvHandler(request, context);
+const inbox = (request: Request) => inboxHandler(request, context);
+const messages = (request: Request) => messagesHandler(request, context);
 const operations: { method: string; args: unknown[] }[] = [];
 let rows: unknown[] = [];
 
@@ -77,6 +81,8 @@ beforeEach(() => {
         operations.push({ method, args });
         return query;
       };
+    query.single = () =>
+      Promise.resolve({ data: { platform_timezone: "Europe/Berlin" }, error: null });
     query.then = (resolve: (value: unknown) => unknown) =>
       Promise.resolve({ data: rows, count: 75, error: null }).then(resolve);
     return query;
@@ -131,6 +137,7 @@ describe("report boundaries and access", () => {
     expect(await download.text()).toBe(platformActivityCsv(payload.data).replace(/^\uFEFF/, ""));
     expect(platformActivityCsv(payload.data)).toContain(`"'=synthetic"`);
     expect(mocks.rpc).toHaveBeenCalledWith("admin_platform_activity", {
+      p_organization_id: organizationId,
       p_from: "2026-03-29",
       p_to: "2026-03-29",
       p_timezone: "Europe/Berlin",
@@ -162,6 +169,7 @@ describe("report boundaries and access", () => {
     );
     expect(response.status).toBe(200);
     expect(mocks.rpc).toHaveBeenCalledWith("admin_whatsapp_threads", {
+      p_organization_id: organizationId,
       p_channel: "whatsapp",
       p_search: "Test%",
       p_role: "owner",

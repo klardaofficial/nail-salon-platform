@@ -10,6 +10,8 @@ export type AdminIdentity = {
   email: string;
   displayName: string | null;
   mustChangePassword: boolean;
+  isSystemAdmin: boolean;
+  organizationIds: string[];
 };
 
 export async function getAdminIdentity(): Promise<AdminIdentity | null> {
@@ -21,18 +23,27 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
 
   const { data: admin, error: adminError } = await supabase
     .from("platform_admins")
-    .select("user_id, display_name, active, must_change_password")
+    .select("user_id, display_name, active, must_change_password, is_system_admin")
     .eq("user_id", authData.user.id)
     .eq("active", true)
     .maybeSingle();
 
   if (adminError || !admin) return null;
 
+  const { data: memberships, error: membershipError } = await supabase
+    .from("organization_admin_memberships")
+    .select("organization_id")
+    .eq("user_id", authData.user.id)
+    .eq("active", true);
+  if (membershipError) return null;
+
   return {
     id: authData.user.id,
     email: authData.user.email ?? "",
     displayName: admin.display_name,
     mustChangePassword: admin.must_change_password,
+    isSystemAdmin: admin.is_system_admin,
+    organizationIds: memberships.map((membership) => membership.organization_id),
   };
 }
 

@@ -18,11 +18,14 @@ type BookingRow = {
   createdAt: string;
 };
 
-type BookingResponse = { items: BookingRow[] };
+type BookingResponse = { items: BookingRow[]; simulatorEnabled?: boolean };
 
-export function BookingsClient() {
+export function BookingsClient({ organizationId }: { organizationId: string }) {
   const [status, setStatus] = useState<string>();
-  const key = `/api/admin/bookings${status ? `?status=${status}` : ""}`;
+  const [source, setSource] = useState("real");
+  const base = `/api/admin/organizations/${organizationId}/bookings`;
+  const query = new URLSearchParams({ source, ...(status ? { status } : {}) }).toString();
+  const key = `${base}?${query}`;
   const { data, error, isLoading } = useSWR<BookingResponse>(key);
 
   return (
@@ -43,9 +46,21 @@ export function BookingsClient() {
           ]}
           style={{ width: 180 }}
         />
+        {data?.simulatorEnabled ? (
+          <Select
+            value={source}
+            onChange={setSource}
+            options={[
+              { value: "real", label: "Real" },
+              { value: "simulator", label: "Simulator" },
+              { value: "both", label: "Both" },
+            ]}
+            style={{ width: 150 }}
+          />
+        ) : null}
         <Button
           icon={<DownloadSimpleIcon size={17} />}
-          href={`/api/admin/reports/bookings.csv${status ? `?status=${status}` : ""}`}
+          href={`/api/admin/organizations/${organizationId}/reports/bookings.csv?${query}`}
         >
           Export CSV
         </Button>

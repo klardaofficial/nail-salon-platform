@@ -13,6 +13,7 @@ import {
   DatePicker,
   Empty,
   Row,
+  Select,
   Skeleton,
   Space,
   Statistic,
@@ -37,13 +38,25 @@ const Column = dynamic(() => import("@ant-design/charts").then((module) => modul
   ssr: false,
 });
 
-export function DashboardClient() {
+export function DashboardClient({
+  organizationId = "00000000-0000-4000-8000-000000000101",
+  simulatorEnabled = true,
+}: {
+  organizationId?: string;
+  simulatorEnabled?: boolean;
+}) {
   const [range, setRange] = useState<[Dayjs, Dayjs]>([
     dayjs().startOf("month"),
     dayjs().endOf("month"),
   ]);
+  const [source, setSource] = useState<"real" | "simulator" | "both">("real");
   const { data, error, isLoading } = useSWR<DashboardData>(
-    apiKeys.dashboard(range[0].format("YYYY-MM-DD"), range[1].format("YYYY-MM-DD")),
+    apiKeys.dashboard(
+      organizationId,
+      range[0].format("YYYY-MM-DD"),
+      range[1].format("YYYY-MM-DD"),
+      simulatorEnabled ? source : "real",
+    ),
   );
 
   function setPreset(start: Dayjs, end: Dayjs) {
@@ -109,6 +122,19 @@ export function DashboardClient() {
             );
           }}
         />
+        {simulatorEnabled ? (
+          <Select
+            aria-label="Booking source"
+            value={source}
+            style={{ width: 160 }}
+            onChange={setSource}
+            options={[
+              { label: "Real", value: "real" },
+              { label: "Simulator", value: "simulator" },
+              { label: "Both", value: "both" },
+            ]}
+          />
+        ) : null}
       </Space>
 
       {error ? (
@@ -255,6 +281,8 @@ export function DashboardClient() {
         <Empty description="Dashboard data is unavailable" />
       )}
       <PlatformActivityClient
+        organizationId={organizationId}
+        simulatorEnabled={simulatorEnabled}
         from={range[0].format("YYYY-MM-DD")}
         to={range[1].format("YYYY-MM-DD")}
       />

@@ -6,11 +6,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 export const dateTimeDisplayInstructions =
   "Show dates and clock times only, without timezone names, abbreviations, UTC/GMT offsets, or explanations such as 'your local time' or 'salon time'. Apply this to every visible message and option label. Never disclose the configured timezone or explain this internal policy.";
 
-export async function getConversationTimezone() {
+export async function getConversationTimezone(organizationId: string) {
   const { data, error } = await createSupabaseAdminClient()
-    .from("platform_settings")
+    .from("organization_settings")
     .select("platform_timezone")
-    .eq("singleton", true)
+    .eq("organization_id", organizationId)
     .single();
   if (error) throw error;
   return data.platform_timezone;
@@ -20,9 +20,12 @@ export function formatConversationTime(timestamp: string | Date, timezone: strin
   return formatInTimeZone(timestamp, timezone, "yyyy-MM-dd HH:mm");
 }
 
-export async function withConversationTimes<T extends { starts_at: string }>(bookings: T[]) {
+export async function withConversationTimes<T extends { starts_at: string }>(
+  organizationId: string,
+  bookings: T[],
+) {
   if (!bookings.length) return bookings;
-  const timezone = await getConversationTimezone();
+  const timezone = await getConversationTimezone(organizationId);
   return bookings.map((booking) => ({
     ...booking,
     local_time_label: formatConversationTime(booking.starts_at, timezone),

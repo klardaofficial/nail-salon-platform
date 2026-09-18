@@ -22,7 +22,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import useSWRMutation from "swr/mutation";
 
@@ -35,18 +35,22 @@ import {
   type SimulatorSendInput,
 } from "@/features/simulator/contracts";
 import { apiMutation } from "@/lib/api/client";
-import { apiKeys } from "@/lib/api/keys";
 import { PageHeading } from "./page-heading";
 import { ChatMessageBubble } from "./chat-message";
 import styles from "./simulator.module.css";
 
-const customerStorageKey = "nail-salon.simulator.customers";
-let fallbackCustomers = "[]";
-function readCustomers() {
+const customerStorageKey = (organizationId: string) =>
+  `nail-salon.simulator.customers.${organizationId}`;
+const fallbackCustomers = new Map<string, string>();
+function readCustomers(organizationId: string) {
   try {
-    return localStorage.getItem(customerStorageKey) ?? fallbackCustomers;
+    return (
+      localStorage.getItem(customerStorageKey(organizationId)) ??
+      fallbackCustomers.get(organizationId) ??
+      "[]"
+    );
   } catch {
-    return fallbackCustomers;
+    return fallbackCustomers.get(organizationId) ?? "[]";
   }
 }
 function subscribeCustomers(callback: () => void) {
@@ -57,10 +61,11 @@ function subscribeCustomers(callback: () => void) {
     window.removeEventListener("simulator-customers", callback);
   };
 }
-function saveCustomers(customers: SimulatorCustomer[]) {
-  fallbackCustomers = JSON.stringify(customers);
+function saveCustomers(organizationId: string, customers: SimulatorCustomer[]) {
+  const serialized = JSON.stringify(customers);
+  fallbackCustomers.set(organizationId, serialized);
   try {
-    localStorage.setItem(customerStorageKey, fallbackCustomers);
+    localStorage.setItem(customerStorageKey(organizationId), serialized);
   } catch {
     /* Keep windows in memory when storage is unavailable. */
   }
@@ -68,13 +73,22 @@ function saveCustomers(customers: SimulatorCustomer[]) {
 }
 const serverCustomers = () => "[]";
 
-function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: () => void }) {
+function ChatWindow({
+  organizationId,
+  actor,
+  onRemove,
+}: {
+  organizationId: string;
+  actor: SimulatorIdentity;
+  onRemove?: () => void;
+}) {
+  const base = `/api/admin/organizations/${organizationId}/simulator`;
   const { data, error, isLoading, mutate } = useSWR<SimulatorMessagesResponse>(
-    apiKeys.simulatorMessages(actor.waId),
+    `${base}/messages?waId=${encodeURIComponent(actor.waId)}`,
     { refreshInterval: 2000 },
   );
   const { trigger, isMutating } = useSWRMutation(
-    apiKeys.simulatorSend,
+    `${base}/messages`,
     apiMutation<{ providerEventId: string }, SimulatorSendInput>,
   );
   const [draft, setDraft] = useState("");
@@ -239,16 +253,22 @@ function ChatWindow({ actor, onRemove }: { actor: SimulatorIdentity; onRemove?: 
   );
 }
 
-export function SimulatorClient() {
+export function SimulatorClient({ organizationId }: { organizationId: string }) {
+  const base = `/api/admin/organizations/${organizationId}/simulator`;
   const { data, error, isLoading, isValidating, mutate } = useSWR<SimulatorActorsResponse>(
-    apiKeys.simulatorActors,
+    `${base}/actors`,
     { refreshInterval: 10000 },
   );
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState("All chats");
   const [form] = Form.useForm<SimulatorCustomer>();
   const { message } = App.useApp();
-  const savedCustomers = useSyncExternalStore(subscribeCustomers, readCustomers, serverCustomers);
+  const readScopedCustomers = useCallback(() => readCustomers(organizationId), [organizationId]);
+  const savedCustomers = useSyncExternalStore(
+    subscribeCustomers,
+    readScopedCustomers,
+    serverCustomers,
+  );
   const customers = useMemo(() => {
     try {
       const parsed = simulatorCustomerSchema.array().safeParse(JSON.parse(savedCustomers));
@@ -279,7 +299,7 @@ export function SimulatorClient() {
       form.setFields([{ name: "waId", errors: ["A chat already exists for this WhatsApp ID."] }]);
       return;
     }
-    saveCustomers([...customers, parsed.data]);
+    saveCustomers(organizationId, [...customers, parsed.data]);
     setAdding(false);
     setFilter("All chats");
     form.resetFields();
@@ -364,12 +384,16 @@ export function SimulatorClient() {
           {visible.map((actor) => (
             <ChatWindow
               key={actor.waId}
+              organizationId={organizationId}
               actor={actor}
               onRemove={
                 actor.roles.length
                   ? undefined
                   : () => {
-                      saveCustomers(customers.filter((customer) => customer.waId !== actor.waId));
+                      saveCustomers(
+                        organizationId,
+                        customers.filter((customer) => customer.waId !== actor.waId),
+                      );
                       message.info("Customer window removed. Conversation history is kept.");
                     }
               }

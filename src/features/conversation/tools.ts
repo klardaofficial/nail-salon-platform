@@ -8,10 +8,13 @@ import { formatConversationTime, getConversationTimezone, withConversationTimes 
 
 import { queueWhatsAppMessage } from "@/features/messaging/outbox";
 import { inngest } from "@/inngest/client";
-import { getServerEnv, type BotLocale } from "@/lib/config/env";
+import type { BotLocale } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveEffectiveMetaConfiguration } from "@/features/organizations/providers";
 
 export type ConversationActor = {
+  organizationId: string;
+  businessId: string;
   locale?: BotLocale;
   transport?: "whatsapp" | "simulator";
   conversationId: string;
@@ -310,6 +313,7 @@ const draftSchema = z.object({
 const createSchema = draftSchema.extend({ startsAt: z.iso.datetime({ offset: true }) });
 
 async function normalizeServiceSelections(
+  organizationId: string,
   services: z.infer<typeof serviceItemSchema>[],
   salonId: string | null,
 ) {
@@ -319,8 +323,9 @@ async function normalizeServiceSelections(
   const supabase = createSupabaseAdminClient();
   const knownServices = await supabase
     .from("services")
-    .select("id,name,service_salons(salon_id)")
+    .select("id,name,service_salons!service_salons_organization_service_fkey(salon_id)")
     .in("id", serviceIds)
+    .eq("organization_id", organizationId)
     .eq("active", true)
     .is("deleted_at", null);
   if (knownServices.error) throw knownServices.error;
@@ -347,12 +352,14 @@ async function ownedSalon(actor: ConversationActor, salonId: string) {
     .from("salons")
     .select("id,business_id,name")
     .eq("id", salonId)
+    .eq("organization_id", actor.organizationId)
     .maybeSingle();
   if (result.error) throw result.error;
   const owner = await supabase
     .from("business_owners")
     .select("business_id")
     .eq("contact_id", actor.contactId)
+    .eq("organization_id", actor.organizationId)
     .eq("business_id", result.data?.business_id ?? "")
     .maybeSingle();
   if (owner.error) throw owner.error;
@@ -365,7 +372,8 @@ async function ownedSalons(actor: ConversationActor, salonIds: string[] | null) 
   const { data: owner, error: ownerError } = await supabase
     .from("business_owners")
     .select("business_id")
-    .eq("contact_id", actor.contactId);
+    .eq("contact_id", actor.contactId)
+    .eq("organization_id", actor.organizationId);
   if (ownerError) throw ownerError;
   const ownerBusinessIds = new Set((owner ?? []).map((item) => item.business_id));
   if (!ownerBusinessIds.size) throw new Error("not_authorized");
@@ -374,6 +382,7 @@ async function ownedSalons(actor: ConversationActor, salonIds: string[] | null) 
   const { data: salons, error } = await supabase
     .from("salons")
     .select("id,business_id")
+    .eq("organization_id", actor.organizationId)
     .in("id", uniqueSalonIds);
   if (error) throw error;
   if ((salons ?? []).length !== uniqueSalonIds.length) throw new Error("service_salon_not_found");
@@ -381,26 +390,36 @@ async function ownedSalons(actor: ConversationActor, salonIds: string[] | null) 
     throw new Error("not_authorized");
 }
 
-async function replaceServiceSalons(serviceId: string, salonIds: string[] | null) {
+async function replaceServiceSalons(
+  organizationId: string,
+  serviceId: string,
+  salonIds: string[] | null,
+) {
   const supabase = createSupabaseAdminClient();
   const { error: removeError } = await supabase
     .from("service_salons")
     .delete()
+    .eq("organization_id", organizationId)
     .eq("service_id", serviceId);
   if (removeError) throw removeError;
   const uniqueSalonIds = [...new Set(salonIds ?? [])];
   if (!uniqueSalonIds.length) return;
-  const { error } = await supabase
-    .from("service_salons")
-    .insert(uniqueSalonIds.map((salon_id) => ({ service_id: serviceId, salon_id })));
+  const { error } = await supabase.from("service_salons").insert(
+    uniqueSalonIds.map((salon_id) => ({
+      organization_id: organizationId,
+      service_id: serviceId,
+      salon_id,
+    })),
+  );
   if (error) throw error;
 }
 
 async function saveDraft(actor: ConversationActor, raw: unknown) {
   const values = draftSchema.parse(raw);
-  const timezone = await getConversationTimezone();
+  const timezone = await getConversationTimezone(actor.organizationId);
   const { error } = await createSupabaseAdminClient().from("booking_drafts").upsert(
     {
+      organization_id: actor.organizationId,
       conversation_id: actor.conversationId,
       salon_id: values.salonId,
       starts_at: values.startsAt,
@@ -422,9 +441,23 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
   if (start.getTime() <= Date.now()) throw new Error("booking_time_must_be_in_future");
   const supabase = createSupabaseAdminClient();
   const [salons, business, platform] = await Promise.all([
-    supabase.from("salons").select("id,business_id,name").eq("active", true).is("deleted_at", null),
-    supabase.from("businesses").select("id,active").eq("singleton", true).single(),
-    supabase.from("platform_settings").select("platform_timezone").eq("singleton", true).single(),
+    supabase
+      .from("salons")
+      .select("id,business_id,name")
+      .eq("organization_id", actor.organizationId)
+      .eq("active", true)
+      .is("deleted_at", null),
+    supabase
+      .from("businesses")
+      .select("id,active")
+      .eq("organization_id", actor.organizationId)
+      .eq("id", actor.businessId)
+      .single(),
+    supabase
+      .from("organization_settings")
+      .select("platform_timezone")
+      .eq("organization_id", actor.organizationId)
+      .single(),
   ]);
   if (salons.error) throw salons.error;
   if (business.error) throw business.error;
@@ -443,6 +476,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
       .from("technicians")
       .select("display_name,wa_id,salon_id,active")
       .eq("id", technicianRef)
+      .eq("organization_id", actor.organizationId)
       .is("deleted_at", null)
       .maybeSingle();
     if (technician.error) throw technician.error;
@@ -454,9 +488,14 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     }
   }
 
-  const services = await normalizeServiceSelections(values.services, salon?.id ?? null);
+  const services = await normalizeServiceSelections(
+    actor.organizationId,
+    values.services,
+    salon?.id ?? null,
+  );
   const localLabel = formatConversationTime(start, timezone);
-  const { data: bookingId, error } = await supabase.rpc("create_booking_from_conversation", {
+  const { data: bookingId, error } = await supabase.rpc("create_organization_booking", {
+    p_organization_id: actor.organizationId,
     p_business_id: business.data.id,
     p_salon_id: salon?.id ?? null,
     p_contact_id: actor.contactId,
@@ -468,6 +507,7 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     p_additional_request: values.additionalRequest,
     p_idempotency_key: `${actor.conversationId}:${callId}`,
     p_services: services,
+    p_channel: actor.transport === "simulator" ? "whatsapp_simulator" : "whatsapp",
   });
   if (error) throw error;
   await supabase
@@ -476,13 +516,19 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     .eq("conversation_id", actor.conversationId);
 
   if (technicianWaId) {
-    const [settings, contact] = await Promise.all([
+    const [settings, contact, provider] = await Promise.all([
       supabase
-        .from("platform_settings")
-        .select("technician_booking_confirmed_template")
-        .eq("singleton", true)
+        .from("organization_settings")
+        .select("bot_locale")
+        .eq("organization_id", actor.organizationId)
         .single(),
-      supabase.from("contacts").select("display_name,wa_id").eq("id", actor.contactId).single(),
+      supabase
+        .from("contacts")
+        .select("display_name,wa_id")
+        .eq("id", actor.contactId)
+        .eq("organization_id", actor.organizationId)
+        .single(),
+      resolveEffectiveMetaConfiguration(actor.organizationId),
     ]);
     if (settings.error) throw settings.error;
     if (contact.error) throw contact.error;
@@ -493,23 +539,26 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
       localLabel,
       String(bookingId),
     ];
-    const notification = settings.data.technician_booking_confirmed_template
+    const selectedTemplate = provider?.templates.confirmed;
+    const notification = selectedTemplate?.name
       ? {
           kind: "template" as const,
-          name: settings.data.technician_booking_confirmed_template,
-          languageCode: templateLanguageCode(getServerEnv().BOT_LOCALE),
+          name: selectedTemplate.name,
+          languageCode: templateLanguageCode(settings.data.bot_locale),
           bodyParameters,
         }
       : {
           kind: "text" as const,
           text: await technicianNotificationText(
+            actor.organizationId,
             "confirmed",
             bodyParameters,
-            await recipientLocale(technicianWaId, actor.transport),
+            await recipientLocale(technicianWaId, actor.transport, actor.organizationId),
             actor.transport,
           ),
         };
     await queueWhatsAppMessage({
+      organizationId: actor.organizationId,
       transport: actor.transport,
       recipientWaId: technicianWaId,
       payload: notification,
@@ -533,10 +582,11 @@ async function listCustomerBookings(actor: ConversationActor) {
       "id,salon_id,technician_ref,additional_request,starts_at,local_time_label,status,salon:salons(name),booking_services(service_id,service_name_snapshot)",
     )
     .eq("contact_id", actor.contactId)
+    .eq("organization_id", actor.organizationId)
     .order("starts_at", { ascending: false })
     .limit(10);
   if (error) throw error;
-  return { ok: true, bookings: await withConversationTimes(data ?? []) };
+  return { ok: true, bookings: await withConversationTimes(actor.organizationId, data ?? []) };
 }
 
 async function cancelBooking(actor: ConversationActor, raw: unknown) {
@@ -549,9 +599,11 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
     .select("id,technician_ref,starts_at,salon:salons(name)")
     .eq("id", values.bookingId)
     .eq("contact_id", actor.contactId)
+    .eq("organization_id", actor.organizationId)
     .maybeSingle();
   if (before.error) throw before.error;
-  const { data: cancelled, error } = await supabase.rpc("cancel_customer_booking", {
+  const { data: cancelled, error } = await supabase.rpc("cancel_organization_booking", {
+    p_organization_id: actor.organizationId,
     p_booking_id: values.bookingId,
     p_contact_id: actor.contactId,
     p_reason: values.reason,
@@ -564,15 +616,22 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
       .from("technicians")
       .select("wa_id")
       .eq("id", before.data.technician_ref)
+      .eq("organization_id", actor.organizationId)
       .maybeSingle();
     if (technician.data?.wa_id) {
-      const [settings, contact] = await Promise.all([
+      const [settings, contact, provider] = await Promise.all([
         supabase
-          .from("platform_settings")
-          .select("technician_booking_cancelled_template,platform_timezone")
-          .eq("singleton", true)
+          .from("organization_settings")
+          .select("bot_locale,platform_timezone")
+          .eq("organization_id", actor.organizationId)
           .single(),
-        supabase.from("contacts").select("display_name,wa_id").eq("id", actor.contactId).single(),
+        supabase
+          .from("contacts")
+          .select("display_name,wa_id")
+          .eq("id", actor.contactId)
+          .eq("organization_id", actor.organizationId)
+          .single(),
+        resolveEffectiveMetaConfiguration(actor.organizationId),
       ]);
       if (settings.error) throw settings.error;
       if (contact.error) throw contact.error;
@@ -587,23 +646,26 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
         formatConversationTime(before.data.starts_at, settings.data.platform_timezone),
         values.bookingId,
       ];
-      const notification = settings.data.technician_booking_cancelled_template
+      const selectedTemplate = provider?.templates.cancelled;
+      const notification = selectedTemplate?.name
         ? {
             kind: "template" as const,
-            name: settings.data.technician_booking_cancelled_template,
-            languageCode: templateLanguageCode(getServerEnv().BOT_LOCALE),
+            name: selectedTemplate.name,
+            languageCode: templateLanguageCode(settings.data.bot_locale),
             bodyParameters,
           }
         : {
             kind: "text" as const,
             text: await technicianNotificationText(
+              actor.organizationId,
               "cancelled",
               bodyParameters,
-              await recipientLocale(technician.data.wa_id, actor.transport),
+              await recipientLocale(technician.data.wa_id, actor.transport, actor.organizationId),
               actor.transport,
             ),
           };
       await queueWhatsAppMessage({
+        organizationId: actor.organizationId,
         transport: actor.transport,
         recipientWaId: technician.data.wa_id,
         payload: notification,
@@ -635,9 +697,19 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
       .select("id,starts_at,business_id,technician_ref,salon:salons(name)")
       .eq("id", values.bookingId)
       .eq("contact_id", actor.contactId)
+      .eq("organization_id", actor.organizationId)
       .maybeSingle(),
-    supabase.from("platform_settings").select("platform_timezone").eq("singleton", true).single(),
-    supabase.from("salons").select("id,business_id,name").eq("active", true).is("deleted_at", null),
+    supabase
+      .from("organization_settings")
+      .select("platform_timezone,bot_locale")
+      .eq("organization_id", actor.organizationId)
+      .single(),
+    supabase
+      .from("salons")
+      .select("id,business_id,name")
+      .eq("organization_id", actor.organizationId)
+      .eq("active", true)
+      .is("deleted_at", null),
   ]);
   if (before.error) throw before.error;
   if (settings.error) throw settings.error;
@@ -658,6 +730,7 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
       .from("technicians")
       .select("display_name,wa_id,salon_id,active")
       .eq("id", technicianRef)
+      .eq("organization_id", actor.organizationId)
       .is("deleted_at", null)
       .maybeSingle();
     if (technician.error) throw technician.error;
@@ -667,9 +740,14 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
       technicianWaId = technician.data.wa_id;
     }
   }
-  const services = await normalizeServiceSelections(values.services, salon?.id ?? null);
+  const services = await normalizeServiceSelections(
+    actor.organizationId,
+    values.services,
+    salon?.id ?? null,
+  );
   const startsAt = formatConversationTime(start, settings.data.platform_timezone);
-  const { data: rescheduled, error } = await supabase.rpc("reschedule_customer_booking", {
+  const { data: rescheduled, error } = await supabase.rpc("reschedule_organization_booking", {
+    p_organization_id: actor.organizationId,
     p_booking_id: values.bookingId,
     p_contact_id: actor.contactId,
     p_salon_id: salon?.id ?? null,
@@ -692,17 +770,24 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
             .from("technicians")
             .select("wa_id")
             .eq("id", existingBooking.technician_ref)
+            .eq("organization_id", actor.organizationId)
             .maybeSingle()
         ).data?.wa_id
       : null;
   if (oldTechnicianWaId || technicianWaId) {
-    const [notificationSettings, contact] = await Promise.all([
+    const [notificationSettings, contact, provider] = await Promise.all([
       supabase
-        .from("platform_settings")
-        .select("technician_booking_confirmed_template,technician_booking_cancelled_template")
-        .eq("singleton", true)
+        .from("organization_settings")
+        .select("bot_locale")
+        .eq("organization_id", actor.organizationId)
         .single(),
-      supabase.from("contacts").select("display_name,wa_id").eq("id", actor.contactId).single(),
+      supabase
+        .from("contacts")
+        .select("display_name,wa_id")
+        .eq("id", actor.contactId)
+        .eq("organization_id", actor.organizationId)
+        .single(),
+      resolveEffectiveMetaConfiguration(actor.organizationId),
     ]);
     if (notificationSettings.error) throw notificationSettings.error;
     if (contact.error) throw contact.error;
@@ -720,23 +805,26 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
         formatConversationTime(existingBooking.starts_at, settings.data.platform_timezone),
         values.bookingId,
       ];
-      const payload = notificationSettings.data.technician_booking_cancelled_template
+      const cancelledTemplate = provider?.templates.cancelled.name;
+      const payload = cancelledTemplate
         ? {
             kind: "template" as const,
-            name: notificationSettings.data.technician_booking_cancelled_template,
-            languageCode: templateLanguageCode(getServerEnv().BOT_LOCALE),
+            name: cancelledTemplate,
+            languageCode: templateLanguageCode(notificationSettings.data.bot_locale),
             bodyParameters,
           }
         : {
             kind: "text" as const,
             text: await technicianNotificationText(
+              actor.organizationId,
               "cancelled",
               bodyParameters,
-              await recipientLocale(oldTechnicianWaId, actor.transport),
+              await recipientLocale(oldTechnicianWaId, actor.transport, actor.organizationId),
               actor.transport,
             ),
           };
       await queueWhatsAppMessage({
+        organizationId: actor.organizationId,
         transport: actor.transport,
         recipientWaId: oldTechnicianWaId,
         payload,
@@ -751,23 +839,26 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
         startsAt,
         values.bookingId,
       ];
-      const payload = notificationSettings.data.technician_booking_confirmed_template
+      const confirmedTemplate = provider?.templates.confirmed.name;
+      const payload = confirmedTemplate
         ? {
             kind: "template" as const,
-            name: notificationSettings.data.technician_booking_confirmed_template,
-            languageCode: templateLanguageCode(getServerEnv().BOT_LOCALE),
+            name: confirmedTemplate,
+            languageCode: templateLanguageCode(notificationSettings.data.bot_locale),
             bodyParameters,
           }
         : {
             kind: "text" as const,
             text: await technicianNotificationText(
+              actor.organizationId,
               "confirmed",
               bodyParameters,
-              await recipientLocale(technicianWaId, actor.transport),
+              await recipientLocale(technicianWaId, actor.transport, actor.organizationId),
               actor.transport,
             ),
           };
       await queueWhatsAppMessage({
+        organizationId: actor.organizationId,
         transport: actor.transport,
         recipientWaId: technicianWaId,
         payload,
@@ -796,31 +887,34 @@ async function requestPreview(actor: ConversationActor, raw: unknown, callId: st
     .object({ styleRequest: z.string().trim().min(1).max(1000) })
     .parse(raw);
   if (!actor.currentMediaId) throw new Error("send_a_hand_or_nail_photo_first");
-  const env = getServerEnv();
   const supabase = createSupabaseAdminClient();
   const settings = await supabase
-    .from("platform_settings")
+    .from("organization_settings")
     .select("preview_requests_per_day,previews_per_request,platform_timezone")
-    .eq("singleton", true)
+    .eq("organization_id", actor.organizationId)
     .single();
   if (settings.error) throw settings.error;
   const usageDate = formatInTimeZone(new Date(), settings.data.platform_timezone, "yyyy-MM-dd");
-  const { data: previewId, error } = await supabase.rpc("reserve_preview_request", {
+  const { data: previewId, error } = await supabase.rpc("reserve_organization_preview", {
+    p_organization_id: actor.organizationId,
     p_contact_id: actor.contactId,
     p_conversation_id: actor.conversationId,
     p_request_key: `${actor.conversationId}:${callId}`,
     p_usage_date: usageDate,
     p_source_media_id: actor.currentMediaId,
     p_style_request: styleRequest,
-    p_requested_count: Math.min(settings.data.previews_per_request, env.PREVIEWS_PER_REQUEST),
-    p_daily_limit: Math.min(settings.data.preview_requests_per_day, env.PREVIEW_REQUESTS_PER_DAY),
+    p_requested_count: settings.data.previews_per_request,
+    p_daily_limit: settings.data.preview_requests_per_day,
   });
   if (error) {
     if (error.message.includes("preview_quota_exceeded"))
       return { ok: false, error: "preview_quota_exceeded" };
     throw error;
   }
-  await inngest.send({ name: "preview/requested", data: { previewId } });
+  await inngest.send({
+    name: "preview/requested",
+    data: { organizationId: actor.organizationId, previewId },
+  });
   return { ok: true, previewId, status: "queued" };
 }
 
@@ -844,6 +938,7 @@ async function staffBookingSummary(
       .from("business_owners")
       .select("business_id")
       .eq("contact_id", actor.contactId)
+      .eq("organization_id", actor.organizationId)
       .maybeSingle();
     if (owner.error) throw owner.error;
     if (!owner.data) throw new Error("not_authorized");
@@ -851,6 +946,7 @@ async function staffBookingSummary(
     await verifiedTechnicianIds(actor);
   }
   const { data, error } = await supabase.rpc("get_staff_booking_summary", {
+    p_organization_id: actor.organizationId,
     p_contact_id: actor.contactId,
     p_role: role,
     p_from: values.from,
@@ -877,6 +973,7 @@ async function ownerListBookings(actor: ConversationActor, raw: unknown) {
     .from("business_owners")
     .select("business_id")
     .eq("contact_id", actor.contactId)
+    .eq("organization_id", actor.organizationId)
     .maybeSingle();
   if (owner.error) throw owner.error;
   if (!owner.data) throw new Error("not_authorized");
@@ -886,6 +983,7 @@ async function ownerListBookings(actor: ConversationActor, raw: unknown) {
       "id,status,local_time_label,starts_at,technician_name_snapshot,additional_request,salon:salons(name),customer:contacts(display_name,wa_id),booking_services(service_name_snapshot)",
       { count: "exact" },
     )
+    .eq("organization_id", actor.organizationId)
     .eq("business_id", owner.data.business_id)
     .order("starts_at")
     .order("id");
@@ -896,7 +994,7 @@ async function ownerListBookings(actor: ConversationActor, raw: unknown) {
   if (error) throw error;
   return {
     ok: true,
-    bookings: await withConversationTimes(data ?? []),
+    bookings: await withConversationTimes(actor.organizationId, data ?? []),
     total: count,
     nextOffset: values.offset + 20 < (count ?? 0) ? values.offset + 20 : null,
   };
@@ -928,7 +1026,8 @@ async function ownerUpdateSalon(actor: ConversationActor, raw: unknown) {
   const { error } = await createSupabaseAdminClient()
     .from("salons")
     .update(updates)
-    .eq("id", values.salonId);
+    .eq("id", values.salonId)
+    .eq("organization_id", actor.organizationId);
   if (error) throw error;
   return { ok: true, updated: Object.keys(updates) };
 }
@@ -949,11 +1048,15 @@ async function ownerManageService(actor: ConversationActor, raw: unknown) {
     if (!values.name) throw new Error("service_name_required");
     const result = await supabase
       .from("services")
-      .insert({ name: values.name, description: values.description })
+      .insert({
+        organization_id: actor.organizationId,
+        name: values.name,
+        description: values.description,
+      })
       .select("id")
       .single();
     if (result.error) throw result.error;
-    await replaceServiceSalons(result.data.id, values.salonIds);
+    await replaceServiceSalons(actor.organizationId, result.data.id, values.salonIds);
     return { ok: true, serviceId: result.data.id };
   }
   if (!values.serviceId) throw new Error("service_id_required");
@@ -961,15 +1064,21 @@ async function ownerManageService(actor: ConversationActor, raw: unknown) {
     .from("services")
     .select("id")
     .eq("id", values.serviceId)
+    .eq("organization_id", actor.organizationId)
     .maybeSingle();
   if (existing.error || !existing.data) throw new Error("service_not_found");
   const updates =
     values.action === "deactivate"
       ? { active: false, deleted_at: new Date().toISOString() }
       : { ...(values.name ? { name: values.name } : {}), description: values.description };
-  const { error } = await supabase.from("services").update(updates).eq("id", values.serviceId);
+  const { error } = await supabase
+    .from("services")
+    .update(updates)
+    .eq("id", values.serviceId)
+    .eq("organization_id", actor.organizationId);
   if (error) throw error;
-  if (values.action === "update") await replaceServiceSalons(values.serviceId, values.salonIds);
+  if (values.action === "update")
+    await replaceServiceSalons(actor.organizationId, values.serviceId, values.salonIds);
   return { ok: true, serviceId: values.serviceId };
 }
 
@@ -991,6 +1100,7 @@ async function ownerManageTechnician(actor: ConversationActor, raw: unknown) {
     const result = await supabase
       .from("technicians")
       .insert({
+        organization_id: actor.organizationId,
         salon_id: values.salonId,
         display_name: values.displayName,
         wa_id: values.waId.replace(/^\+/, ""),
@@ -1005,6 +1115,7 @@ async function ownerManageTechnician(actor: ConversationActor, raw: unknown) {
     .from("technicians")
     .select("salon_id")
     .eq("id", values.technicianId)
+    .eq("organization_id", actor.organizationId)
     .maybeSingle();
   if (existing.error || existing.data?.salon_id !== values.salonId)
     throw new Error("technician_not_found");
@@ -1018,7 +1129,8 @@ async function ownerManageTechnician(actor: ConversationActor, raw: unknown) {
   const { error } = await supabase
     .from("technicians")
     .update(updates)
-    .eq("id", values.technicianId);
+    .eq("id", values.technicianId)
+    .eq("organization_id", actor.organizationId);
   if (error) throw error;
   return { ok: true, technicianId: values.technicianId };
 }
@@ -1034,6 +1146,8 @@ async function technicianBookings(actor: ConversationActor, raw: unknown) {
       "id,starts_at,local_time_label,status,additional_request,salon:salons(name),customer:contacts(display_name,wa_id),booking_services(service_name_snapshot)",
       { count: "exact" },
     )
+    .eq("organization_id", actor.organizationId)
+    .eq("simulated", false)
     .in("technician_ref", technicianIds)
     .gte("starts_at", new Date().toISOString())
     .order("starts_at")
@@ -1042,7 +1156,7 @@ async function technicianBookings(actor: ConversationActor, raw: unknown) {
   if (error) throw error;
   return {
     ok: true,
-    bookings: await withConversationTimes(data ?? []),
+    bookings: await withConversationTimes(actor.organizationId, data ?? []),
     total: count,
     nextOffset: offset + 20 < (count ?? 0) ? offset + 20 : null,
   };
@@ -1053,6 +1167,7 @@ async function verifiedTechnicianIds(actor: ConversationActor) {
     .from("technicians")
     .select("id")
     .eq("wa_id", actor.waId)
+    .eq("organization_id", actor.organizationId)
     .eq("active", true)
     .is("deleted_at", null);
   if (error) throw error;
@@ -1077,6 +1192,7 @@ async function technicianTimeOff(actor: ConversationActor, raw: unknown) {
   const result = await createSupabaseAdminClient()
     .from("technician_time_off")
     .insert({
+      organization_id: actor.organizationId,
       technician_id: values.technicianId,
       starts_at: values.startsAt,
       ends_at: values.endsAt,
@@ -1132,6 +1248,7 @@ export async function executeConversationTool(
     .from("tool_executions")
     .select("state,result")
     .eq("conversation_id", actor.conversationId)
+    .eq("organization_id", actor.organizationId)
     .eq("tool_call_id", call.call_id)
     .maybeSingle();
   if (existing.error) throw existing.error;
@@ -1145,13 +1262,14 @@ export async function executeConversationTool(
   }
   await supabase.from("tool_executions").upsert(
     {
+      organization_id: actor.organizationId,
       conversation_id: actor.conversationId,
       tool_call_id: call.call_id,
       tool_name: call.name,
       arguments: args,
       state: "started",
     },
-    { onConflict: "conversation_id,tool_call_id" },
+    { onConflict: "organization_id,conversation_id,tool_call_id" },
   );
 
   let result: unknown;
@@ -1164,6 +1282,7 @@ export async function executeConversationTool(
     .from("tool_executions")
     .update({ state: "completed", result, completed_at: new Date().toISOString() })
     .eq("conversation_id", actor.conversationId)
+    .eq("organization_id", actor.organizationId)
     .eq("tool_call_id", call.call_id);
   if (updateError) throw updateError;
   return result;

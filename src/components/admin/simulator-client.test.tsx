@@ -31,7 +31,8 @@ const actors = [
     salons: ["Test salon"],
   },
 ];
-const storageKey = "nail-salon.simulator.customers";
+const organizationId = "00000000-0000-4000-8000-000000000101";
+const storageKey = `nail-salon.simulator.customers.${organizationId}`;
 
 beforeEach(() => {
   (
@@ -88,7 +89,7 @@ async function render() {
             dedupingInterval: 0,
           }}
         >
-          <SimulatorClient />
+          <SimulatorClient organizationId={organizationId} />
         </SWRConfig>
       </AdminProviders>,
     ),

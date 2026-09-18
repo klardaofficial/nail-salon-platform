@@ -1,11 +1,9 @@
 # Coding agent entry point
 
-Read these files before changing code:
-
-1. `docs/implementation-status.md`
-2. `docs/product/requirements.md`
-3. The relevant integration or architecture document under `docs/`
-4. Any affected ADR under `docs/adr/`
+Before changing code, read the relevant requirements in
+`docs/product/requirements.md` and only the task-specific documents linked from
+`docs/index.md`. Use the code and tests as the source of truth for current
+implementation behavior.
 
 Use Node.js 22 and pnpm 12.4.1. Run `pnpm install`, then `pnpm check` before handing off a completed change. For schema changes, regenerate types with `pnpm db:types` against the updated local database. Do not add or maintain automated Supabase migration tests or migration-test CI jobs. Use `pnpm db:reset` only when intentionally rebuilding local data. Never edit an applied migration; add a new timestamped migration.
 
@@ -31,7 +29,7 @@ Use Node.js 22 and pnpm 12.4.1. Run `pnpm install`, then `pnpm check` before han
 - Time off guides technician suggestions. It never blocks or cancels a booking.
 - Cancellation is allowed only for the same customer and before `starts_at`.
 - Owners and technicians use WhatsApp only. Their identity and business scope come from verified stored mappings, never their text claim.
-- The admin interface is English and the landing page is German. `BOT_LOCALE` accepts any valid language tag as a default reference; AI replies and all WhatsApp option labels follow the person's conversation language. Verified staff start with role-specific capabilities.
+- The admin interface is English and the landing page is German. Each organization selects a default language; AI replies and all WhatsApp option labels follow the person's conversation language. Verified staff start with role-specific capabilities.
 - Browser dashboard reads and writes go through shared SWR fetchers and authenticated route handlers.
 - Never write customer image bytes, base64 data, data URLs, or temporary image files to the database, logs, filesystem, job payloads, docs, or fixtures. Persist WhatsApp media IDs only.
 
@@ -41,7 +39,7 @@ The browser authenticates with Supabase Auth. Every admin API calls `requireApiA
 
 ## Change rules
 
-Update the requirements, relevant flow/architecture document, tests, and `docs/implementation-status.md` with a feature. A new tool must document its arguments, authorization, side effects, retry/idempotency behavior, and failures. A metric change updates chart, API, CSV, definition, and examples together. Keep `.env.example` and `docs/development/configuration.md` synchronized. Format through repository Prettier settings; do not commit WebStorm project files.
+Update the requirements, relevant task-specific document, and tests with a feature. A new tool must document its arguments, authorization, side effects, retry/idempotency behavior, and failures. A metric change updates chart, API, CSV, definition, and examples together. Keep `.env.example` and `docs/development/configuration.md` synchronized. Format through repository Prettier settings; do not commit WebStorm project files.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

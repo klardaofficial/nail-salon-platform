@@ -6,7 +6,6 @@ export function GET() {
   return apiSuccess({
     status: "ok",
     environment: env.APP_ENV,
-    botLocale: env.BOT_LOCALE,
     databaseConfigured: hasSupabaseConfig(),
     revision: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
   });

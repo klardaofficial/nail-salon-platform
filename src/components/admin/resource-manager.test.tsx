@@ -7,9 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ mutation: vi.fn() }));
 vi.mock("@/lib/api/client", () => ({ apiMutation: mocks.mutation, apiGet: vi.fn() }));
 
-import { apiKeys } from "@/lib/api/keys";
 import { AdminProviders } from "./admin-providers";
 import { ResourceManager } from "./resource-manager";
+
+const organizationId = "00000000-0000-4000-8000-000000000101";
+const salonsEndpoint = `/api/admin/organizations/${organizationId}/salons`;
 
 const salon = {
   id: "22222222-2222-4222-8222-222222222222",
@@ -66,7 +68,7 @@ async function renderManager() {
             }),
           }}
         >
-          <ResourceManager resource="salons" />
+          <ResourceManager resource="salons" organizationId={organizationId} />
         </SWRConfig>
       </AdminProviders>,
     );
@@ -101,7 +103,7 @@ describe("salon resource form", { timeout: 15_000 }, () => {
     await fill(dialog.getByLabelText("Location"), "Munich");
     await click(dialog.getByRole("button", { name: "OK" }));
 
-    expect(mocks.mutation).toHaveBeenCalledWith(apiKeys.salons, {
+    expect(mocks.mutation).toHaveBeenCalledWith(salonsEndpoint, {
       arg: {
         method: "POST",
         body: {
@@ -122,7 +124,7 @@ describe("salon resource form", { timeout: 15_000 }, () => {
     expectTimes("08:35", "19:45");
     await click(within(screen.getByRole("dialog")).getByRole("button", { name: "OK" }));
 
-    expect(mocks.mutation).toHaveBeenCalledWith(apiKeys.salons, {
+    expect(mocks.mutation).toHaveBeenCalledWith(salonsEndpoint, {
       arg: {
         method: "PATCH",
         body: {

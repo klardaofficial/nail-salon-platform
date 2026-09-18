@@ -1,22 +1,35 @@
 import "server-only";
 
-import { getBotLocale } from "@/lib/config/env";
 import { normalizeLanguageCode } from "@/lib/bot/language";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createLocalizedText } from "./localize";
 
-export async function recipientLocale(waId: string, transport = "whatsapp"): Promise<string> {
-  const { data, error } = await createSupabaseAdminClient()
-    .from("conversations")
-    .select("reply_locale,contact:contacts!inner(wa_id)")
-    .eq("contact.wa_id", waId)
-    .eq("channel", transport === "simulator" ? "whatsapp_simulator" : "whatsapp")
-    .maybeSingle();
-  if (error) throw error;
-  return normalizeLanguageCode(data?.reply_locale ?? "") ?? getBotLocale();
+export async function recipientLocale(
+  waId: string,
+  transport = "whatsapp",
+  organizationId: string,
+): Promise<string> {
+  const supabase = createSupabaseAdminClient();
+  const [conversation, settings] = await Promise.all([
+    supabase
+      .from("conversations")
+      .select("reply_locale,contact:contacts!inner(wa_id)")
+      .eq("contact.wa_id", waId)
+      .eq("organization_id", organizationId)
+      .eq("channel", transport === "simulator" ? "whatsapp_simulator" : "whatsapp")
+      .maybeSingle(),
+    supabase
+      .from("organization_settings")
+      .select("bot_locale")
+      .eq("organization_id", organizationId)
+      .single(),
+  ]);
+  if (conversation.error ?? settings.error) throw conversation.error ?? settings.error;
+  return normalizeLanguageCode(conversation.data?.reply_locale ?? "") ?? settings.data.bot_locale;
 }
 
 export async function technicianNotificationText(
+  organizationId: string,
   status: "confirmed" | "cancelled",
   parameters: string[],
   locale: string,
@@ -27,6 +40,7 @@ export async function technicianNotificationText(
   );
   return (
     (await createLocalizedText({
+      organizationId,
       locale,
       transport,
       task: "Notify the technician about a " + status + " booking. Include every supplied detail.",

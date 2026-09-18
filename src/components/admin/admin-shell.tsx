@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  BuildingsIcon,
   CalendarDotsIcon,
   ChartLineUpIcon,
   ChatCircleDotsIcon,
@@ -13,7 +12,7 @@ import {
   UserCircleIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react";
-import { Alert, Avatar, Button, Dropdown, Layout, Menu, Space, Typography } from "antd";
+import { Alert, Avatar, Button, Dropdown, Layout, Menu, Select, Space, Typography } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
@@ -24,75 +23,107 @@ import { apiMutation } from "@/lib/api/client";
 
 const { Header, Content, Sider } = Layout;
 
-const navigation = [
+const rootNavigation = [
   { key: "/admin", icon: <HouseLineIcon size={18} />, label: <Link href="/admin">Overview</Link> },
-  {
-    key: "/admin/bookings",
-    icon: <CalendarDotsIcon size={18} />,
-    label: <Link href="/admin/bookings">Bookings</Link>,
-  },
-  {
-    key: "/admin/businesses",
-    icon: <BuildingsIcon size={18} />,
-    label: <Link href="/admin/businesses">Business</Link>,
-  },
-  {
-    key: "/admin/salons",
-    icon: <StorefrontIcon size={18} />,
-    label: <Link href="/admin/salons">Salons</Link>,
-  },
-  {
-    key: "/admin/services",
-    icon: <ScissorsIcon size={18} />,
-    label: <Link href="/admin/services">Services</Link>,
-  },
-  {
-    key: "/admin/technicians",
-    icon: <UsersThreeIcon size={18} />,
-    label: <Link href="/admin/technicians">Technicians</Link>,
-  },
-  {
-    key: "/admin/analytics",
-    icon: <ChartLineUpIcon size={18} />,
-    label: <Link href="/admin/analytics">Analytics</Link>,
-  },
-  {
-    key: "/admin/inbox",
-    icon: <ChatCircleDotsIcon size={18} />,
-    label: <Link href="/admin/inbox">WhatsApp inbox</Link>,
-  },
-  {
-    key: "/admin/simulator",
-    icon: <ChatCircleDotsIcon size={18} />,
-    label: <Link href="/admin/simulator">WhatsApp simulator</Link>,
-  },
-  {
-    key: "/admin/settings",
-    icon: <GearSixIcon size={18} />,
-    label: <Link href="/admin/settings">Settings</Link>,
-  },
 ];
 
-function selectedNavigation(pathname: string) {
+function selectedNavigation(pathname: string, items = rootNavigation) {
   if (pathname === "/admin") return ["/admin"];
-  return navigation
+  return items
     .filter((item) => item.key !== "/admin" && pathname.startsWith(item.key))
-    .map((item) => item.key);
+    .reverse()
+    .map((item) => item.key)
+    .slice(0, 1);
 }
 
 export function AdminShell({
   admin,
+  organizations = [],
   children,
-  simulatorEnabled = false,
 }: {
   admin: AdminIdentity;
+  organizations?: { id: string; name: string; status: string; simulatorEnabled: boolean }[];
   children: ReactNode;
-  simulatorEnabled?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const { trigger: logout, isMutating } = useSWRMutation("/api/admin/auth/logout", apiMutation);
   const passwordChangeRequired = admin.mustChangePassword;
+  const organizationId = pathname.match(/^\/admin\/organizations\/([^/]+)/)?.[1] ?? null;
+  const currentOrganization = organizations.find((item) => item.id === organizationId);
+  const organizationNavigation = organizationId
+    ? [
+        {
+          key: `/admin/organizations/${organizationId}`,
+          icon: <HouseLineIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}`}>Overview</Link>,
+        },
+        {
+          key: `/admin/organizations/${organizationId}/bookings`,
+          icon: <CalendarDotsIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}/bookings`}>Bookings</Link>,
+        },
+        {
+          key: `/admin/organizations/${organizationId}/salons`,
+          icon: <StorefrontIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}/salons`}>Salons</Link>,
+        },
+        {
+          key: `/admin/organizations/${organizationId}/services`,
+          icon: <ScissorsIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}/services`}>Services</Link>,
+        },
+        {
+          key: `/admin/organizations/${organizationId}/technicians`,
+          icon: <UsersThreeIcon size={18} />,
+          label: (
+            <Link href={`/admin/organizations/${organizationId}/technicians`}>Technicians</Link>
+          ),
+        },
+        {
+          key: `/admin/organizations/${organizationId}/analytics`,
+          icon: <ChartLineUpIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}/analytics`}>Analytics</Link>,
+        },
+        {
+          key: `/admin/organizations/${organizationId}/inbox`,
+          icon: <ChatCircleDotsIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}/inbox`}>Inbox</Link>,
+        },
+        {
+          key: `/admin/organizations/${organizationId}/simulator`,
+          icon: <ChatCircleDotsIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}/simulator`}>Simulator</Link>,
+        },
+        {
+          key: `/admin/organizations/${organizationId}/accounts`,
+          icon: <UsersThreeIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}/accounts`}>Accounts</Link>,
+        },
+        {
+          key: `/admin/organizations/${organizationId}/settings`,
+          icon: <GearSixIcon size={18} />,
+          label: <Link href={`/admin/organizations/${organizationId}/settings`}>Settings</Link>,
+        },
+      ]
+    : rootNavigation;
+  const visibleNavigation = [
+    ...organizationNavigation,
+    ...(!organizationId && admin.isSystemAdmin
+      ? [
+          {
+            key: "/admin/system/accounts",
+            icon: <UsersThreeIcon size={18} />,
+            label: <Link href="/admin/system/accounts">System accounts</Link>,
+          },
+          {
+            key: "/admin/system/meta",
+            icon: <GearSixIcon size={18} />,
+            label: <Link href="/admin/system/meta">Root Meta</Link>,
+          },
+        ]
+      : []),
+  ];
 
   useEffect(() => {
     if (passwordChangeRequired && pathname !== "/admin/account") {
@@ -131,9 +162,11 @@ export function AdminShell({
         </Link>
         <Menu
           mode="inline"
-          selectedKeys={selectedNavigation(pathname)}
-          items={navigation
-            .filter((item) => simulatorEnabled || item.key !== "/admin/simulator")
+          selectedKeys={selectedNavigation(pathname, visibleNavigation)}
+          items={visibleNavigation
+            .filter(
+              (item) => currentOrganization?.simulatorEnabled || !item.key.endsWith("/simulator"),
+            )
             .map((item) => ({
               ...item,
               disabled: passwordChangeRequired,
@@ -142,6 +175,22 @@ export function AdminShell({
       </Sider>
       <Layout>
         <Header className="admin-header">
+          <Space>
+            <Select
+              aria-label="Organization"
+              value={organizationId ?? undefined}
+              placeholder="Choose organization"
+              options={organizations.map((organization) => ({
+                value: organization.id,
+                label: `${organization.name}${organization.status === "archived" ? " (archived)" : ""}`,
+              }))}
+              onChange={(id) => router.push(`/admin/organizations/${id}`)}
+              style={{ minWidth: 220 }}
+            />
+            {currentOrganization ? (
+              <Typography.Text type="secondary">{currentOrganization.name}</Typography.Text>
+            ) : null}
+          </Space>
           <Dropdown menu={{ items: accountItems }} placement="bottomRight" trigger={["click"]}>
             <Button type="text" loading={isMutating}>
               <Space>

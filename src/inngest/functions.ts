@@ -11,11 +11,15 @@ export const processWhatsAppEvent = inngest.createFunction(
   {
     id: "process-whatsapp-event",
     retries: 5,
-    concurrency: { limit: 1, key: "event.data.contactWaId" },
+    concurrency: { limit: 1, key: "event.data.organizationId + ':' + event.data.contactWaId" },
     triggers: [{ event: "whatsapp/event.received" }],
   },
   async ({ event, step }) => {
-    const data = event.data as { inboxEventId: string; jobOutboxId?: string };
+    const data = event.data as {
+      organizationId?: string;
+      inboxEventId: string;
+      jobOutboxId?: string;
+    };
     const supabase = createSupabaseAdminClient();
     if (data.jobOutboxId) {
       await supabase
@@ -68,11 +72,16 @@ export const generateStylePreview = inngest.createFunction(
     triggers: [{ event: "preview/requested" }],
   },
   async ({ event, step }) => {
-    const { previewId } = event.data as { previewId: string };
+    const { organizationId, previewId } = event.data as {
+      organizationId: string;
+      previewId: string;
+    };
     const mediaIds = await step.run("download-generate-upload", () =>
-      processStylePreview(previewId),
+      processStylePreview(organizationId, previewId),
     );
-    await step.run("queue-preview-delivery", () => queueStylePreviews(previewId, mediaIds));
+    await step.run("queue-preview-delivery", () =>
+      queueStylePreviews(organizationId, previewId, mediaIds),
+    );
     return { previewId, generated: mediaIds.length };
   },
 );
@@ -89,19 +98,19 @@ export const recoverDurableOutboxes = inngest.createFunction(
       const [jobs, messages, stalePreviews] = await Promise.all([
         supabase
           .from("job_outbox")
-          .select("id,inbox_event_id,payload")
+          .select("id,inbox_event_id,payload,organization_id")
           .in("state", ["pending", "failed"])
           .lte("available_at", new Date().toISOString())
           .limit(50),
         supabase
           .from("message_outbox")
-          .select("id")
+          .select("id,organization_id")
           .in("state", ["pending", "failed"])
           .lte("available_at", new Date().toISOString())
           .limit(50),
         supabase
           .from("preview_requests")
-          .select("id")
+          .select("id,organization_id")
           .in("state", ["reserved", "processing"])
           .lt("updated_at", subMinutes(new Date(), 30).toISOString())
           .limit(50),
@@ -113,7 +122,7 @@ export const recoverDurableOutboxes = inngest.createFunction(
       for (const job of jobs.data) {
         const inbox = await supabase
           .from("whatsapp_inbox_events")
-          .select("contact_wa_id")
+          .select("contact_wa_id,organization_id")
           .eq("id", job.inbox_event_id)
           .single();
         if (inbox.error) continue;
@@ -122,6 +131,7 @@ export const recoverDurableOutboxes = inngest.createFunction(
           data: {
             inboxEventId: job.inbox_event_id,
             jobOutboxId: job.id,
+            organizationId: job.organization_id,
             contactWaId: inbox.data.contact_wa_id ?? "status",
           },
         });
@@ -132,6 +142,7 @@ export const recoverDurableOutboxes = inngest.createFunction(
       }
       for (const preview of stalePreviews.data) {
         await supabase.rpc("complete_preview_request", {
+          p_organization_id: preview.organization_id,
           p_request_id: preview.id,
           p_output_media_ids: [],
         });

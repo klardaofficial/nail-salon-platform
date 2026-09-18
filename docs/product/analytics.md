@@ -16,7 +16,7 @@ All analytics cover the configured business. The booking graph, accessible table
 
 ## Platform activity
 
-The section below booking reports shares the inclusive date range (maximum 366 days) and `PLATFORM_TIMEZONE`. Database bounds are local midnight through the exclusive midnight after the final day, including DST changes and sub-millisecond timestamps. Its source selector defaults to WhatsApp; Simulator and All sources are also available.
+The section below booking reports shares the inclusive date range (maximum 366 days) and the selected organization's platform timezone. Database bounds are local midnight through the exclusive midnight after the final day, including DST changes and sub-millisecond timestamps. Its source selector defaults to WhatsApp; Simulator and All sources are also available.
 
 - **Received:** unique registered inbound message events by `received_at`. Delivery/status callbacks are excluded; provider event IDs already deduplicate webhook retries.
 - **Sent:** unique outbox rows with `sent_at` in the period, including staff notifications with no conversation ID. This measures provider acceptance (or simulator capture), not delivery/read receipts. A later failure does not erase the send attempt. Queued/failed rows without `sent_at` do not count.
@@ -30,4 +30,4 @@ Example: Ana sends twice on Monday and once on Tuesday; an owner sends once on T
 
 Illustrative pricing example (not a price quote): at input/cached/output rates of 1/0.5/2 USD per million, 1,000 input tokens including 200 cached and 100 output tokens cost $0.0011. If another request lacks usage, the subtotal remains $0.0011 with one unpriced request. If 2,000 text input, 3,000 image input, and 4,000 image output tokens use rates 1/2/3, image cost is $0.02. Two generated images count as two even if one upload fails.
 
-`GET /api/admin/platform`, the charts, accessible tables, and `GET /api/admin/reports/platform.csv` share the same database aggregation. `GET /api/admin/ai-usage` paginates individual calls within the same date/source selection. All require an admin. Database aggregation avoids the REST row limit. AI history starts when instrumentation is deployed; earlier tokens cannot be reconstructed. Current queue health remains an all-date/all-source snapshot.
+`GET /api/admin/organizations/{organizationId}/platform`, its charts/tables, and the scoped `/reports/platform.csv` share the same organization-first database aggregation. The scoped `/ai-usage` endpoint paginates calls within the same date/source selection. All require organization authorization. AI history starts when instrumentation is deployed; earlier tokens cannot be reconstructed. Queue health is scoped to the selected organization before counting current states.

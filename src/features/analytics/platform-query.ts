@@ -1,7 +1,6 @@
 import "server-only";
 
 import { z } from "zod";
-import { getServerEnv } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   reportingBounds,
@@ -27,10 +26,19 @@ export const usageQuerySchema = z
   .refine(validReportingRange, { message: reportingRangeMessage });
 
 export async function queryPlatformActivity(
+  organizationId: string,
   query: z.infer<typeof activityQuerySchema>,
 ): Promise<PlatformActivity> {
-  const timezone = getServerEnv().PLATFORM_TIMEZONE;
-  const result = await createSupabaseAdminClient().rpc("admin_platform_activity", {
+  const supabase = createSupabaseAdminClient();
+  const settings = await supabase
+    .from("organization_settings")
+    .select("platform_timezone")
+    .eq("organization_id", organizationId)
+    .single();
+  if (settings.error) throw settings.error;
+  const timezone = settings.data.platform_timezone;
+  const result = await supabase.rpc("admin_platform_activity", {
+    p_organization_id: organizationId,
     p_from: query.from,
     p_to: query.to,
     p_timezone: timezone,
@@ -40,15 +48,26 @@ export async function queryPlatformActivity(
   return { ...(result.data as Omit<PlatformActivity, "period">), period: { ...query, timezone } };
 }
 
-export async function queryAIUsage(query: z.infer<typeof usageQuerySchema>): Promise<AIUsageLogs> {
-  const bounds = reportingBounds(query.from, query.to, getServerEnv().PLATFORM_TIMEZONE);
+export async function queryAIUsage(
+  organizationId: string,
+  query: z.infer<typeof usageQuerySchema>,
+): Promise<AIUsageLogs> {
+  const supabase = createSupabaseAdminClient();
+  const settings = await supabase
+    .from("organization_settings")
+    .select("platform_timezone")
+    .eq("organization_id", organizationId)
+    .single();
+  if (settings.error) throw settings.error;
+  const bounds = reportingBounds(query.from, query.to, settings.data.platform_timezone);
   const pageSize = 25;
-  let request = createSupabaseAdminClient()
+  let request = supabase
     .from("ai_usage_events")
     .select(
       "id,started_at,completed_at,kind,model,channel,status,input_tokens,cached_input_tokens,input_text_tokens,input_image_tokens,output_tokens,image_count,estimated_cost_usd",
       { count: "exact" },
     )
+    .eq("organization_id", organizationId)
     .gte("started_at", bounds.start)
     .lt("started_at", bounds.end)
     .order("started_at", { ascending: false })

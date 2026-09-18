@@ -1,5 +1,7 @@
-import { DashboardClient } from "@/components/admin/dashboard-client";
+import { OrganizationsClient } from "@/components/admin/organizations-client";
+import { requireAdminIdentity } from "@/lib/auth/admin";
 
-export default function AdminOverviewPage() {
-  return <DashboardClient />;
+export default async function AdminOverviewPage() {
+  const admin = await requireAdminIdentity();
+  return <OrganizationsClient canManage={admin.isSystemAdmin} />;
 }

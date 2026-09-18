@@ -7,7 +7,6 @@ import type {
   NormalizedWhatsAppEvent,
   OutboundWhatsAppPayload,
 } from "@/integrations/whatsapp/types";
-import { getBotLocale, isWhatsAppSimulatorEnabled } from "@/lib/config/env";
 import { unavailableFallback } from "@/lib/bot/language";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -16,12 +15,16 @@ function normalizedMessageText(event: Extract<NormalizedWhatsAppEvent, { kind: "
   return event.message.interactiveTitle ?? event.message.caption ?? "";
 }
 
-async function processStatus(event: Extract<NormalizedWhatsAppEvent, { kind: "status" }>) {
+async function processStatus(
+  organizationId: string,
+  event: Extract<NormalizedWhatsAppEvent, { kind: "status" }>,
+) {
   const state = ["failed", "deleted"].includes(event.status.value) ? "failed" : "sent";
   const { error } = await createSupabaseAdminClient()
     .from("message_outbox")
     .update({ state, failure_code: event.status.failureCode })
-    .eq("provider_message_id", event.status.messageId);
+    .eq("provider_message_id", event.status.messageId)
+    .eq("organization_id", organizationId);
   if (error) throw error;
 }
 
@@ -34,6 +37,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     .single();
   if (inboxResult.error) throw inboxResult.error;
   if (inboxResult.data.processed_at) return { duplicate: true };
+  const organizationId = inboxResult.data.organization_id;
   async function markProcessed() {
     const result = await supabase
       .from("whatsapp_inbox_events")
@@ -42,17 +46,26 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     if (result.error) throw result.error;
   }
   const event = inboxResult.data.payload as NormalizedWhatsAppEvent;
-  if (event.kind === "message" && event.simulated && !isWhatsAppSimulatorEnabled()) {
-    throw new Error("simulator_disabled");
+  let messageSettings: { simulator_enabled: boolean; bot_locale: string } | null = null;
+  if (event.kind === "message") {
+    const { data, error } = await supabase
+      .from("organization_settings")
+      .select("simulator_enabled,bot_locale")
+      .eq("organization_id", organizationId)
+      .single();
+    if (error) throw error;
+    messageSettings = data;
+    if (event.simulated && !data.simulator_enabled) throw new Error("simulator_disabled");
   }
 
   if (event.kind === "status") {
-    await processStatus(event);
+    await processStatus(organizationId, event);
     await markProcessed();
     return { processed: "status" };
   }
 
   const contactValues: Record<string, unknown> = {
+    organization_id: organizationId,
     wa_id: event.contactWaId,
     normalized_phone: `+${event.contactWaId}`,
     last_contact_at: event.occurredAt,
@@ -60,7 +73,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   if (event.profileName) contactValues.display_name = event.profileName;
   const contactResult = await supabase
     .from("contacts")
-    .upsert(contactValues, { onConflict: "wa_id" })
+    .upsert(contactValues, { onConflict: "organization_id,wa_id" })
     .select("id")
     .single();
   if (contactResult.error) throw contactResult.error;
@@ -71,28 +84,31 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     .from("conversations")
     .upsert(
       {
+        organization_id: organizationId,
         contact_id: contactId,
         channel: event.simulated ? "whatsapp_simulator" : "whatsapp",
         last_activity_at: event.occurredAt,
       },
-      { onConflict: "contact_id,channel" },
+      { onConflict: "organization_id,contact_id,channel" },
     )
     .select("id,reply_locale,reply_unavailable_text")
     .single();
   if (conversationResult.error) throw conversationResult.error;
   const conversationId = conversationResult.data.id;
   const replyTarget = {
+    organizationId,
     transport,
     conversationId,
     recipientWaId: event.contactWaId,
     deduplicationKey: `conversation:${conversationId}:reply:${event.providerEventId}`,
   } as const;
-  const locale = conversationResult.data.reply_locale ?? getBotLocale();
+  const locale = conversationResult.data.reply_locale ?? messageSettings!.bot_locale;
   const messageText = normalizedMessageText(event);
   const historyResult = await supabase
     .from("conversation_messages")
     .upsert(
       {
+        organization_id: organizationId,
         conversation_id: conversationId,
         direction: "inbound",
         message_type: event.message.type,
@@ -105,7 +121,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
           mimeType: event.message.mimeType,
         },
       },
-      { onConflict: "provider_message_id", ignoreDuplicates: true },
+      { onConflict: "organization_id,provider_message_id", ignoreDuplicates: true },
     )
     .select("id")
     .maybeSingle();
@@ -116,6 +132,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
       .from("message_outbox")
       .select("payload")
       .eq("deduplication_key", replyTarget.deduplicationKey)
+      .eq("organization_id", organizationId)
       .maybeSingle();
     if (existingReply.error) throw existingReply.error;
     if (existingReply.data) {
@@ -129,16 +146,28 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   }
 
   const [owners, technicians] = await Promise.all([
-    supabase.from("business_owners").select("business_id").eq("contact_id", contactId).limit(1),
+    supabase
+      .from("business_owners")
+      .select("business_id")
+      .eq("contact_id", contactId)
+      .eq("organization_id", organizationId)
+      .limit(1),
     supabase
       .from("technicians")
       .select("id")
       .eq("wa_id", event.contactWaId)
+      .eq("organization_id", organizationId)
       .eq("active", true)
       .is("deleted_at", null),
   ]);
   if (owners.error) throw owners.error;
   if (technicians.error) throw technicians.error;
+  const businessResult = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .single();
+  if (businessResult.error) throw businessResult.error;
   const recentMedia = event.message.mediaId
     ? { media_id: event.message.mediaId }
     : (
@@ -152,6 +181,8 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
           .maybeSingle()
       ).data;
   const actor: ConversationActor = {
+    organizationId,
+    businessId: businessResult.data.id,
     transport,
     conversationId,
     contactId,

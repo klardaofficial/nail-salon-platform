@@ -3,17 +3,11 @@ import "server-only";
 import { z } from "zod";
 
 import type { ResourceName } from "./resources";
-import { getServerEnv } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const commonId = z.object({ id: z.uuid() });
 
 const schemas = {
-  businesses: z.object({
-    name: z.string().trim().min(1).max(120),
-    reporting_timezone: z.string().trim().min(1).max(80).default("Europe/Berlin"),
-    owner_wa_ids: z.string().optional(),
-  }),
   salons: z.object({
     name: z.string().trim().min(1).max(120),
     location_label: z.string().trim().min(1).max(300),
@@ -69,18 +63,27 @@ function serviceSalonNames(value: unknown) {
     .filter(Boolean);
 }
 
-async function replaceServiceSalons(serviceId: string, salonIds?: string[] | null) {
+async function replaceServiceSalons(
+  organizationId: string,
+  serviceId: string,
+  salonIds?: string[] | null,
+) {
   const supabase = createSupabaseAdminClient();
   const { error: removeError } = await supabase
     .from("service_salons")
     .delete()
+    .eq("organization_id", organizationId)
     .eq("service_id", serviceId);
   if (removeError) throw removeError;
   const uniqueSalonIds = [...new Set(salonIds ?? [])];
   if (!uniqueSalonIds.length) return;
-  const { error } = await supabase
-    .from("service_salons")
-    .insert(uniqueSalonIds.map((salon_id) => ({ service_id: serviceId, salon_id })));
+  const { error } = await supabase.from("service_salons").insert(
+    uniqueSalonIds.map((salon_id) => ({
+      organization_id: organizationId,
+      service_id: serviceId,
+      salon_id,
+    })),
+  );
   if (error) throw error;
 }
 
@@ -92,48 +95,12 @@ function serviceDatabaseValues(values: Partial<z.infer<typeof schemas.services>>
   };
 }
 
-function normalizeOwnerIds(value?: string) {
-  return [
-    ...new Set(
-      (value ?? "")
-        .split(/[\n,]/)
-        .map((item) => item.trim().replace(/^\+/, ""))
-        .filter(Boolean),
-    ),
-  ];
-}
-
-async function syncOwners(businessId: string, ownerText?: string) {
-  if (ownerText === undefined) return;
-  const supabase = createSupabaseAdminClient();
-  const ownerIds = normalizeOwnerIds(ownerText);
-  const contactIds: string[] = [];
-
-  for (const waId of ownerIds) {
-    const { data, error } = await supabase
-      .from("contacts")
-      .upsert({ wa_id: waId, normalized_phone: `+${waId}` }, { onConflict: "wa_id" })
-      .select("id")
-      .single();
-    if (error) throw error;
-    contactIds.push(data.id);
-  }
-
-  const { error: removeError } = await supabase
-    .from("business_owners")
-    .delete()
-    .eq("business_id", businessId);
-  if (removeError) throw removeError;
-  if (contactIds.length) {
-    const { error: addError } = await supabase
-      .from("business_owners")
-      .insert(contactIds.map((contactId) => ({ business_id: businessId, contact_id: contactId })));
-    if (addError) throw addError;
-  }
-}
-
-async function singleBusinessId(requireActive = true) {
-  let query = createSupabaseAdminClient().from("businesses").select("id").limit(2);
+async function organizationBusinessId(organizationId: string, requireActive = true) {
+  let query = createSupabaseAdminClient()
+    .from("businesses")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .limit(2);
   if (requireActive) query = query.eq("active", true);
   const { data, error } = await query;
   if (error) throw error;
@@ -141,37 +108,15 @@ async function singleBusinessId(requireActive = true) {
   return data[0].id;
 }
 
-export async function listResource(resource: ResourceName) {
+export async function listResource(organizationId: string, resource: ResourceName) {
   const supabase = createSupabaseAdminClient();
 
-  if (resource === "businesses") {
-    const [businesses, owners] = await Promise.all([
-      supabase.from("businesses").select("*").order("name"),
-      supabase.from("business_owners").select("business_id,contact:contacts(wa_id)"),
-    ]);
-    if (businesses.error) throw businesses.error;
-    if (owners.error) throw owners.error;
-
-    return {
-      items: businesses.data.map((business) => {
-        const businessOwners = owners.data.filter((owner) => owner.business_id === business.id);
-        return {
-          ...business,
-          owner_wa_ids: businessOwners
-            .map((owner) => {
-              const contact = owner.contact as { wa_id?: string } | { wa_id?: string }[] | null;
-              if (Array.isArray(contact)) return contact[0]?.wa_id ?? "";
-              return contact?.wa_id ?? "";
-            })
-            .filter(Boolean)
-            .join("\n"),
-        };
-      }),
-    };
-  }
-
   if (resource === "salons") {
-    const result = await supabase.from("salons").select("*").order("name");
+    const result = await supabase
+      .from("salons")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("name");
     if (result.error) throw result.error;
     return {
       items: result.data.map((item) => ({
@@ -186,9 +131,16 @@ export async function listResource(resource: ResourceName) {
     resource === "services"
       ? await supabase
           .from("services")
-          .select("*,service_salons(salon_id,salon:salons(name))")
+          .select(
+            "*,service_salons!service_salons_organization_service_fkey(salon_id,salon:salons!service_salons_organization_salon_fkey(name))",
+          )
+          .eq("organization_id", organizationId)
           .order("name")
-      : await supabase.from("technicians").select("*,salon:salons(name)").order("display_name");
+      : await supabase
+          .from("technicians")
+          .select("*,salon:salons!technicians_organization_salon_fkey(name)")
+          .eq("organization_id", organizationId)
+          .order("display_name");
   if (result.error) throw result.error;
   return {
     items: result.data.map((item) =>
@@ -203,32 +155,31 @@ export async function listResource(resource: ResourceName) {
   };
 }
 
-export async function createResource(resource: ResourceName, input: unknown) {
+export async function createResource(
+  organizationId: string,
+  resource: ResourceName,
+  input: unknown,
+) {
   const values = schemas[resource].parse(input);
   const supabase = createSupabaseAdminClient();
 
-  if (resource === "businesses") {
-    const existing = await supabase.from("businesses").select("id").limit(1);
-    if (existing.error) throw existing.error;
-    if (existing.data.length) throw new Error("single_business_already_exists");
-    const { owner_wa_ids, ...business } = values as z.infer<typeof schemas.businesses>;
-    const result = await supabase.from("businesses").insert(business).select("*").single();
-    if (result.error) throw result.error;
-    await syncOwners(result.data.id, owner_wa_ids);
-    return result.data;
-  }
-
   if (resource === "salons") {
     const { open_time, close_time, ...salon } = values as z.infer<typeof schemas.salons>;
-    const settings = getServerEnv();
+    const settings = await supabase
+      .from("organization_settings")
+      .select("default_open_time,default_close_time,default_booking_interval_minutes")
+      .eq("organization_id", organizationId)
+      .single();
+    if (settings.error) throw settings.error;
     const result = await supabase
       .from("salons")
       .insert({
         ...salon,
-        business_id: await singleBusinessId(),
-        default_open_time: open_time || settings.DEFAULT_OPEN_TIME,
-        default_close_time: close_time || settings.DEFAULT_CLOSE_TIME,
-        booking_interval_minutes: settings.DEFAULT_BOOKING_INTERVAL_MINUTES,
+        organization_id: organizationId,
+        business_id: await organizationBusinessId(organizationId),
+        default_open_time: open_time || settings.data.default_open_time,
+        default_close_time: close_time || settings.data.default_close_time,
+        booking_interval_minutes: settings.data.default_booking_interval_minutes,
       })
       .select("*")
       .single();
@@ -240,40 +191,38 @@ export async function createResource(resource: ResourceName, input: unknown) {
     resource === "services"
       ? await supabase
           .from("services")
-          .insert(serviceDatabaseValues(values as z.infer<typeof schemas.services>))
+          .insert({
+            organization_id: organizationId,
+            ...serviceDatabaseValues(values as z.infer<typeof schemas.services>),
+          })
           .select("*")
           .single()
       : await supabase
           .from("technicians")
-          .insert(values as z.infer<typeof schemas.technicians>)
+          .insert({
+            organization_id: organizationId,
+            ...(values as z.infer<typeof schemas.technicians>),
+          })
           .select("*")
           .single();
   if (result.error) throw result.error;
   if (resource === "services")
     await replaceServiceSalons(
+      organizationId,
       result.data.id,
       (values as z.infer<typeof schemas.services>).salon_ids,
     );
   return result.data;
 }
 
-export async function updateResource(resource: ResourceName, input: unknown) {
+export async function updateResource(
+  organizationId: string,
+  resource: ResourceName,
+  input: unknown,
+) {
   const id = commonId.parse(input).id;
   const values = schemas[resource].partial().parse(input);
   const supabase = createSupabaseAdminClient();
-
-  if (resource === "businesses") {
-    const { owner_wa_ids, ...business } = values as Partial<z.infer<typeof schemas.businesses>>;
-    const result = await supabase
-      .from("businesses")
-      .update(business)
-      .eq("id", id)
-      .select("*")
-      .single();
-    if (result.error) throw result.error;
-    await syncOwners(id, owner_wa_ids);
-    return result.data;
-  }
 
   if (resource === "salons") {
     const { open_time, close_time, ...salon } = values as Partial<z.infer<typeof schemas.salons>>;
@@ -285,6 +234,7 @@ export async function updateResource(resource: ResourceName, input: unknown) {
         ...(close_time ? { default_close_time: close_time } : {}),
       })
       .eq("id", id)
+      .eq("organization_id", organizationId)
       .select("*")
       .single();
     if (result.error) throw result.error;
@@ -294,11 +244,23 @@ export async function updateResource(resource: ResourceName, input: unknown) {
   if (resource === "services") {
     const service = serviceDatabaseValues(values as Partial<z.infer<typeof schemas.services>>);
     const result = Object.keys(service).length
-      ? await supabase.from("services").update(service).eq("id", id).select("*").single()
-      : await supabase.from("services").select("*").eq("id", id).single();
+      ? await supabase
+          .from("services")
+          .update(service)
+          .eq("id", id)
+          .eq("organization_id", organizationId)
+          .select("*")
+          .single()
+      : await supabase
+          .from("services")
+          .select("*")
+          .eq("id", id)
+          .eq("organization_id", organizationId)
+          .single();
     if (result.error) throw result.error;
     if ("salon_ids" in values)
       await replaceServiceSalons(
+        organizationId,
         id,
         (values as Partial<z.infer<typeof schemas.services>>).salon_ids,
       );
@@ -309,19 +271,25 @@ export async function updateResource(resource: ResourceName, input: unknown) {
     .from("technicians")
     .update(values as Partial<z.infer<typeof schemas.technicians>>)
     .eq("id", id)
+    .eq("organization_id", organizationId)
     .select("*")
     .single();
   if (result.error) throw result.error;
   return result.data;
 }
 
-export async function deactivateResource(resource: ResourceName, input: unknown) {
+export async function deactivateResource(
+  organizationId: string,
+  resource: ResourceName,
+  input: unknown,
+) {
   const id = commonId.parse(input).id;
   const supabase = createSupabaseAdminClient();
   const result = await supabase
     .from(resource)
     .update({ active: false, deleted_at: new Date().toISOString() })
     .eq("id", id)
+    .eq("organization_id", organizationId)
     .select("id")
     .single();
   if (result.error) throw result.error;

@@ -1,48 +1,37 @@
 # Configuration
 
-Server secrets belong in `.env.local`, Vercel encrypted environment variables, or GitHub environment secrets. Never prefix secrets with `NEXT_PUBLIC_`.
+Server secrets belong in `.env.local` or encrypted deployment variables. Never prefix secrets with `NEXT_PUBLIC_`.
 
-| Variable                               | Secret    | Default/scope                                                                                        | Redeploy                        |
-| -------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- | ------------------------------- |
-| `APP_ENV`                              | No        | `local`; `local`, `dev`, or `prod`                                                                   | Yes                             |
-| `APP_URL`                              | No        | Public application base URL                                                                          | Yes                             |
-| `BOT_LOCALE`                           | No        | `de`; any valid language tag, e.g. `en-US`, `vi`, `th`, `ar`, `fr-CA`                                | Yes, for default reference only |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER`          | No        | Digits used in landing-page `wa.me` link                                                             | Yes                             |
-| `NEXT_PUBLIC_SUPABASE_URL`             | No        | Environment-specific Supabase URL                                                                    | Yes                             |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | No        | Environment-specific browser key                                                                     | Yes                             |
-| `SUPABASE_SERVICE_ROLE_KEY`            | Yes       | Server routes and background jobs only                                                               | Yes                             |
-| `WHATSAPP_SIMULATOR_ENABLED`           | No        | `0`; set `1` to enable the admin simulator locally or when hosted. Real WhatsApp continues normally. | Yes                             |
-| `WHATSAPP_PHONE_NUMBER_ID`             | Sensitive | Meta phone number ID                                                                                 | Yes                             |
-| `WHATSAPP_BUSINESS_ACCOUNT_ID`         | Sensitive | Meta account ID                                                                                      | Yes                             |
-| `WHATSAPP_ACCESS_TOKEN`                | Yes       | Meta Graph token                                                                                     | Yes                             |
-| `WHATSAPP_APP_SECRET`                  | Yes       | HMAC verification                                                                                    | Yes                             |
-| `WHATSAPP_WEBHOOK_VERIFY_TOKEN`        | Yes       | GET challenge token                                                                                  | Yes                             |
-| `OPENAI_API_KEY`                       | Yes       | Server/jobs only                                                                                     | Yes                             |
-| `OPENAI_CHAT_MODEL`                    | No        | `gpt-5-mini`                                                                                         | Yes                             |
-| `OPENAI_IMAGE_MODEL`                   | No        | `gpt-image-1`                                                                                        | Yes                             |
-| `OPENAI_PRICING_JSON`                  | No        | `{}`; model-keyed USD rates per million tokens for estimated AI costs                                | Yes                             |
-| `INNGEST_DEV`                          | No        | `1` locally; omit or set `0` when hosted                                                             | Yes                             |
-| `INNGEST_EVENT_KEY`                    | Yes       | Cloud event submission; blank locally                                                                | Yes                             |
-| `INNGEST_SIGNING_KEY`                  | Yes       | Cloud invocation verification; blank locally                                                         | Yes                             |
-| `PLATFORM_TIMEZONE`                    | No        | `Europe/Berlin`; environment fallback                                                                | Yes                             |
-| `DEFAULT_OPEN_TIME`                    | No        | `09:00`; initial/fallback setting                                                                    | Yes                             |
-| `DEFAULT_CLOSE_TIME`                   | No        | `18:00`; initial/fallback setting                                                                    | Yes                             |
-| `DEFAULT_BOOKING_INTERVAL_MINUTES`     | No        | `30`; a suggestion, not capacity                                                                     | Yes                             |
-| `PREVIEW_REQUESTS_PER_DAY`             | No        | `3`; deployment ceiling                                                                              | Yes                             |
-| `PREVIEWS_PER_REQUEST`                 | No        | `3`; deployment ceiling                                                                              | Yes                             |
+## Runtime environment
 
-Admin settings persist platform timezone, default hours/interval, approved technician booking-template names, and preview limits. The saved platform timezone controls all bot date/time interpretation and appointment display for every salon and role; the bot never asks for a person's timezone or displays timezone labels. Salon timezone fields and conversation language do not override it. `PLATFORM_TIMEZONE` remains the environment fallback for settings. Greeting text settings are removed: AI writes contextual greetings and every interactive label in the person's language. `BOT_LOCALE` supplies only the initial language reference; valid BCP 47 tags are accepted without a language allowlist, and underscore variants are normalized (for example `pt_BR` to `pt-BR`). Language is remembered per contact/channel and can change during conversation. Supporting staff notifications and preview captions follow the recipient's conversation language. Approved Meta templates retain their provider content/language; template code separators are adapted to Meta (`pt-BR` to `pt_BR`, with legacy `en` mapped to `en_US`). Configure the reference code to match the approved template variant when using templates. The Settings page documents parameter order and [N/A] placeholders. Runtime preview enforcement uses the lower of environment and dashboard values.
+| Variable                               | Secret    | Purpose                                                                 |
+| -------------------------------------- | --------- | ----------------------------------------------------------------------- |
+| `APP_ENV`                              | No        | `local`, `dev`, or `prod`                                               |
+| `APP_URL`                              | No        | Public application base URL used for callbacks                          |
+| `VERCEL_AUTOMATION_BYPASS_SECRET`      | Sensitive | Server-only protection bypass appended to authorized Meta callback URLs |
+| `NEXT_PUBLIC_SUPABASE_URL`             | No        | Environment-specific Supabase URL                                       |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | No        | Browser publishable key                                                 |
+| `SUPABASE_SERVICE_ROLE_KEY`            | Yes       | Server routes/jobs only; never exposed to the browser                   |
+| `INNGEST_DEV`                          | No        | `1` for the local dev server                                            |
+| `INNGEST_EVENT_KEY`                    | Yes       | Hosted event submission                                                 |
+| `INNGEST_SIGNING_KEY`                  | Yes       | Hosted invocation verification                                          |
 
-The WhatsApp Graph API version is pinned in the server integration to `v26.0`; it is not an environment variable. The browser simulator requires Supabase and Inngest, plus `OPENAI_API_KEY` for natural conversations. All Meta WhatsApp credentials and template names may be empty when testing only simulated chats. To receive real WhatsApp traffic alongside it, configure the normal Meta credentials and verified webhook; enabling the simulator does not replace that webhook or alter real delivery. The simulator flag is server-only, defaults off, and works independently of `APP_ENV`.
+Organization timezone, hours, interval, locale, preview limits, simulator enablement, Meta identifiers/overrides, technician templates, and OpenAI key/models/pricing are database settings edited through organization-scoped admin APIs. Root Meta credentials/default templates are system settings. Runtime provider code has no legacy Meta/OpenAI/simulator environment fallback.
 
-## AI cost estimates
+Meta overrides require access token, app secret, and verify token together. Organization editors receive only that organization's saved override; inherited root secrets are never returned. OpenAI keys are write-only. Changing routing/credentials invalidates provider validation, and real traffic cannot be enabled until the current mapping validates.
 
-`OPENAI_PRICING_JSON={}` records tokens while displaying unavailable costs. Configure rates for the exact `OPENAI_CHAT_MODEL` and `OPENAI_IMAGE_MODEL` names after checking your project's [OpenAI pricing](https://developers.openai.com/api/docs/pricing/). The application does not hard-code prices. Values must be finite nonnegative USD amounts per million tokens; zero is an explicit configured rate.
+`VERCEL_AUTOMATION_BYPASS_SECRET` is never sent to the browser except as part of a system/organization-authorized callback URL display. It is not stored in QR codes, jobs, provider settings, or logs.
 
-The `.env.example` sample uses the published standard rates checked on 2026-09-16: `gpt-5-mini` input $0.25, cached input $0.025, and output $2.00; `gpt-image-1` text input $5.00, image input $10.00, and image output $40.00. Verify prices before deployment because provider rates can change:
+## One-time OpenAI bootstrap
 
-```dotenv
-OPENAI_PRICING_JSON={"gpt-5-mini":{"kind":"chat_text","input":0.25,"cachedInput":0.025,"output":2},"gpt-image-1":{"kind":"image_generation","textInput":5,"imageInput":10,"imageOutput":40}}
-```
+The rerunnable `pnpm organizations:bootstrap` command may import an existing OpenAI configuration into empty default-organization fields. These variables are bootstrap inputs, not runtime configuration:
 
-Image models returning text output additionally need `textOutput`. Unknown models, operation-kind mismatches, missing usage, or unpriced output modalities produce an unavailable estimate. Price snapshots apply only to new invocations after restart/redeploy; existing log entries retain their estimates. These are usage estimates, without taxes, account discounts, credits, or invoice reconciliation. Include Simulator or All sources in the activity filter to see simulator AI spending.
+- `OPENAI_API_KEY`, `OPENAI_CHAT_MODEL`, `OPENAI_IMAGE_MODEL`, `OPENAI_PRICING_JSON`
+
+The bootstrap uses built-in organization defaults: German, Europe/Berlin, 09:00–18:00, a 30-minute interval, three preview requests per day, and three previews per request. It never imports Meta or simulator settings: root Meta credentials and organization routing identifiers start empty, and simulator enablement starts false. Configure them through the authorized dashboard. The command does not overwrite existing provider values. Do not print secret values.
+
+## Provider notes
+
+WhatsApp Graph API is pinned to `v26.0`. Customer QR is generated locally from Meta's validated E.164 display number. The simulator is enabled per active organization and needs Supabase/Inngest plus that organization's OpenAI key for natural replies; Meta credentials are unnecessary for simulated delivery.
+
+AI cost estimates use model-keyed nonnegative USD rates per million units stored in `organization_provider_settings.openai_pricing`. Missing usage or rates remains unknown, never zero. Prices are snapshotted on each numeric-only usage event; provider billing may differ.

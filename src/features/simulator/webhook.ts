@@ -19,6 +19,7 @@ export function createSimulatorWebhook(
             field: "messages",
             value: {
               messaging_product: "whatsapp",
+              metadata: { phone_number_id: "simulator" },
               contacts: [{ profile: { name: identity.name }, wa_id: identity.waId }],
               messages: [
                 {

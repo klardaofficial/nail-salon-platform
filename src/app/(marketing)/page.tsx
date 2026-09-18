@@ -2,9 +2,6 @@ import Image from "next/image";
 
 import styles from "./page.module.css";
 
-const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.replace(/\D/g, "") ?? "";
-const whatsappUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}` : "https://wa.me/";
-
 export default function MarketingPage() {
   return (
     <main className={styles.page}>
@@ -18,8 +15,8 @@ export default function MarketingPage() {
         <nav className={styles.nav} aria-label="Hauptnavigation">
           <a href="#vorteile">Vorteile</a>
           <a href="#styles">Nail-Styles</a>
-          <a className={styles.navCta} href={whatsappUrl}>
-            Auf WhatsApp buchen
+          <a className={styles.navCta} href="/admin/login">
+            Studio-Login
           </a>
         </nav>
       </header>
@@ -27,13 +24,14 @@ export default function MarketingPage() {
       <section className={styles.hero} id="top">
         <div className={styles.heroCopy}>
           <p className={styles.eyebrow}>Dein Termin. Dein Style.</p>
-          <h1>Dein nächster Nail-Termin beginnt hier.</h1>
+          <h1>Die WhatsApp-Plattform für moderne Nail-Studios.</h1>
           <p className={styles.heroText}>
-            Finde dein Studio, buche per WhatsApp und probiere neue Looks direkt auf deinem Foto.
+            Studios automatisieren Buchungen, Kundenservice und persönliche Nail-Style-Vorschauen in
+            ihrem eigenen WhatsApp-Chat.
           </p>
           <div className={styles.heroActions}>
-            <a className={styles.primaryButton} href={whatsappUrl}>
-              Auf WhatsApp buchen
+            <a className={styles.primaryButton} href="#vorteile">
+              Plattform entdecken
             </a>
             <a className={styles.secondaryButton} href="#vorteile">
               So funktioniert es
@@ -53,7 +51,7 @@ export default function MarketingPage() {
 
       <section className={styles.statement} aria-label="Buchung per Chat">
         <p>Kein Formular. Kein App-Download.</p>
-        <h2>Schreib einfach, wann du Zeit hast und was du dir wünschst.</h2>
+        <h2>Jedes Studio betreut seine Kundschaft im eigenen, sicheren Bereich.</h2>
       </section>
 
       <section className={styles.benefits} id="vorteile">
@@ -124,10 +122,10 @@ export default function MarketingPage() {
       </section>
 
       <section className={styles.finalCta}>
-        <h2>Bereit für frische Nägel?</h2>
-        <p>Dein passendes Studio ist nur eine Nachricht entfernt.</p>
-        <a className={styles.primaryButton} href={whatsappUrl}>
-          Auf WhatsApp buchen
+        <h2>Du betreibst ein Nail-Studio?</h2>
+        <p>Verwalte Standorte, Termine und WhatsApp-Konfiguration an einem Ort.</p>
+        <a className={styles.primaryButton} href="/admin/login">
+          Zum Studio-Login
         </a>
       </section>
 

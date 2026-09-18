@@ -23,7 +23,7 @@ The publishable/anon key may be used by the browser. The secret/service-role key
 
 `pnpm db:types` writes its output only after successful generation. It first uses the local CLI, then can use the already-running local Supabase metadata service when Docker management is unavailable. That fallback requires a loopback `NEXT_PUBLIC_SUPABASE_URL` and its local service-role key from `.env.local`; it never falls back to a hosted project. Apply pending migrations with `pnpm db:migration` before generating types. No reset is needed for an additive migration.
 
-The migrations create the required platform setting, editable singleton business profile (`Nail Salon`), and initial administrator (`admin@gmail.com` / `Pass1234`) but no salons, services, technicians, customers, bookings, or conversations. The admin UI requires a password change at first login. Edit the business profile before adding salon locations. Use `pnpm db:reset` only when you intentionally want to erase local data and rebuild this same migration-only state.
+The migrations create the deterministic default organization, its editable business/settings/provider rows, and the initial system administrator (`admin@gmail.com` / `Pass1234`) but no salons, services, technicians, customers, bookings, or conversations. The admin UI requires a password change at first login. Use `pnpm db:reset` only when intentionally erasing local data.
 
 ## Local Inngest
 
@@ -45,30 +45,26 @@ Start Next.js first. If the dashboard shows zero functions, confirm `http://loca
 
 ## Browser WhatsApp simulator
 
-No Meta account, phone, or public tunnel is needed for simulated chats. Keep the local Supabase values configured and add these values to `.env.local`:
+No Meta account, phone, or public tunnel is needed for simulated chats. Keep local Supabase/Inngest configured:
 
 ```dotenv
-WHATSAPP_SIMULATOR_ENABLED=1
 INNGEST_DEV=1
 INNGEST_EVENT_KEY=
 INNGEST_SIGNING_KEY=
-OPENAI_API_KEY=your-openai-api-key
 ```
 
-For simulation alone, leave `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET`, and `WHATSAPP_WEBHOOK_VERIFY_TOKEN` empty. Approved technician template names are optional and are configured in **Admin | Settings**, not environment variables. WhatsApp Graph API requests are hard-coded to `v26.0`. `NEXT_PUBLIC_WHATSAPP_NUMBER` only controls the marketing link and is not needed by the simulator. An OpenAI key is required for contextual greetings, dynamic interactive labels, and natural booking/staff assistance. If AI is unavailable, the bot uses its last generated localized retry message, or a language-neutral status before one exists.
+In the dashboard, choose an active organization, save its OpenAI key if natural replies are needed, and enable Simulator in Organization settings. Meta fields may stay empty. Template names are optional organization settings. Graph API remains pinned to `v26.0`.
 
-Restart `pnpm dev` after changing environment values, run `pnpm inngest:dev` in a second terminal, and sign in at `http://localhost:3000/admin`. Complete the initial password change if prompted, then open **WhatsApp simulator** (`/admin/simulator`).
+Run `pnpm inngest:dev` in a second terminal and sign in at `http://localhost:3000/admin`. Complete the password change, choose the organization, then open its Simulator page.
 
 - Add customers with a name and `wa_id` (5–32 digits, country code included, no plus or spaces). Each has an independent chat window. Customer windows are saved in this browser; removing one does not delete contact data, bookings, or history. Re-add the same ID to reopen its conversation.
-- Owners load from the configured business's owner mappings. Technicians load from active, non-deleted technician records. Configure these through Business and Technicians; refresh identities or wait for the ten-second refresh. Multiple mappings for the same WA ID share one window and show both roles when applicable.
+- Owners load from the configured business's owner mappings. Technicians load from active, non-deleted technician records. Configure owner WhatsApp IDs through Organization Settings and technicians through Technicians; refresh identities or wait for the ten-second refresh. Multiple mappings for the same WA ID share one window and show both roles when applicable.
 - Send text or click a delivered reply button/list option. Conversation windows poll every two seconds and display queued, processing, failed, and simulated-delivery states. A queued message that stays queued usually means Inngest is not running or synced; inspect `http://localhost:8288`.
 - Create an active salon to test bookings. Services and technicians remain optional. A simulated booking assigned to a technician produces its notification in that technician's simulator window, even before they have sent a message.
 
-Simulated and real WhatsApp use separate conversation histories/drafts but share the configured business and booking database. Simulated actions therefore really create/cancel bookings or change business records. Simulated replies and notifications never go to Meta. Real WhatsApp traffic continues through the normal provider path. Image upload/preview generation and Meta-specific delivery behavior are outside this text/interactive simulator.
+Simulated and real WhatsApp use separate conversation histories/drafts and booking-source flags inside the selected organization. Simulated actions still execute domain changes, but replies and notifications never go to Meta. Image upload/preview generation and Meta-specific delivery behavior are outside this text/interactive simulator.
 
-Set `WHATSAPP_SIMULATOR_ENABLED=0` and restart to hide the page and disable its API. Already queued simulated outbound messages remain captured, and pending simulated inbound work pauses until re-enabled.
-
-For a hosted development deployment, set the same simulator flag and use that environment's Supabase/OpenAI credentials. Configure cloud Inngest (`INNGEST_DEV=0`, event key, signing key, and synced `/api/inngest` functions), then redeploy. Meta credentials are only required if that deployment also handles real WhatsApp traffic.
+Disable Simulator in Organization settings to hide its source controls and reject new simulated ingress for that organization. Historical simulated records remain scoped and preserved. Hosted development uses the same setting with cloud Inngest; no redeploy is needed.
 
 ## WebStorm and Prettier
 
@@ -84,7 +80,6 @@ pnpm typecheck
 pnpm test:run
 pnpm build
 pnpm check
-pnpm whatsapp:simulate 4915112345678 "Hallo"
 ```
 
 The application tests do not start Supabase or execute migration SQL. Docker is needed when running the local Supabase stack, not for `pnpm check`.

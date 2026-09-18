@@ -11,10 +11,12 @@ import {
 } from "./contracts";
 
 export async function queryInboxThreads(
+  organizationId: string,
   query: z.infer<typeof threadsQuerySchema>,
 ): Promise<InboxThreads> {
   const pageSize = 30;
   const result = await createSupabaseAdminClient().rpc("admin_whatsapp_threads", {
+    p_organization_id: organizationId,
     p_channel: query.channel,
     p_search: query.search,
     p_role: query.role,
@@ -26,11 +28,13 @@ export async function queryInboxThreads(
 }
 
 export async function queryInboxMessages(
+  organizationId: string,
   query: z.infer<typeof messagesQuerySchema>,
 ): Promise<InboxMessages> {
   let request = createSupabaseAdminClient()
-    .from("admin_whatsapp_messages")
+    .from("admin_organization_whatsapp_messages")
     .select("id,direction,created_at,state,text_content,media_id,payload")
+    .eq("organization_id", organizationId)
     .eq("wa_id", query.waId)
     .eq("channel", query.channel)
     .order("created_at", { ascending: false })

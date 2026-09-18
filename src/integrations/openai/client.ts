@@ -2,17 +2,21 @@ import "server-only";
 
 import OpenAI from "openai";
 
-import { getServerEnv } from "@/lib/config/env";
+import type { EffectiveOpenAIConfiguration } from "@/features/organizations/providers";
 
-let client: OpenAI | undefined;
+const organizationClients = new Map<string, OpenAI>();
 
-export function hasOpenAIConfig() {
-  return Boolean(getServerEnv().OPENAI_API_KEY);
+export function hasOpenAIConfig(
+  configuration: EffectiveOpenAIConfiguration | null,
+): configuration is EffectiveOpenAIConfiguration {
+  return Boolean(configuration?.apiKey);
 }
 
-export function getOpenAIClient() {
-  const apiKey = getServerEnv().OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
-  client ??= new OpenAI({ apiKey });
-  return client;
+export function getOpenAIClient(configuration: EffectiveOpenAIConfiguration) {
+  const key = `${configuration.organizationId}:${configuration.configurationVersion}`;
+  const existing = organizationClients.get(key);
+  if (existing) return existing;
+  const created = new OpenAI({ apiKey: configuration.apiKey });
+  organizationClients.set(key, created);
+  return created;
 }

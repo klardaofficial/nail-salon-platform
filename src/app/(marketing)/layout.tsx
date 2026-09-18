@@ -10,9 +10,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Nagelzeit | Nail-Termine per WhatsApp",
+  title: "Nagelzeit | WhatsApp-Plattform für Nail-Studios",
   description:
-    "Finde dein Nail-Studio, buche einen Termin per WhatsApp und probiere neue Nail-Styles auf deinem Foto.",
+    "Buchungen, Kundenservice und Nail-Style-Vorschauen per WhatsApp für moderne Nail-Studios.",
 };
 
 export default function MarketingLayout({ children }: Readonly<{ children: React.ReactNode }>) {

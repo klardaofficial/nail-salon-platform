@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
-import { receiveWhatsAppWebhook } from "@/features/messaging/receive-webhook";
+import { registerOrganizationEvents } from "@/features/messaging/receive-webhook";
 import { outboundMessageText } from "@/features/messaging/chat";
 import type {
   NormalizedWhatsAppEvent,
@@ -17,16 +17,34 @@ import {
   type TechnicianMapping,
 } from "./identities";
 import { createSimulatorWebhook } from "./webhook";
+import { normalizeWhatsAppWebhook } from "@/integrations/whatsapp/normalize";
+import type { EffectiveMetaConfiguration } from "@/features/organizations/providers";
 
-export async function listSimulatorIdentities() {
+export async function isOrganizationSimulatorEnabled(organizationId: string) {
+  const supabase = createSupabaseAdminClient();
+  const [organization, settings] = await Promise.all([
+    supabase.from("organizations").select("status").eq("id", organizationId).single(),
+    supabase
+      .from("organization_settings")
+      .select("simulator_enabled")
+      .eq("organization_id", organizationId)
+      .single(),
+  ]);
+  if (organization.error ?? settings.error) throw organization.error ?? settings.error;
+  return organization.data.status === "active" && settings.data.simulator_enabled;
+}
+
+export async function listSimulatorIdentities(organizationId: string) {
   const supabase = createSupabaseAdminClient();
   const [owners, technicians] = await Promise.all([
     supabase
       .from("business_owners")
-      .select("contact:contacts!inner(wa_id,display_name),business:businesses!inner(name)"),
+      .select("contact:contacts!inner(wa_id,display_name),business:businesses!inner(name)")
+      .eq("organization_id", organizationId),
     supabase
       .from("technicians")
       .select("wa_id,display_name,salon:salons!inner(name)")
+      .eq("organization_id", organizationId)
       .eq("active", true)
       .is("deleted_at", null),
   ]);
@@ -38,19 +56,54 @@ export async function listSimulatorIdentities() {
   );
 }
 
-export async function sendSimulatorMessage(input: unknown) {
+export async function sendSimulatorMessage(organizationId: string, input: unknown) {
   const values = simulatorSendSchema.parse(input);
-  const identity = resolveSimulatorIdentity(values.identity, await listSimulatorIdentities());
+  const supabase = createSupabaseAdminClient();
+  const [
+    { data: organization, error: organizationError },
+    { data: settings, error: settingsError },
+  ] = await Promise.all([
+    supabase.from("organizations").select("status").eq("id", organizationId).single(),
+    supabase
+      .from("organization_settings")
+      .select("simulator_enabled")
+      .eq("organization_id", organizationId)
+      .single(),
+  ]);
+  if (organizationError ?? settingsError) throw organizationError ?? settingsError;
+  if (organization.status !== "active" || !settings.simulator_enabled)
+    throw new Error("simulator_disabled");
+  const identity = resolveSimulatorIdentity(
+    values.identity,
+    await listSimulatorIdentities(organizationId),
+  );
   // This secret exists only for this authenticated, internal invocation. The public
   // Meta endpoint still requires its own app secret and never accepts this key.
   const secret = randomBytes(32).toString("hex");
   const webhook = createSimulatorWebhook(values, identity, secret);
-  const response = await receiveWhatsAppWebhook(webhook.rawBody, webhook.signature, secret, true);
-  if (!response.ok) throw new Error("The simulated webhook could not be accepted.");
+  const events = normalizeWhatsAppWebhook(JSON.parse(webhook.rawBody));
+  const simulatedConfiguration: EffectiveMetaConfiguration = {
+    organizationId,
+    organizationStatus: "active",
+    wabaId: "simulator-account",
+    phoneNumberId: "simulator",
+    credentials: null,
+    source: "none",
+    callbackUrl: "",
+    configurationVersion: 1,
+    readiness: "ready_disabled",
+    displayPhoneNumber: null,
+    e164Digits: null,
+    templates: {
+      confirmed: { name: null, source: "none" },
+      cancelled: { name: null, source: "none" },
+    },
+  };
+  await registerOrganizationEvents(simulatedConfiguration, events, true);
   return { providerEventId: webhook.providerEventId };
 }
 
-export async function listSimulatorMessages(inputWaId: unknown) {
+export async function listSimulatorMessages(organizationId: string, inputWaId: unknown) {
   const waId = simulatorWaIdSchema.parse(inputWaId);
   const supabase = createSupabaseAdminClient();
   const limit = 100;
@@ -58,6 +111,7 @@ export async function listSimulatorMessages(inputWaId: unknown) {
     supabase
       .from("whatsapp_inbox_events")
       .select("id,payload,received_at,processed_at")
+      .eq("organization_id", organizationId)
       .eq("contact_wa_id", waId)
       .eq("event_kind", "message")
       .eq("payload->>simulated", "true")
@@ -67,6 +121,7 @@ export async function listSimulatorMessages(inputWaId: unknown) {
     supabase
       .from("message_outbox")
       .select("id,payload,created_at,state,provider_message_id")
+      .eq("organization_id", organizationId)
       .eq("recipient_wa_id", waId)
       .eq("payload->>transport", "simulator")
       .order("created_at", { ascending: false })
@@ -79,6 +134,7 @@ export async function listSimulatorMessages(inputWaId: unknown) {
     ? await supabase
         .from("job_outbox")
         .select("inbox_event_id,state")
+        .eq("organization_id", organizationId)
         .in(
           "inbox_event_id",
           inbox.data.map((item) => item.id),

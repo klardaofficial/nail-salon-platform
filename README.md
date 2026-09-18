@@ -36,9 +36,7 @@ pnpm inngest:dev
 
 then open `http://localhost:8288`. Local `.env.local` should contain `INNGEST_DEV=1`; cloud Inngest keys stay empty. See the [local Inngest instructions](docs/development/local-setup.md#local-inngest).
 
-For browser testing without a Meta account or device, set `WHATSAPP_SIMULATOR_ENABLED=1`, restart the app, and open `/admin/simulator`. Add customer chat windows and use database-backed owner/technician windows; replies and notifications appear in the UI. Supabase and Inngest are required, plus an OpenAI key for natural conversations. Real WhatsApp can run alongside it. See [simulator setup and environment values](docs/development/local-setup.md#browser-whatsapp-simulator).
-
-The older `pnpm whatsapp:simulate <wa-id> "message"` CLI submits a signed webhook to the public Meta endpoint and still requires its WhatsApp configuration. Use the browser simulator for isolated simulated histories and provider-free delivery.
+For browser testing without a Meta account or device, enable Simulator in the selected organization's settings and open `/admin/simulator`. Add customer chat windows and use database-backed owner/technician windows; replies and notifications appear in the UI. Supabase and Inngest are required, plus an organization OpenAI key for natural conversations. Real WhatsApp can run alongside it. See [the simulator setup](docs/development/local-setup.md#browser-whatsapp-simulator).
 
 Run all repository checks with:
 
@@ -48,4 +46,4 @@ pnpm check
 
 Application deployment uses Vercel's GitHub integration. Supabase Branching's GitHub integration validates and applies migrations. GitHub Actions only runs repository quality checks.
 
-Start with [the documentation index](docs/index.md), [implementation status](docs/implementation-status.md), and [coding-agent guide](AGENTS.md). The original agreed scope remains in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
+Start with [the documentation index](docs/index.md) and [coding-agent guide](AGENTS.md). Product scope lives in [the requirements](docs/product/requirements.md); code and tests describe the current implementation.

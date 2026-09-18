@@ -49,6 +49,7 @@ export type Database = {
           input_tokens: number | null
           kind: string
           model: string
+          organization_id: string
           output_image_tokens: number | null
           output_text_tokens: number | null
           output_tokens: number | null
@@ -74,6 +75,7 @@ export type Database = {
           input_tokens?: number | null
           kind: string
           model: string
+          organization_id: string
           output_image_tokens?: number | null
           output_text_tokens?: number | null
           output_tokens?: number | null
@@ -99,6 +101,7 @@ export type Database = {
           input_tokens?: number | null
           kind?: string
           model?: string
+          organization_id?: string
           output_image_tokens?: number | null
           output_text_tokens?: number | null
           output_tokens?: number | null
@@ -119,6 +122,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ai_usage_events_organization_conversation_fkey"
+            columns: ["organization_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_organization_preview_fkey"
+            columns: ["organization_id", "preview_request_id"]
+            isOneToOne: false
+            referencedRelation: "preview_requests"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
             foreignKeyName: "ai_usage_events_preview_request_id_fkey"
             columns: ["preview_request_id"]
             isOneToOne: false
@@ -137,6 +161,8 @@ export type Database = {
           entity_type: string | null
           id: number
           metadata: Json
+          organization_id: string | null
+          scope_type: string
         }
         Insert: {
           action: string
@@ -147,6 +173,8 @@ export type Database = {
           entity_type?: string | null
           id?: never
           metadata?: Json
+          organization_id?: string | null
+          scope_type?: string
         }
         Update: {
           action?: string
@@ -157,8 +185,18 @@ export type Database = {
           entity_type?: string | null
           id?: never
           metadata?: Json
+          organization_id?: string | null
+          scope_type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       booking_drafts: {
         Row: {
@@ -166,6 +204,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           id: string
+          organization_id: string
           revision: number
           salon_id: string | null
           service_selections: Json
@@ -180,6 +219,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           id?: string
+          organization_id: string
           revision?: number
           salon_id?: string | null
           service_selections?: Json
@@ -194,6 +234,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           id?: string
+          organization_id?: string
           revision?: number
           salon_id?: string | null
           service_selections?: Json
@@ -209,6 +250,20 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: true
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_drafts_organization_conversation_fkey"
+            columns: ["organization_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "booking_drafts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -228,6 +283,7 @@ export type Database = {
           event_type: string
           id: number
           metadata: Json
+          organization_id: string
         }
         Insert: {
           actor_contact_id?: string | null
@@ -236,6 +292,7 @@ export type Database = {
           event_type: string
           id?: never
           metadata?: Json
+          organization_id: string
         }
         Update: {
           actor_contact_id?: string | null
@@ -244,6 +301,7 @@ export type Database = {
           event_type?: string
           id?: never
           metadata?: Json
+          organization_id?: string
         }
         Relationships: [
           {
@@ -260,6 +318,20 @@ export type Database = {
             referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "booking_events_organization_booking_fkey"
+            columns: ["organization_id", "booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "booking_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       booking_services: {
@@ -267,6 +339,7 @@ export type Database = {
           booking_id: string
           created_at: string
           id: string
+          organization_id: string
           position: number
           service_id: string | null
           service_name_snapshot: string
@@ -275,6 +348,7 @@ export type Database = {
           booking_id: string
           created_at?: string
           id?: string
+          organization_id: string
           position?: number
           service_id?: string | null
           service_name_snapshot: string
@@ -283,6 +357,7 @@ export type Database = {
           booking_id?: string
           created_at?: string
           id?: string
+          organization_id?: string
           position?: number
           service_id?: string | null
           service_name_snapshot?: string
@@ -294,6 +369,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_services_organization_booking_fkey"
+            columns: ["organization_id", "booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "booking_services_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_services_organization_service_fkey"
+            columns: ["organization_id", "service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["organization_id", "id"]
           },
           {
             foreignKeyName: "booking_services_service_id_fkey"
@@ -315,7 +411,9 @@ export type Database = {
           id: string
           idempotency_key: string
           local_time_label: string
+          organization_id: string
           salon_id: string | null
+          simulated: boolean
           source: string
           starts_at: string
           status: Database["public"]["Enums"]["booking_status"]
@@ -334,7 +432,9 @@ export type Database = {
           id?: string
           idempotency_key: string
           local_time_label: string
+          organization_id: string
           salon_id?: string | null
+          simulated?: boolean
           source?: string
           starts_at: string
           status?: Database["public"]["Enums"]["booking_status"]
@@ -353,7 +453,9 @@ export type Database = {
           id?: string
           idempotency_key?: string
           local_time_label?: string
+          organization_id?: string
           salon_id?: string | null
+          simulated?: boolean
           source?: string
           starts_at?: string
           status?: Database["public"]["Enums"]["booking_status"]
@@ -378,6 +480,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_organization_business_fkey"
+            columns: ["organization_id", "business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "bookings_organization_contact_fkey"
+            columns: ["organization_id", "contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "bookings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_organization_salon_fkey"
+            columns: ["organization_id", "salon_id"]
+            isOneToOne: false
+            referencedRelation: "salons"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
             foreignKeyName: "bookings_salon_id_fkey"
             columns: ["salon_id"]
             isOneToOne: false
@@ -393,6 +523,7 @@ export type Database = {
           created_at: string
           first_booking_at: string | null
           last_booking_at: string | null
+          organization_id: string
           updated_at: string
         }
         Insert: {
@@ -401,6 +532,7 @@ export type Database = {
           created_at?: string
           first_booking_at?: string | null
           last_booking_at?: string | null
+          organization_id: string
           updated_at?: string
         }
         Update: {
@@ -409,6 +541,7 @@ export type Database = {
           created_at?: string
           first_booking_at?: string | null
           last_booking_at?: string | null
+          organization_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -426,6 +559,13 @@ export type Database = {
             referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "business_customers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       business_owners: {
@@ -433,16 +573,19 @@ export type Database = {
           business_id: string
           contact_id: string
           created_at: string
+          organization_id: string
         }
         Insert: {
           business_id: string
           contact_id: string
           created_at?: string
+          organization_id: string
         }
         Update: {
           business_id?: string
           contact_id?: string
           created_at?: string
+          organization_id?: string
         }
         Relationships: [
           {
@@ -459,6 +602,27 @@ export type Database = {
             referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "business_owners_organization_business_fkey"
+            columns: ["organization_id", "business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "business_owners_organization_contact_fkey"
+            columns: ["organization_id", "contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "business_owners_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       businesses: {
@@ -468,8 +632,8 @@ export type Database = {
           deleted_at: string | null
           id: string
           name: string
+          organization_id: string
           reporting_timezone: string
-          singleton: boolean
           updated_at: string
         }
         Insert: {
@@ -478,8 +642,8 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           name: string
+          organization_id: string
           reporting_timezone?: string
-          singleton?: boolean
           updated_at?: string
         }
         Update: {
@@ -488,11 +652,19 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           name?: string
+          organization_id?: string
           reporting_timezone?: string
-          singleton?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "businesses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contacts: {
         Row: {
@@ -502,6 +674,7 @@ export type Database = {
           id: string
           last_contact_at: string
           normalized_phone: string | null
+          organization_id: string
           profile_avatar_url: string | null
           updated_at: string
           wa_id: string
@@ -513,6 +686,7 @@ export type Database = {
           id?: string
           last_contact_at?: string
           normalized_phone?: string | null
+          organization_id: string
           profile_avatar_url?: string | null
           updated_at?: string
           wa_id: string
@@ -524,11 +698,20 @@ export type Database = {
           id?: string
           last_contact_at?: string
           normalized_phone?: string | null
+          organization_id?: string
           profile_avatar_url?: string | null
           updated_at?: string
           wa_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversation_messages: {
         Row: {
@@ -539,6 +722,7 @@ export type Database = {
           id: string
           media_id: string | null
           message_type: string
+          organization_id: string
           provider_message_id: string | null
           structured_content: Json
           text_content: string | null
@@ -551,6 +735,7 @@ export type Database = {
           id?: string
           media_id?: string | null
           message_type: string
+          organization_id: string
           provider_message_id?: string | null
           structured_content?: Json
           text_content?: string | null
@@ -563,6 +748,7 @@ export type Database = {
           id?: string
           media_id?: string | null
           message_type?: string
+          organization_id?: string
           provider_message_id?: string | null
           structured_content?: Json
           text_content?: string | null
@@ -573,6 +759,20 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_organization_conversation_fkey"
+            columns: ["organization_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -586,6 +786,7 @@ export type Database = {
           greeted_at: string | null
           id: string
           last_activity_at: string
+          organization_id: string
           reply_locale: string | null
           reply_unavailable_text: string | null
           role_context: string
@@ -601,6 +802,7 @@ export type Database = {
           greeted_at?: string | null
           id?: string
           last_activity_at?: string
+          organization_id: string
           reply_locale?: string | null
           reply_unavailable_text?: string | null
           role_context?: string
@@ -616,6 +818,7 @@ export type Database = {
           greeted_at?: string | null
           id?: string
           last_activity_at?: string
+          organization_id?: string
           reply_locale?: string | null
           reply_unavailable_text?: string | null
           role_context?: string
@@ -639,6 +842,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "conversations_organization_contact_fkey"
+            columns: ["organization_id", "contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "conversations_salon_context_id_fkey"
             columns: ["salon_context_id"]
             isOneToOne: false
@@ -655,6 +872,7 @@ export type Database = {
           expires_at: string
           id: string
           options: Json
+          organization_id: string
           prompt_token: string
           prompt_type: string
         }
@@ -665,6 +883,7 @@ export type Database = {
           expires_at: string
           id?: string
           options: Json
+          organization_id: string
           prompt_token: string
           prompt_type: string
         }
@@ -675,6 +894,7 @@ export type Database = {
           expires_at?: string
           id?: string
           options?: Json
+          organization_id?: string
           prompt_token?: string
           prompt_type?: string
         }
@@ -684,6 +904,20 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactive_prompts_organization_conversation_fkey"
+            columns: ["organization_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "interactive_prompts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -697,6 +931,7 @@ export type Database = {
           inbox_event_id: string | null
           job_name: string
           last_error_code: string | null
+          organization_id: string
           payload: Json
           state: Database["public"]["Enums"]["job_state"]
           updated_at: string
@@ -709,6 +944,7 @@ export type Database = {
           inbox_event_id?: string | null
           job_name: string
           last_error_code?: string | null
+          organization_id: string
           payload: Json
           state?: Database["public"]["Enums"]["job_state"]
           updated_at?: string
@@ -721,6 +957,7 @@ export type Database = {
           inbox_event_id?: string | null
           job_name?: string
           last_error_code?: string | null
+          organization_id?: string
           payload?: Json
           state?: Database["public"]["Enums"]["job_state"]
           updated_at?: string
@@ -732,6 +969,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "whatsapp_inbox_events"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_outbox_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_outbox_organization_inbox_fkey"
+            columns: ["organization_id", "inbox_event_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_inbox_events"
+            referencedColumns: ["organization_id", "id"]
           },
         ]
       }
@@ -745,6 +996,7 @@ export type Database = {
           failure_code: string | null
           id: string
           message_kind: string
+          organization_id: string
           payload: Json
           provider_message_id: string | null
           recipient_wa_id: string
@@ -761,6 +1013,7 @@ export type Database = {
           failure_code?: string | null
           id?: string
           message_kind: string
+          organization_id: string
           payload: Json
           provider_message_id?: string | null
           recipient_wa_id: string
@@ -777,6 +1030,7 @@ export type Database = {
           failure_code?: string | null
           id?: string
           message_kind?: string
+          organization_id?: string
           payload?: Json
           provider_message_id?: string | null
           recipient_wa_id?: string
@@ -792,6 +1046,224 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "message_outbox_organization_conversation_fkey"
+            columns: ["organization_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "message_outbox_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_admin_memberships: {
+        Row: {
+          active: boolean
+          created_at: string
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_admin_memberships_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_admin_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "platform_admins"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      organization_provider_settings: {
+        Row: {
+          access_token: string | null
+          app_secret: string | null
+          configuration_version: number
+          created_at: string
+          display_phone_number: string | null
+          e164_digits: string | null
+          openai_api_key: string | null
+          openai_chat_model: string
+          openai_configuration_version: number
+          openai_image_model: string
+          openai_pricing: Json
+          organization_id: string
+          phone_number_id: string | null
+          real_whatsapp_enabled: boolean
+          technician_booking_cancelled_template: string | null
+          technician_booking_confirmed_template: string | null
+          updated_at: string
+          waba_id: string | null
+          webhook_verify_token: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          app_secret?: string | null
+          configuration_version?: number
+          created_at?: string
+          display_phone_number?: string | null
+          e164_digits?: string | null
+          openai_api_key?: string | null
+          openai_chat_model?: string
+          openai_configuration_version?: number
+          openai_image_model?: string
+          openai_pricing?: Json
+          organization_id: string
+          phone_number_id?: string | null
+          real_whatsapp_enabled?: boolean
+          technician_booking_cancelled_template?: string | null
+          technician_booking_confirmed_template?: string | null
+          updated_at?: string
+          waba_id?: string | null
+          webhook_verify_token?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          app_secret?: string | null
+          configuration_version?: number
+          created_at?: string
+          display_phone_number?: string | null
+          e164_digits?: string | null
+          openai_api_key?: string | null
+          openai_chat_model?: string
+          openai_configuration_version?: number
+          openai_image_model?: string
+          openai_pricing?: Json
+          organization_id?: string
+          phone_number_id?: string | null
+          real_whatsapp_enabled?: boolean
+          technician_booking_cancelled_template?: string | null
+          technician_booking_confirmed_template?: string | null
+          updated_at?: string
+          waba_id?: string | null
+          webhook_verify_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_provider_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_settings: {
+        Row: {
+          bot_locale: string
+          created_at: string
+          default_booking_interval_minutes: number
+          default_close_time: string
+          default_open_time: string
+          legacy_environment_imported_at: string | null
+          organization_id: string
+          platform_timezone: string
+          preview_requests_per_day: number
+          previews_per_request: number
+          simulator_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          bot_locale?: string
+          created_at?: string
+          default_booking_interval_minutes?: number
+          default_close_time?: string
+          default_open_time?: string
+          legacy_environment_imported_at?: string | null
+          organization_id: string
+          platform_timezone?: string
+          preview_requests_per_day?: number
+          previews_per_request?: number
+          simulator_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          bot_locale?: string
+          created_at?: string
+          default_booking_interval_minutes?: number
+          default_close_time?: string
+          default_open_time?: string
+          legacy_environment_imported_at?: string | null
+          organization_id?: string
+          platform_timezone?: string
+          preview_requests_per_day?: number
+          previews_per_request?: number
+          simulator_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          id: string
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "platform_admins"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       platform_admins: {
@@ -800,6 +1272,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           email: string
+          is_system_admin: boolean
           must_change_password: boolean
           updated_at: string
           user_id: string
@@ -809,6 +1282,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email: string
+          is_system_admin?: boolean
           must_change_password?: boolean
           updated_at?: string
           user_id: string
@@ -818,51 +1292,10 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string
+          is_system_admin?: boolean
           must_change_password?: boolean
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      platform_settings: {
-        Row: {
-          created_at: string
-          default_booking_interval_minutes: number
-          default_close_time: string
-          default_open_time: string
-          platform_timezone: string
-          preview_requests_per_day: number
-          previews_per_request: number
-          singleton: boolean
-          technician_booking_cancelled_template: string | null
-          technician_booking_confirmed_template: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          default_booking_interval_minutes?: number
-          default_close_time?: string
-          default_open_time?: string
-          platform_timezone?: string
-          preview_requests_per_day?: number
-          previews_per_request?: number
-          singleton?: boolean
-          technician_booking_cancelled_template?: string | null
-          technician_booking_confirmed_template?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          default_booking_interval_minutes?: number
-          default_close_time?: string
-          default_open_time?: string
-          platform_timezone?: string
-          preview_requests_per_day?: number
-          previews_per_request?: number
-          singleton?: boolean
-          technician_booking_cancelled_template?: string | null
-          technician_booking_confirmed_template?: string | null
-          updated_at?: string
         }
         Relationships: []
       }
@@ -874,6 +1307,7 @@ export type Database = {
           failure_code: string | null
           generated_count: number
           id: string
+          organization_id: string
           output_media_ids: Json
           request_key: string
           requested_count: number
@@ -890,6 +1324,7 @@ export type Database = {
           failure_code?: string | null
           generated_count?: number
           id?: string
+          organization_id: string
           output_media_ids?: Json
           request_key: string
           requested_count?: number
@@ -906,6 +1341,7 @@ export type Database = {
           failure_code?: string | null
           generated_count?: number
           id?: string
+          organization_id?: string
           output_media_ids?: Json
           request_key?: string
           requested_count?: number
@@ -930,12 +1366,27 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "preview_requests_organization_contact_fkey"
+            columns: ["organization_id", "contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "preview_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       preview_usage: {
         Row: {
           consumed_count: number
           contact_id: string
+          organization_id: string
           reserved_count: number
           updated_at: string
           usage_date: string
@@ -943,6 +1394,7 @@ export type Database = {
         Insert: {
           consumed_count?: number
           contact_id: string
+          organization_id: string
           reserved_count?: number
           updated_at?: string
           usage_date: string
@@ -950,6 +1402,7 @@ export type Database = {
         Update: {
           consumed_count?: number
           contact_id?: string
+          organization_id?: string
           reserved_count?: number
           updated_at?: string
           usage_date?: string
@@ -962,7 +1415,82 @@ export type Database = {
             referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "preview_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      provider_configuration_validations: {
+        Row: {
+          configuration_version: number
+          failure_code: string | null
+          organization_id: string
+          status: string
+          validated_at: string
+        }
+        Insert: {
+          configuration_version: number
+          failure_code?: string | null
+          organization_id: string
+          status: string
+          validated_at?: string
+        }
+        Update: {
+          configuration_version?: number
+          failure_code?: string | null
+          organization_id?: string
+          status?: string
+          validated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_configuration_validations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      root_meta_settings: {
+        Row: {
+          access_token: string | null
+          app_secret: string | null
+          configuration_version: number
+          created_at: string
+          singleton: boolean
+          technician_booking_cancelled_template: string | null
+          technician_booking_confirmed_template: string | null
+          updated_at: string
+          webhook_verify_token: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          app_secret?: string | null
+          configuration_version?: number
+          created_at?: string
+          singleton?: boolean
+          technician_booking_cancelled_template?: string | null
+          technician_booking_confirmed_template?: string | null
+          updated_at?: string
+          webhook_verify_token?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          app_secret?: string | null
+          configuration_version?: number
+          created_at?: string
+          singleton?: boolean
+          technician_booking_cancelled_template?: string | null
+          technician_booking_confirmed_template?: string | null
+          updated_at?: string
+          webhook_verify_token?: string | null
+        }
+        Relationships: []
       }
       salons: {
         Row: {
@@ -970,13 +1498,13 @@ export type Database = {
           booking_interval_minutes: number
           business_id: string
           created_at: string
-          customer_can_choose_technician: boolean
           default_close_time: string
           default_open_time: string
           deleted_at: string | null
           id: string
           location_label: string
           name: string
+          organization_id: string
           timezone: string
           updated_at: string
           weekly_hours: Json
@@ -986,13 +1514,13 @@ export type Database = {
           booking_interval_minutes?: number
           business_id: string
           created_at?: string
-          customer_can_choose_technician?: boolean
           default_close_time?: string
           default_open_time?: string
           deleted_at?: string | null
           id?: string
           location_label: string
           name: string
+          organization_id: string
           timezone?: string
           updated_at?: string
           weekly_hours?: Json
@@ -1002,13 +1530,13 @@ export type Database = {
           booking_interval_minutes?: number
           business_id?: string
           created_at?: string
-          customer_can_choose_technician?: boolean
           default_close_time?: string
           default_open_time?: string
           deleted_at?: string | null
           id?: string
           location_label?: string
           name?: string
+          organization_id?: string
           timezone?: string
           updated_at?: string
           weekly_hours?: Json
@@ -1021,52 +1549,60 @@ export type Database = {
             referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "salons_organization_business_fkey"
+            columns: ["organization_id", "business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "salons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
-      }
-      services: {
-        Row: {
-          active: boolean
-          created_at: string
-          deleted_at: string | null
-          description: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          created_at?: string
-          deleted_at?: string | null
-          description?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          created_at?: string
-          deleted_at?: string | null
-          description?: string | null
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       service_salons: {
         Row: {
+          organization_id: string
           salon_id: string
           service_id: string
         }
         Insert: {
+          organization_id: string
           salon_id: string
           service_id: string
         }
         Update: {
+          organization_id?: string
           salon_id?: string
           service_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "service_salons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_salons_organization_salon_fkey"
+            columns: ["organization_id", "salon_id"]
+            isOneToOne: false
+            referencedRelation: "salons"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "service_salons_organization_service_fkey"
+            columns: ["organization_id", "service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["organization_id", "id"]
+          },
           {
             foreignKeyName: "service_salons_salon_id_fkey"
             columns: ["salon_id"]
@@ -1083,12 +1619,54 @@ export type Database = {
           },
         ]
       }
+      services: {
+        Row: {
+          active: boolean
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       technician_time_off: {
         Row: {
           created_at: string
           ends_at: string
           id: string
           note: string | null
+          organization_id: string
           starts_at: string
           technician_id: string
           updated_at: string
@@ -1098,6 +1676,7 @@ export type Database = {
           ends_at: string
           id?: string
           note?: string | null
+          organization_id: string
           starts_at: string
           technician_id: string
           updated_at?: string
@@ -1107,11 +1686,19 @@ export type Database = {
           ends_at?: string
           id?: string
           note?: string | null
+          organization_id?: string
           starts_at?: string
           technician_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "technician_time_off_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "technician_time_off_technician_id_fkey"
             columns: ["technician_id"]
@@ -1129,6 +1716,7 @@ export type Database = {
           deleted_at: string | null
           display_name: string
           id: string
+          organization_id: string
           salon_id: string
           updated_at: string
           wa_id: string
@@ -1140,6 +1728,7 @@ export type Database = {
           deleted_at?: string | null
           display_name: string
           id?: string
+          organization_id: string
           salon_id: string
           updated_at?: string
           wa_id: string
@@ -1151,11 +1740,26 @@ export type Database = {
           deleted_at?: string | null
           display_name?: string
           id?: string
+          organization_id?: string
           salon_id?: string
           updated_at?: string
           wa_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "technicians_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technicians_organization_salon_fkey"
+            columns: ["organization_id", "salon_id"]
+            isOneToOne: false
+            referencedRelation: "salons"
+            referencedColumns: ["organization_id", "id"]
+          },
           {
             foreignKeyName: "technicians_salon_id_fkey"
             columns: ["salon_id"]
@@ -1172,6 +1776,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           id: string
+          organization_id: string
           result: Json | null
           state: string
           tool_call_id: string
@@ -1183,6 +1788,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           id?: string
+          organization_id: string
           result?: Json | null
           state?: string
           tool_call_id: string
@@ -1194,6 +1800,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           id?: string
+          organization_id?: string
           result?: Json | null
           state?: string
           tool_call_id?: string
@@ -1207,6 +1814,20 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tool_executions_organization_conversation_fkey"
+            columns: ["organization_id", "conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "tool_executions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       whatsapp_inbox_events: {
@@ -1215,6 +1836,7 @@ export type Database = {
           event_kind: string
           failure_code: string | null
           id: string
+          organization_id: string
           payload: Json
           processed_at: string | null
           provider_event_id: string
@@ -1225,6 +1847,7 @@ export type Database = {
           event_kind: string
           failure_code?: string | null
           id?: string
+          organization_id: string
           payload: Json
           processed_at?: string | null
           provider_event_id: string
@@ -1235,16 +1858,25 @@ export type Database = {
           event_kind?: string
           failure_code?: string | null
           id?: string
+          organization_id?: string
           payload?: Json
           processed_at?: string | null
           provider_event_id?: string
           received_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_inbox_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
-      admin_whatsapp_messages: {
+      admin_organization_whatsapp_messages: {
         Row: {
           channel: string | null
           created_at: string | null
@@ -1252,6 +1884,7 @@ export type Database = {
           id: string | null
           media_id: string | null
           message_type: string | null
+          organization_id: string | null
           payload: Json | null
           profile_name: string | null
           sent_at: string | null
@@ -1267,6 +1900,7 @@ export type Database = {
         Args: {
           p_channel: string
           p_from: string
+          p_organization_id: string
           p_timezone: string
           p_to: string
         }
@@ -1277,26 +1911,39 @@ export type Database = {
           p_channel: string
           p_limit?: number
           p_offset?: number
+          p_organization_id: string
           p_role?: string
           p_search?: string
         }
         Returns: Json
       }
-      cancel_customer_booking: {
-        Args: { p_booking_id: string; p_contact_id: string; p_reason: string }
+      cancel_organization_booking: {
+        Args: {
+          p_booking_id: string
+          p_contact_id: string
+          p_organization_id: string
+          p_reason: string
+        }
         Returns: boolean
       }
       complete_preview_request: {
-        Args: { p_output_media_ids: Json; p_request_id: string }
+        Args: {
+          p_organization_id: string
+          p_output_media_ids: Json
+          p_request_id: string
+        }
         Returns: undefined
       }
-      create_booking_from_conversation: {
+      create_organization: { Args: { p_name: string }; Returns: string }
+      create_organization_booking: {
         Args: {
           p_additional_request: string
           p_business_id: string
+          p_channel: string
           p_contact_id: string
           p_idempotency_key: string
           p_local_time_label: string
+          p_organization_id: string
           p_salon_id: string
           p_services: Json
           p_starts_at: string
@@ -1306,21 +1953,31 @@ export type Database = {
         }
         Returns: string
       }
+      deactivate_platform_admin: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       get_staff_booking_summary: {
         Args: {
           p_contact_id: string
           p_date_basis: string
           p_from: string
+          p_organization_id: string
           p_role: string
           p_to: string
         }
         Returns: Json
       }
-      is_platform_admin: { Args: never; Returns: boolean }
+      is_organization_admin: {
+        Args: { p_organization_id: string }
+        Returns: boolean
+      }
+      is_system_admin: { Args: never; Returns: boolean }
       register_whatsapp_event: {
         Args: {
           p_contact_wa_id: string
           p_event_kind: string
+          p_organization_id: string
           p_payload: Json
           p_provider_event_id: string
         }
@@ -1330,26 +1987,14 @@ export type Database = {
           job_outbox_id: string
         }[]
       }
-      reserve_preview_request: {
-        Args: {
-          p_contact_id: string
-          p_conversation_id: string
-          p_daily_limit: number
-          p_request_key: string
-          p_requested_count: number
-          p_source_media_id: string
-          p_style_request: string
-          p_usage_date: string
-        }
-        Returns: string
-      }
-      reschedule_customer_booking: {
+      reschedule_organization_booking: {
         Args: {
           p_additional_request: string
           p_booking_id: string
           p_contact_id: string
           p_idempotency_key: string
           p_local_time_label: string
+          p_organization_id: string
           p_salon_id: string
           p_services: Json
           p_starts_at: string
@@ -1358,6 +2003,24 @@ export type Database = {
           p_timezone_snapshot: string
         }
         Returns: boolean
+      }
+      reserve_organization_preview: {
+        Args: {
+          p_contact_id: string
+          p_conversation_id: string
+          p_daily_limit: number
+          p_organization_id: string
+          p_request_key: string
+          p_requested_count: number
+          p_source_media_id: string
+          p_style_request: string
+          p_usage_date: string
+        }
+        Returns: string
+      }
+      set_system_admin_role: {
+        Args: { p_is_system_admin: boolean; p_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {

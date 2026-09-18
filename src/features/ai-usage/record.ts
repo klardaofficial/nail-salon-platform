@@ -3,9 +3,8 @@ import "server-only";
 import type { ImagesResponse } from "openai/resources/images";
 import type { Response } from "openai/resources/responses/responses";
 
-import { getServerEnv } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { estimateAIUsageCost, type AIUsage } from "./pricing";
+import { estimateAIUsageCost, type AIPricing, type AIUsage } from "./pricing";
 
 type UsageSummary = AIUsage & {
   status: "completed" | "incomplete" | "failed";
@@ -15,11 +14,13 @@ type UsageSummary = AIUsage & {
   image_count?: number;
 };
 type UsageContext = {
+  organizationId: string;
   conversationId: string | null;
   previewRequestId?: string;
   channel: "whatsapp" | "whatsapp_simulator";
   kind: "chat_text" | "image_generation";
   model: string;
+  pricing: Record<string, AIPricing>;
 };
 
 // The summarizer is an explicit allowlist. Never persist the SDK response itself.
@@ -29,11 +30,12 @@ export async function withAIUsage<T>(
   summarize: (result: T) => UsageSummary,
 ): Promise<T> {
   const supabase = createSupabaseAdminClient();
-  const configuredPrice = getServerEnv().OPENAI_PRICING_JSON[context.model];
+  const configuredPrice = context.pricing[context.model];
   const pricing = configuredPrice?.kind === context.kind ? configuredPrice : null;
   const id = crypto.randomUUID();
   const started = await supabase.from("ai_usage_events").insert({
     id,
+    organization_id: context.organizationId,
     conversation_id: context.conversationId,
     preview_request_id: context.previewRequestId ?? null,
     channel: context.channel,

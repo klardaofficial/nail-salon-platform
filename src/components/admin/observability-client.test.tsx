@@ -21,6 +21,8 @@ const owner: InboxThread = {
   lastMessage: "Latest synthetic reply",
   direction: "outbound",
 };
+const organizationId = "00000000-0000-4000-8000-000000000101";
+const organizationApi = `/api/admin/organizations/${organizationId}`;
 const cursor = JSON.stringify({
   at: "2026-09-16T10:00:00Z",
   id: "inbound:00000000-0000-4000-8000-000000000001",
@@ -87,11 +89,11 @@ beforeEach(() => {
   vi.spyOn(window, "getComputedStyle").mockImplementation((element) => computedStyle(element));
   fetcher = vi.fn<DataFetcher>(async (url: string) => {
     const query = new URL(url, "http://test");
-    if (query.pathname === "/api/admin/inbox") {
+    if (query.pathname === `${organizationApi}/inbox`) {
       if (failInbox) throw new Error("Synthetic inbox error");
       return { conversations: [owner], total: 1, pageSize: 30 };
     }
-    if (query.pathname === "/api/admin/inbox/messages")
+    if (query.pathname === `${organizationApi}/inbox/messages`)
       return query.searchParams.has("cursor")
         ? {
             messages: [
@@ -106,7 +108,7 @@ beforeEach(() => {
             nextCursor: null,
           }
         : history;
-    if (query.pathname === "/api/admin/platform")
+    if (query.pathname === `${organizationApi}/platform`)
       return {
         ...activity,
         period: {
@@ -115,7 +117,8 @@ beforeEach(() => {
           to: query.searchParams.get("to"),
         },
       };
-    if (query.pathname === "/api/admin/ai-usage") return { items: [], total: 0, pageSize: 25 };
+    if (query.pathname === `${organizationApi}/ai-usage`)
+      return { items: [], total: 0, pageSize: 25 };
     throw new Error("Unexpected test endpoint");
   });
 });
@@ -197,19 +200,19 @@ describe("platform reporting controls", () => {
     expect(screen.getAllByText("Active users").length).toBeGreaterThan(0);
     const download = screen.getByRole("link", { name: "Export activity CSV" });
     expect(download.getAttribute("href")).toBe(
-      "/api/admin/reports/platform.csv?from=2026-09-01&to=2026-09-30&channel=whatsapp",
+      `${organizationApi}/reports/platform.csv?from=2026-09-01&to=2026-09-30&channel=whatsapp`,
     );
     view.rerender(<PlatformActivityClient from="2026-08-01" to="2026-08-31" />);
     await waitFor(() =>
       expect(
         fetcher.mock.calls.some(([url]) =>
-          url.startsWith("/api/admin/ai-usage?from=2026-08-01&to=2026-08-31"),
+          url.startsWith(`${organizationApi}/ai-usage?from=2026-08-01&to=2026-08-31`),
         ),
       ).toBe(true),
     );
     expect(
       fetcher.mock.calls.some(([url]) =>
-        url.startsWith("/api/admin/platform?from=2026-08-01&to=2026-08-31"),
+        url.startsWith(`${organizationApi}/platform?from=2026-08-01&to=2026-08-31`),
       ),
     ).toBe(true);
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "Activity source" }));
@@ -217,7 +220,7 @@ describe("platform reporting controls", () => {
     await waitFor(() => expect(download.getAttribute("href")).toContain("channel=all"));
     expect(
       fetcher.mock.calls.some(
-        ([url]) => url.includes("/api/admin/ai-usage?") && url.includes("channel=all"),
+        ([url]) => url.includes(`${organizationApi}/ai-usage?`) && url.includes("channel=all"),
       ),
     ).toBe(true);
   });

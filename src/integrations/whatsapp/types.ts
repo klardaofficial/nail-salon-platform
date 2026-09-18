@@ -4,6 +4,7 @@ export type NormalizedWhatsAppEvent =
   | {
       providerEventId: string;
       kind: "message";
+      routing?: { wabaId: string | null; phoneNumberId: string | null };
       simulated?: boolean;
       contactWaId: string;
       profileName: string | null;
@@ -21,6 +22,7 @@ export type NormalizedWhatsAppEvent =
   | {
       providerEventId: string;
       kind: "status";
+      routing?: { wabaId: string | null; phoneNumberId: string | null };
       contactWaId: string | null;
       occurredAt: string;
       status: {

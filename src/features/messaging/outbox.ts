@@ -5,8 +5,10 @@ import { sendWhatsAppMessage } from "@/integrations/whatsapp/client";
 import { buildWhatsAppMessageBody } from "@/integrations/whatsapp/message-body";
 import type { OutboundWhatsAppPayload } from "@/integrations/whatsapp/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveEffectiveMetaConfiguration } from "@/features/organizations/providers";
 
 export async function queueWhatsAppMessage(input: {
+  organizationId: string;
   conversationId?: string | null;
   recipientWaId: string;
   payload: OutboundWhatsAppPayload;
@@ -18,13 +20,14 @@ export async function queueWhatsAppMessage(input: {
     .from("message_outbox")
     .upsert(
       {
+        organization_id: input.organizationId,
         conversation_id: input.conversationId ?? null,
         recipient_wa_id: input.recipientWaId,
         message_kind: input.payload.kind,
         payload: { ...input.payload, transport: input.transport ?? "whatsapp" },
         deduplication_key: input.deduplicationKey,
       },
-      { onConflict: "deduplication_key", ignoreDuplicates: true },
+      { onConflict: "organization_id,deduplication_key", ignoreDuplicates: true },
     )
     .select("id,state")
     .maybeSingle();
@@ -36,6 +39,7 @@ export async function queueWhatsAppMessage(input: {
       .from("message_outbox")
       .select("id,state")
       .eq("deduplication_key", input.deduplicationKey)
+      .eq("organization_id", input.organizationId)
       .single();
     if (existing.error) throw existing.error;
     outbox = existing.data;
@@ -82,9 +86,23 @@ export async function deliverWhatsAppOutboxMessage(outboxId: string) {
     const payload = outbox.payload as OutboundWhatsAppPayload;
     // Exercise the same provider formatting/validation before capturing delivery.
     if (simulated) buildWhatsAppMessageBody(outbox.recipient_wa_id, payload);
+    const configuration = simulated
+      ? null
+      : await resolveEffectiveMetaConfiguration(outbox.organization_id);
+    if (
+      !simulated &&
+      (!configuration?.credentials ||
+        !configuration.phoneNumberId ||
+        configuration.readiness !== "enabled")
+    ) {
+      throw new Error("organization_whatsapp_not_ready");
+    }
     const providerMessageId = simulated
       ? `wamid.simulator.outbox.${outbox.id}`
-      : await sendWhatsAppMessage(outbox.recipient_wa_id, payload);
+      : await sendWhatsAppMessage(outbox.recipient_wa_id, payload, {
+          phoneNumberId: configuration!.phoneNumberId!,
+          accessToken: configuration!.credentials!.accessToken,
+        });
     const { error: updateError } = await supabase
       .from("message_outbox")
       .update({
@@ -98,6 +116,7 @@ export async function deliverWhatsAppOutboxMessage(outboxId: string) {
     if (outbox.conversation_id) {
       const { error: historyError } = await supabase.from("conversation_messages").upsert(
         {
+          organization_id: outbox.organization_id,
           conversation_id: outbox.conversation_id,
           direction: "outbound",
           message_type: payload.kind,
@@ -106,7 +125,7 @@ export async function deliverWhatsAppOutboxMessage(outboxId: string) {
           media_id: payload.kind === "image" ? payload.mediaId : null,
           structured_content: payload,
         },
-        { onConflict: "provider_message_id", ignoreDuplicates: true },
+        { onConflict: "organization_id,provider_message_id", ignoreDuplicates: true },
       );
       if (historyError) throw historyError;
     }
@@ -122,6 +141,7 @@ export async function deliverWhatsAppOutboxMessage(outboxId: string) {
 }
 
 export async function queueInteractiveChoices(input: {
+  organizationId: string;
   conversationId: string;
   recipientWaId: string;
   body: string;

@@ -45,10 +45,12 @@ function Roles({ roles }: { roles: InboxThread["roles"] }) {
 
 function Conversation({
   thread,
+  organizationId,
   channel,
   onBack,
 }: {
   thread: InboxThread;
+  organizationId: string;
   channel: InboxChannel;
   onBack: () => void;
 }) {
@@ -56,7 +58,7 @@ function Conversation({
     useSWRInfinite<InboxMessages>(
       (page: number, previous: InboxMessages | null) => {
         if (page && !previous?.nextCursor) return null;
-        return apiKeys.inboxMessages(channel, thread.waId, previous?.nextCursor);
+        return apiKeys.inboxMessages(organizationId, channel, thread.waId, previous?.nextCursor);
       },
       { refreshInterval: 10000, revalidateAll: true },
     );
@@ -176,14 +178,20 @@ function Conversation({
   );
 }
 
-export function InboxClient() {
+export function InboxClient({
+  organizationId = "00000000-0000-4000-8000-000000000101",
+  simulatorEnabled = true,
+}: {
+  organizationId?: string;
+  simulatorEnabled?: boolean;
+}) {
   const [channel, setChannel] = useState<InboxChannel>("whatsapp");
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<InboxRole>("all");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<InboxThread | null>(null);
   const { data, error, isLoading, isValidating, mutate } = useSWR<InboxThreads>(
-    apiKeys.inbox(channel, search, role, page),
+    apiKeys.inbox(organizationId, channel, search, role, page),
     { refreshInterval: 10000 },
   );
   const selectedThread =
@@ -196,19 +204,21 @@ export function InboxClient() {
         description="Read customer, owner, and technician conversations with your business account."
       />
       <div className={styles.toolbar}>
-        <Segmented
-          aria-label="Inbox source"
-          value={channel}
-          options={[
-            { label: "WhatsApp", value: "whatsapp" },
-            { label: "Simulator", value: "whatsapp_simulator" },
-          ]}
-          onChange={(value) => {
-            setChannel(value as InboxChannel);
-            setSelected(null);
-            setPage(1);
-          }}
-        />
+        {simulatorEnabled ? (
+          <Segmented
+            aria-label="Inbox source"
+            value={channel}
+            options={[
+              { label: "WhatsApp", value: "whatsapp" },
+              { label: "Simulator", value: "whatsapp_simulator" },
+            ]}
+            onChange={(value) => {
+              setChannel(value as InboxChannel);
+              setSelected(null);
+              setPage(1);
+            }}
+          />
+        ) : null}
         <Typography.Text type="secondary">
           Browse stored conversations and staff notifications.
         </Typography.Text>
@@ -317,6 +327,7 @@ export function InboxClient() {
         {selectedThread ? (
           <Conversation
             key={`${channel}:${selectedThread.waId}`}
+            organizationId={organizationId}
             channel={channel}
             thread={selectedThread}
             onBack={() => setSelected(null)}

@@ -1,4 +1,4 @@
-export type ResourceName = "businesses" | "salons" | "services" | "technicians";
+export type ResourceName = "salons" | "services" | "technicians";
 
 export type AdminResourceItem = Record<
   string,
@@ -28,26 +28,6 @@ export type ResourceDefinition = {
 };
 
 export const resourceDefinitions: Record<ResourceName, ResourceDefinition> = {
-  businesses: {
-    title: "Business",
-    description: "Your business profile, WhatsApp owners, and reporting timezone.",
-    singular: "business",
-    columns: [
-      { key: "name", label: "Name" },
-      { key: "reporting_timezone", label: "Reporting timezone" },
-    ],
-    fields: [
-      { name: "name", label: "Business name", required: true },
-      { name: "reporting_timezone", label: "Reporting timezone", required: true },
-      {
-        name: "owner_wa_ids",
-        label: "Owner WhatsApp IDs",
-        kind: "textarea",
-        help: "Enter one WhatsApp ID or international number per line.",
-      },
-    ],
-    defaults: { reporting_timezone: "Europe/Berlin" },
-  },
   salons: {
     title: "Salons",
     description: "Manage physical locations and the defaults used in WhatsApp bookings.",
