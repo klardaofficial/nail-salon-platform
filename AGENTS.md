@@ -13,6 +13,8 @@ Use Node.js 22 and pnpm 12.4.1. Run `pnpm install`, then `pnpm check` before han
 - `src/app/admin`: fixed English Ant Design dashboard.
 - `src/app/api/admin`: authenticated dashboard API consumed through SWR.
 - `src/app/api/whatsapp`: verified WhatsApp webhook edge.
+- `src/app/api/public`: deliberately unauthenticated routes for external callers (booking-intent hand-off).
+- `src/features/booking-intents`: booking-intent creation, fingerprint dedup, and WhatsApp-side claiming.
 - `src/features/conversation`: context, prompts, scoped function tools, and event processing.
 - `src/features/messaging`: durable outbound queue and delivery.
 - `src/features/previews`: transient image edit/upload pipeline.

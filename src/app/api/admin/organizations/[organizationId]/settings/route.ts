@@ -5,6 +5,7 @@ import { requireOrganizationAdmin } from "@/lib/auth/api-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { aiPricingSchema } from "@/features/ai-usage/pricing";
 import {
+  buildBookingIntentUrl,
   clickToChatUrl,
   resolveEffectiveMetaConfiguration,
   resolveOpenAIConfiguration,
@@ -112,6 +113,7 @@ export async function GET(_request: Request, { params }: Context) {
           callbackUrl: effective?.callbackUrl,
           displayPhoneNumber: qrAvailable ? effective?.displayPhoneNumber : null,
           clickToChatUrl: qrAvailable ? clickToChatUrl(effective!.e164Digits!) : null,
+          bookingIntentUrl: buildBookingIntentUrl(organizationId),
           templates: effective?.templates,
         },
       },

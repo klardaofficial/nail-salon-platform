@@ -299,7 +299,7 @@ export function toolsForActor(actor: ConversationActor) {
   ];
 }
 
-const serviceItemSchema = z.object({
+export const serviceItemSchema = z.object({
   serviceId: z.uuid().nullable(),
   name: z.string().trim().min(1).max(120),
 });
@@ -312,7 +312,7 @@ const draftSchema = z.object({
 });
 const createSchema = draftSchema.extend({ startsAt: z.iso.datetime({ offset: true }) });
 
-async function normalizeServiceSelections(
+export async function normalizeServiceSelections(
   organizationId: string,
   services: z.infer<typeof serviceItemSchema>[],
   salonId: string | null,

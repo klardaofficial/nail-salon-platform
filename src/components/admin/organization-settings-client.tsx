@@ -4,6 +4,7 @@ import {
   Alert,
   App,
   Button,
+  Card,
   Col,
   Form,
   Input,
@@ -64,6 +65,7 @@ type SettingsResponse = {
     callbackUrl: string;
     displayPhoneNumber: string | null;
     clickToChatUrl: string | null;
+    bookingIntentUrl: string;
   };
 };
 
@@ -373,6 +375,121 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
               </Space>
             ) : null}
           </SettingsSection>
+
+          <Card
+            title="External booking website"
+            extra={<Typography.Text type="secondary">How this integration works</Typography.Text>}
+          >
+            <Typography.Paragraph>
+              If this organization has its own booking website, that site can hand a customer
+              straight to WhatsApp with their time, and any salon, services, and technician already
+              chosen. Have the website redirect the customer&apos;s browser to the URL below (as a
+              plain link, not an API call) once they&apos;ve made their selections. The app records
+              those choices, opens WhatsApp with a prefilled message in this organization&apos;s
+              language, and the bot books the appointment as soon as the customer sends that
+              message&mdash;no extra typing required.
+            </Typography.Paragraph>
+            {data.provider.readiness !== "enabled" ? (
+              <Alert
+                type="warning"
+                showIcon
+                className="mb-4"
+                title="This link will not work yet"
+                description='WhatsApp Account readiness must be "enabled" (validated Meta credentials and an active organization) before this endpoint will redirect customers to WhatsApp.'
+              />
+            ) : null}
+            <Typography.Text type="secondary">Endpoint</Typography.Text>
+            <br />
+            <Typography.Text
+              code
+              copyable={{ text: data.provider.bookingIntentUrl }}
+              className="[overflow-wrap:anywhere]"
+            >
+              {data.provider.bookingIntentUrl}
+            </Typography.Text>
+            <Typography.Paragraph className="mt-4 mb-2">
+              <Typography.Text strong>Query parameters</Typography.Text>
+            </Typography.Paragraph>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="py-1 pr-4 font-medium">Parameter</th>
+                    <th className="py-1 pr-4 font-medium">Required</th>
+                    <th className="py-1 font-medium">Meaning</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b align-top">
+                    <td className="py-1 pr-4">
+                      <Typography.Text code>salonId</Typography.Text>
+                    </td>
+                    <td className="py-1 pr-4">No</td>
+                    <td className="py-1">
+                      This organization&apos;s salon UUID (must be active). Omit when there is no
+                      active salon or only one&mdash;it is selected automatically. Required only to
+                      choose among several active salons.
+                    </td>
+                  </tr>
+                  <tr className="border-b align-top">
+                    <td className="py-1 pr-4">
+                      <Typography.Text code>startsAt</Typography.Text>
+                    </td>
+                    <td className="py-1 pr-4">Yes</td>
+                    <td className="py-1">
+                      Requested local date/time as{" "}
+                      <Typography.Text code>YYYY-MM-DDTHH:mm</Typography.Text> (no timezone
+                      offset&mdash;interpreted in this organization&apos;s platform timezone), at
+                      least 15 minutes in the future.
+                    </td>
+                  </tr>
+                  <tr className="border-b align-top">
+                    <td className="py-1 pr-4">
+                      <Typography.Text code>serviceIds</Typography.Text>
+                    </td>
+                    <td className="py-1 pr-4">No</td>
+                    <td className="py-1">
+                      Comma-separated catalog service UUIDs (up to 20). Omit for no service
+                      preselected.
+                    </td>
+                  </tr>
+                  <tr className="border-b align-top">
+                    <td className="py-1 pr-4">
+                      <Typography.Text code>technicianRef</Typography.Text>
+                    </td>
+                    <td className="py-1 pr-4">No</td>
+                    <td className="py-1">A technician UUID to request by name.</td>
+                  </tr>
+                  <tr className="align-top">
+                    <td className="py-1 pr-4">
+                      <Typography.Text code>additionalRequest</Typography.Text>
+                    </td>
+                    <td className="py-1 pr-4">No</td>
+                    <td className="py-1">
+                      Free-text note from the customer (up to 1000 characters).
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <Typography.Paragraph className="mt-4 mb-1">
+              <Typography.Text type="secondary">Example</Typography.Text>
+            </Typography.Paragraph>
+            <Typography.Text code className="[overflow-wrap:anywhere]">
+              {`${data.provider.bookingIntentUrl}?startsAt=2026-09-20T15:00&serviceIds=<service-uuid-1>,<service-uuid-2>&technicianRef=<technician-uuid>`}
+            </Typography.Text>
+            <Typography.Paragraph className="mt-2 mb-0" type="secondary">
+              Add <Typography.Text code>&salonId=&lt;salon-uuid&gt;</Typography.Text> only when this
+              organization has more than one active salon.
+            </Typography.Paragraph>
+            <Typography.Paragraph className="mt-4 mb-0" type="secondary">
+              All catalog IDs (salons, services, technicians) come from this organization&apos;s own
+              admin data&mdash;see the Salons, Services, and Technicians pages for the exact UUIDs
+              to use. If anything about the booking intent fails (an invalid ID, a time in the past,
+              and so on), the customer is still redirected to WhatsApp with a plain greeting instead
+              of seeing an error page.
+            </Typography.Paragraph>
+          </Card>
 
           <SettingsSection
             form={waCredentialsForm}

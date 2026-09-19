@@ -57,6 +57,14 @@ export function buildWebhookCallbackUrl(organizationId?: string) {
   return url.toString();
 }
 
+// Base URL for the public, unauthenticated booking-intent hand-off endpoint
+// (see docs/architecture/authorization.md "Public booking-intent endpoint").
+// An external booking website appends its own salonId/startsAt/serviceIds/
+// technicianRef/additionalRequest query parameters to this URL.
+export function buildBookingIntentUrl(organizationId: string) {
+  return new URL(`/api/public/${organizationId}/booking-intent`, getServerEnv().APP_URL).toString();
+}
+
 function template(
   organizationValue: string | null,
   rootValue: string | null,
@@ -170,6 +178,14 @@ export function normalizeE164Digits(displayNumber: string) {
 export function clickToChatUrl(e164Digits: string) {
   if (!/^[1-9][0-9]{7,14}$/.test(e164Digits)) throw new Error("invalid_e164_destination");
   return `https://wa.me/${e164Digits}`;
+}
+
+// Sibling of clickToChatUrl carrying a prefilled message, for callers that
+// need the customer's browser to land on WhatsApp with text already typed
+// (the booking-intent callback). Kept separate so clickToChatUrl's existing
+// signature and callers (qr/route.ts, settings/route.ts) are untouched.
+export function clickToChatUrlWithText(e164Digits: string, text: string) {
+  return `${clickToChatUrl(e164Digits)}?text=${encodeURIComponent(text)}`;
 }
 
 export async function validateOrganizationProviderConfiguration(organizationId: string) {

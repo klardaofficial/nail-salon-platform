@@ -191,6 +191,7 @@ export type Database = {
           created_at: string
           id: string
           organization_id: string
+          origin: string | null
           revision: number
           salon_id: string | null
           service_selections: Json
@@ -206,6 +207,7 @@ export type Database = {
           created_at?: string
           id?: string
           organization_id: string
+          origin?: string | null
           revision?: number
           salon_id?: string | null
           service_selections?: Json
@@ -221,6 +223,7 @@ export type Database = {
           created_at?: string
           id?: string
           organization_id?: string
+          origin?: string | null
           revision?: number
           salon_id?: string | null
           service_selections?: Json
@@ -303,6 +306,88 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_intents: {
+        Row: {
+          additional_request: string | null
+          code: string
+          consumed_at: string | null
+          consumed_conversation_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          locale: string
+          message_source: string
+          message_text: string | null
+          organization_id: string
+          params_fingerprint: string
+          salon_id: string | null
+          service_selections: Json
+          starts_at: string
+          technician_ref: string | null
+          updated_at: string
+        }
+        Insert: {
+          additional_request?: string | null
+          code: string
+          consumed_at?: string | null
+          consumed_conversation_id?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          locale: string
+          message_source: string
+          message_text?: string | null
+          organization_id: string
+          params_fingerprint: string
+          salon_id?: string | null
+          service_selections?: Json
+          starts_at: string
+          technician_ref?: string | null
+          updated_at?: string
+        }
+        Update: {
+          additional_request?: string | null
+          code?: string
+          consumed_at?: string | null
+          consumed_conversation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          locale?: string
+          message_source?: string
+          message_text?: string | null
+          organization_id?: string
+          params_fingerprint?: string
+          salon_id?: string | null
+          service_selections?: Json
+          starts_at?: string
+          technician_ref?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_intents_organization_conversation_fkey"
+            columns: ["organization_id", "consumed_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "booking_intents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_intents_organization_salon_fkey"
+            columns: ["organization_id", "salon_id"]
+            isOneToOne: false
+            referencedRelation: "salons"
+            referencedColumns: ["organization_id", "id"]
           },
         ]
       }

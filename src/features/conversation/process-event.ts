@@ -2,6 +2,8 @@ import "server-only";
 
 import { createNaturalReply } from "./respond";
 import type { ConversationActor } from "./tools";
+import { claimBookingIntentByCode } from "@/features/booking-intents/claim";
+import { extractIntentCode, stripIntentCode } from "@/features/booking-intents/code";
 import { queueInteractiveChoices, queueWhatsAppMessage } from "@/features/messaging/outbox";
 import type {
   NormalizedWhatsAppEvent,
@@ -112,7 +114,13 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     deduplicationKey: `conversation:${conversationId}:reply:${event.providerEventId}`,
   } as const;
   const locale = conversationResult.data.reply_locale ?? messageSettings!.bot_locale;
-  const messageText = normalizedMessageText(event);
+  const rawMessageText = normalizedMessageText(event);
+  // Extracted here (before history is stored) so the code never lands in
+  // conversation_messages or the admin inbox; actually claimed further below,
+  // after the duplicate/replay early-return, so a retried event can't burn an
+  // intent for nothing and a completed draft can't be resurrected.
+  const intentCode = extractIntentCode(rawMessageText);
+  const messageText = intentCode ? stripIntentCode(rawMessageText) : rawMessageText;
   const historyResult = await supabase
     .from("conversation_messages")
     .upsert(
@@ -153,6 +161,8 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
       return { duplicate: true };
     }
   }
+
+  if (intentCode) await claimBookingIntentByCode(organizationId, conversationId, intentCode);
 
   const [owners, technicians] = await Promise.all([
     supabase
