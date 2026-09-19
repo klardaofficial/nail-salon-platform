@@ -25,6 +25,7 @@ import useSWRMutation from "swr/mutation";
 import { apiErrorMessage, apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey, apiKeys } from "@/lib/api/keys";
 import { languageOptions } from "@/lib/bot/language";
+import { currencyOptions } from "@/lib/currencies";
 import { timeZoneOptions } from "@/lib/timezones";
 import {
   pricingToRows,
@@ -38,7 +39,12 @@ import { SettingsSection } from "./settings-section";
 
 type SettingsResponse = {
   organization: { name: string; status: string; ownerWaIds: string };
-  settings: { platform_timezone: string; bot_locale: string; simulator_enabled: boolean };
+  settings: {
+    platform_timezone: string;
+    bot_locale: string;
+    currency: string;
+    simulator_enabled: boolean;
+  };
   provider: {
     wabaId: string | null;
     phoneNumberId: string | null;
@@ -75,6 +81,7 @@ type OrganizationFormValues = {
   ownerWaIds: string;
   platformTimezone: string;
   botLocale: string;
+  currency: string;
 };
 
 type WhatsAppAccountFormValues = {
@@ -142,6 +149,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       ownerWaIds: data.organization.ownerWaIds,
       platformTimezone: data.settings.platform_timezone,
       botLocale: data.settings.bot_locale,
+      currency: data.settings.currency,
     });
     waAccountForm.setFieldsValue({
       wabaId: data.provider.wabaId,
@@ -306,6 +314,19 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                     showSearch={{ optionFilterProp: "label" }}
                     options={[...languageOptions]}
                     placeholder="Select a language"
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} lg={12}>
+                <Form.Item
+                  name="currency"
+                  label="Currency"
+                  extra="Used for service prices published to the catalog and quoted by the bot."
+                >
+                  <Select
+                    showSearch={{ optionFilterProp: "label" }}
+                    options={[...currencyOptions]}
+                    placeholder="Select a currency"
                   />
                 </Form.Item>
               </Col>

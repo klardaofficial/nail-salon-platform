@@ -5,8 +5,17 @@ import {
   MAX_SERVICE_IDS,
   MIN_LEAD_TIME_MS,
 } from "@/features/booking-intents/create";
+import { resolveCurrency } from "@/lib/currencies";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildBookingIntentUrl } from "./providers";
+
+// PostgREST can surface a `numeric` column as a string; normalize explicitly
+// so a stringified number never reaches the public JSON. Never coerce null to
+// 0 -- null means "not set" and must stay distinguishable from a free (0)
+// service (see docs/architecture/data-model.md).
+function toNumber(value: number | string | null): number | null {
+  return value === null ? null : Number(value);
+}
 
 export type PublicCatalog = {
   organization: { id: string; name: string };
@@ -16,6 +25,7 @@ export type PublicCatalog = {
   closeTime: string;
   bookingIntervalMinutes: number;
   defaultLanguage: string;
+  currency: { code: string; name: string; symbol: string };
   salonSelection: "none" | "implicit" | "required";
   rules: {
     startsAtFormat: string;
@@ -24,7 +34,14 @@ export type PublicCatalog = {
     maxAdditionalRequestLength: number;
   };
   salons: { id: string; name: string; locationLabel: string }[];
-  services: { id: string; name: string; description: string | null; salonIds: string[] }[];
+  services: {
+    id: string;
+    name: string;
+    description: string | null;
+    price: number | null;
+    durationMinutes: number | null;
+    salonIds: string[];
+  }[];
   technicians: { id: string; displayName: string; salonId: string }[];
 };
 
@@ -42,7 +59,7 @@ export async function readPublicCatalog(organizationId: string): Promise<PublicC
     supabase
       .from("organization_settings")
       .select(
-        "platform_timezone,default_open_time,default_close_time,default_booking_interval_minutes,bot_locale",
+        "platform_timezone,default_open_time,default_close_time,default_booking_interval_minutes,bot_locale,currency",
       )
       .eq("organization_id", organizationId)
       .single(),
@@ -56,7 +73,7 @@ export async function readPublicCatalog(organizationId: string): Promise<PublicC
     supabase
       .from("services")
       .select(
-        "id,name,description,service_salons!service_salons_organization_service_fkey(salon_id)",
+        "id,name,description,price,duration_minutes,service_salons!service_salons_organization_service_fkey(salon_id)",
       )
       .eq("organization_id", organizationId)
       .eq("active", true)
@@ -90,16 +107,21 @@ export async function readPublicCatalog(organizationId: string): Promise<PublicC
   // an empty salonIds array.
   const publicServices = services.data.flatMap((service) => {
     const scope = service.service_salons ?? [];
+    const base = {
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      price: toNumber(service.price),
+      durationMinutes: service.duration_minutes,
+    };
     if (scope.length === 0) {
-      return [
-        { id: service.id, name: service.name, description: service.description, salonIds: [] },
-      ];
+      return [{ ...base, salonIds: [] }];
     }
     const salonIds = scope
       .map((entry) => entry.salon_id)
       .filter((salonId) => activeSalonIds.has(salonId));
     if (salonIds.length === 0) return [];
-    return [{ id: service.id, name: service.name, description: service.description, salonIds }];
+    return [{ ...base, salonIds }];
   });
 
   const publicTechnicians = technicians.data
@@ -121,6 +143,7 @@ export async function readPublicCatalog(organizationId: string): Promise<PublicC
     closeTime: settings.data.default_close_time.slice(0, 5),
     bookingIntervalMinutes: settings.data.default_booking_interval_minutes,
     defaultLanguage: settings.data.bot_locale,
+    currency: resolveCurrency(settings.data.currency),
     salonSelection,
     rules: {
       startsAtFormat: "YYYY-MM-DDTHH:mm",

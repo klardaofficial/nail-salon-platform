@@ -7,6 +7,7 @@ import {
   Button,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -26,6 +27,7 @@ import useSWRMutation from "swr/mutation";
 import {
   resourceDefinitions,
   type AdminResourceItem,
+  type ResourceField,
   type ResourceName,
   type ResourceResponse,
 } from "@/features/admin/resources";
@@ -39,13 +41,18 @@ function endpoint(resource: ResourceName, organizationId: string) {
   return `/api/admin/organizations/${organizationId}/${resource}`;
 }
 
-function formValues(item: Record<string, unknown>) {
+function formValues(item: Record<string, unknown>, fields: ResourceField[]) {
+  const kindByName = new Map(fields.map((field) => [field.name, field.kind]));
   return Object.fromEntries(
     Object.entries(item).map(([key, value]) => [
       key,
       key.endsWith("_time") && typeof value === "string"
         ? dayjs(value, ["HH:mm", "HH:mm:ss"], true)
-        : value,
+        : // PostgREST can return a numeric column as a string; InputNumber
+          // needs an actual number (or null/undefined to stay empty).
+          kindByName.get(key) === "number" && value !== null && value !== undefined
+          ? Number(value)
+          : value,
     ]),
   );
 }
@@ -88,13 +95,13 @@ export function ResourceManager({
   function showCreate() {
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue(formValues(definition.defaults ?? {}));
+    form.setFieldsValue(formValues(definition.defaults ?? {}, definition.fields));
     setOpen(true);
   }
 
   function showEdit(item: AdminResourceItem) {
     setEditing(item);
-    form.setFieldsValue(formValues(item));
+    form.setFieldsValue(formValues(item, definition.fields));
     setOpen(true);
   }
 
@@ -220,6 +227,13 @@ export function ResourceManager({
                 <Switch />
               ) : field.kind === "time" ? (
                 <TimePicker format="HH:mm" minuteStep={5} style={{ width: "100%" }} />
+              ) : field.kind === "number" ? (
+                <InputNumber
+                  min={field.min}
+                  step={field.step}
+                  precision={field.precision}
+                  className="w-full"
+                />
               ) : (
                 <Input />
               )}

@@ -11,6 +11,7 @@ import { executeConversationTool, toolsForActor, type ConversationActor } from "
 import { naturalReplySchema, parseNaturalReply, type NaturalReply } from "./reply";
 import { dateTimeDisplayInstructions } from "./datetime";
 import { unavailableFallback } from "@/lib/bot/language";
+import { resolveCurrency } from "@/lib/currencies";
 import { summarizeChatUsage, withAIUsage } from "@/features/ai-usage/record";
 import { getOpenAIClient, hasOpenAIConfig } from "@/integrations/openai/client";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -44,7 +45,7 @@ export async function createNaturalReply(actor: ConversationActor) {
     supabase
       .from("services")
       .select(
-        "id,name,description,active,deleted_at,service_salons!service_salons_organization_service_fkey(salon_id)",
+        "id,name,description,price,duration_minutes,active,deleted_at,service_salons!service_salons_organization_service_fkey(salon_id)",
       )
       .eq("organization_id", actor.organizationId)
       .eq("active", true)
@@ -59,7 +60,7 @@ export async function createNaturalReply(actor: ConversationActor) {
     supabase
       .from("organization_settings")
       .select(
-        "platform_timezone,default_open_time,default_close_time,default_booking_interval_minutes,bot_locale",
+        "platform_timezone,default_open_time,default_close_time,default_booking_interval_minutes,bot_locale,currency",
       )
       .eq("organization_id", actor.organizationId)
       .single(),
@@ -78,6 +79,7 @@ export async function createNaturalReply(actor: ConversationActor) {
   if (business.error) throw business.error;
 
   const locale = actor.locale ?? settings.data.bot_locale;
+  const currency = resolveCurrency(settings.data.currency);
   const roleInstructions = actor.isOwner
     ? "This is a verified business OWNER. Start in owner-assistance mode. On a greeting or request for help, briefly explain you can list business bookings/customer details, show booking summaries, and manage salon information, services, and technicians. Offer relevant owner actions. If also a technician, mention assigned bookings and time off. Do not greet them as a customer or ask booking intake questions unless they explicitly want a personal booking."
     : actor.technicianIds.length
@@ -89,6 +91,11 @@ export async function createNaturalReply(actor: ConversationActor) {
       id: service.id,
       name: service.name,
       description: service.description,
+      // PostgREST can surface a numeric column as a string; normalize before
+      // this reaches the prompt JSON. Never coerce null to 0 -- null means
+      // "not set", distinct from a genuinely free service.
+      price: service.price === null ? null : Number(service.price),
+      durationMinutes: service.duration_minutes,
       salonIds: (service.service_salons ?? []).map((scope) => scope.salon_id),
     }));
   const catalog = (salons.data ?? []).map((salon) => ({
@@ -99,7 +106,13 @@ export async function createNaturalReply(actor: ConversationActor) {
     suggestedIntervalMinutes: salon.booking_interval_minutes,
     services: activeServices
       .filter((service) => !service.salonIds.length || service.salonIds.includes(salon.id))
-      .map(({ id, name, description }) => ({ id, name, description })),
+      .map(({ id, name, description, price, durationMinutes }) => ({
+        id,
+        name,
+        description,
+        price,
+        durationMinutes,
+      })),
     technicians: (salon.technicians ?? [])
       .filter((technician) => technician.active && !technician.deleted_at)
       .map(({ id, display_name, technician_time_off }) => ({
@@ -124,6 +137,7 @@ Time off only guides suggestions. Do not promise availability. A soft technician
 Customers may volunteer multiple services, Other/custom text, technician preference, and an additional request. Save details already supplied and preserve them through follow-up questions. Do not require the customer to answer optional questions, give a name/phone, or say 'skip'.
 If no active salons exist, use salonId=null and skip location, service catalog, and technician questions entirely. If active salons exist and the customer has not selected one, offer the salon choices and a No preference option. A customer may skip salon selection; use salonId=null and do not infer or assign a salon. Only after a salon is selected or No preference is chosen, offer service choices when useful. For a selected salon, use only that salon's listed services (including global services); with No preference, use only global services. Never fabricate a salon.
 Services are optional reference suggestions, never strict availability rules: accept, record, and preserve any customer-described service even if it is not configured or is not listed for the selected salon. Only offer service choices when the applicable list has services and the customer wants help choosing. Only offer technician choices when active technicians exist for the selected salon; include No preference. Do not ask about technicians if no salon is selected or no active technicians are available. Never delay confirmation for optional fields after a customer chooses to skip. Store missing details as null or [] and use [N/A] only for internal/template display if required.
+Each catalog service may carry a price and/or a duration in minutes, priced in ${currency.code} (${currency.name}, symbol ${currency.symbol}). Quote a service's price or duration ONLY when its catalog entry has a non-null value for it, formatted with that currency's symbol; never estimate, guess, sum, or invent one, and never state or imply a service is free or instant just because the value is null -- say it is not listed yet and will be confirmed at the salon. This never blocks or delays a booking.
 As soon as required details are known, summarize only the details selected by the customer and offer Confirm booking / Change details. Do not mention salon or technician when either is absent. Clear explicit instructions such as 'Book tomorrow at 3 pm' already supply agreement to those exact details; call create_booking immediately when unambiguous after any offered optional salon choice is answered. Otherwise obtain agreement once, never repeatedly. create_booking auto-confirms. Never claim a booking exists before tool success; include the returned booking reference in the confirmation. A completed draft is historical and must never be reused for a new booking.
 When the current booking draft's origin is external_site, the customer already made these exact selections on the salon's own booking website and sent them deliberately: treat this as agreement already given, call create_booking immediately with exactly the seeded salon, services, technician, time, and additional request, and never re-ask for any of them. If a booking matching those exact details was already confirmed earlier in this conversation, reference that existing booking instead of creating another.
 When a customer wants to change the time, date, salon, services, technician, or additional request of an existing booking that has not started, call list_my_bookings to identify the confirmed future booking if its reference is not already clear, then call update_booking. This updates that booking in place: do NOT cancel it or create a replacement. The booking reference is immutable. update_booking arguments are the desired complete current values: preserve unmentioned salon/services/technician/request values from list_my_bookings. If more than one future booking could be meant, ask which one. A booking-update request with clear changed details is agreement to that change.

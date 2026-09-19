@@ -248,13 +248,26 @@ describe("unrestricted language and generated controls", () => {
       },
     ]);
     tables.set("services", [
-      { id: "live", name: "Gel", active: true, deleted_at: null, service_salons: [] },
+      {
+        id: "live",
+        name: "Gel",
+        description: null,
+        price: null,
+        duration_minutes: null,
+        active: true,
+        deleted_at: null,
+        service_salons: [],
+      },
       { id: "hidden", name: "Hidden", active: false, deleted_at: null, service_salons: [] },
     ]);
     await createNaturalReply(actor);
     const instructions = mocks.response.mock.calls[0][0].instructions;
     const catalog = JSON.parse(instructions.split("Active catalog JSON: ")[1].split("\n")[0]);
-    expect(catalog[0].services).toEqual([{ id: "live", name: "Gel" }]);
+    // A service with no price or duration reaches the prompt as null, never
+    // as 0 or omitted -- so the bot can tell "not listed" apart from "free".
+    expect(catalog[0].services).toEqual([
+      { id: "live", name: "Gel", description: null, price: null, durationMinutes: null },
+    ]);
     expect(catalog[0].technicians).toEqual([]);
     expect(catalog[0].suggestedIntervalMinutes).toBe(45);
     const columns = operations.find(
@@ -266,7 +279,7 @@ describe("unrestricted language and generated controls", () => {
       table: "services",
       method: "select",
       args: [
-        "id,name,description,active,deleted_at,service_salons!service_salons_organization_service_fkey(salon_id)",
+        "id,name,description,price,duration_minutes,active,deleted_at,service_salons!service_salons_organization_service_fkey(salon_id)",
       ],
     });
   });

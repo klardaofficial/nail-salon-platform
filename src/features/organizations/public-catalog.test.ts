@@ -58,6 +58,7 @@ const DEFAULT_SETTINGS = {
   default_close_time: "18:00:00",
   default_booking_interval_minutes: 30,
   bot_locale: "de",
+  currency: "EUR",
 };
 
 function seedActiveOrganization(stub: ReturnType<typeof createSupabaseStub>) {
@@ -104,6 +105,7 @@ describe("readPublicCatalog", () => {
       closeTime: "18:00",
       bookingIntervalMinutes: 30,
       defaultLanguage: "de",
+      currency: { code: "EUR", name: "Euro", symbol: "€" },
       salonSelection: "none",
       salons: [],
       services: [],
@@ -141,14 +143,30 @@ describe("readPublicCatalog", () => {
     seedActiveOrganization(stub);
     stub.push("salons", { data: [{ id: SALON_ID, name: "Main", location_label: "Downtown" }] });
     stub.push("services", {
-      data: [{ id: SERVICE_ID, name: "Manicure", description: null, service_salons: [] }],
+      data: [
+        {
+          id: SERVICE_ID,
+          name: "Manicure",
+          description: null,
+          price: null,
+          duration_minutes: null,
+          service_salons: [],
+        },
+      ],
     });
     stub.push("technicians", { data: [] });
     mocks.from.mockImplementation(stub.from);
 
     const catalog = await readPublicCatalog(ORGANIZATION_ID);
     expect(catalog?.services).toEqual([
-      { id: SERVICE_ID, name: "Manicure", description: null, salonIds: [] },
+      {
+        id: SERVICE_ID,
+        name: "Manicure",
+        description: null,
+        price: null,
+        durationMinutes: null,
+        salonIds: [],
+      },
     ]);
   });
 
@@ -162,6 +180,8 @@ describe("readPublicCatalog", () => {
           id: SERVICE_ID,
           name: "Manicure",
           description: "Classic manicure",
+          price: 25.5,
+          duration_minutes: 45,
           service_salons: [{ salon_id: SALON_ID }, { salon_id: INACTIVE_SALON_ID }],
         },
       ],
@@ -171,7 +191,14 @@ describe("readPublicCatalog", () => {
 
     const catalog = await readPublicCatalog(ORGANIZATION_ID);
     expect(catalog?.services).toEqual([
-      { id: SERVICE_ID, name: "Manicure", description: "Classic manicure", salonIds: [SALON_ID] },
+      {
+        id: SERVICE_ID,
+        name: "Manicure",
+        description: "Classic manicure",
+        price: 25.5,
+        durationMinutes: 45,
+        salonIds: [SALON_ID],
+      },
     ]);
   });
 
@@ -187,6 +214,8 @@ describe("readPublicCatalog", () => {
           id: SERVICE_ID,
           name: "Manicure",
           description: null,
+          price: null,
+          duration_minutes: null,
           service_salons: [{ salon_id: INACTIVE_SALON_ID }],
         },
       ],
@@ -196,6 +225,41 @@ describe("readPublicCatalog", () => {
 
     const catalog = await readPublicCatalog(ORGANIZATION_ID);
     expect(catalog?.services).toEqual([]);
+  });
+
+  it("normalizes a numeric-as-string price to a number and never coerces a null price/duration to zero", async () => {
+    // PostgREST can surface a `numeric` column as a string; the catalog must
+    // still emit a JSON number. A service with only one of price/duration set
+    // must keep the other as null, never 0 or a dropped key.
+    const stub = createSupabaseStub();
+    seedActiveOrganization(stub);
+    stub.push("salons", { data: [{ id: SALON_ID, name: "Main", location_label: "Downtown" }] });
+    stub.push("services", {
+      data: [
+        {
+          id: SERVICE_ID,
+          name: "Manicure",
+          description: null,
+          price: "25.50",
+          duration_minutes: null,
+          service_salons: [],
+        },
+      ],
+    });
+    stub.push("technicians", { data: [] });
+    mocks.from.mockImplementation(stub.from);
+
+    const catalog = await readPublicCatalog(ORGANIZATION_ID);
+    expect(catalog?.services).toEqual([
+      {
+        id: SERVICE_ID,
+        name: "Manicure",
+        description: null,
+        price: 25.5,
+        durationMinutes: null,
+        salonIds: [],
+      },
+    ]);
   });
 
   it("omits a technician assigned to an inactive salon", async () => {

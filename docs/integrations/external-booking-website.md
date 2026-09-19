@@ -41,6 +41,7 @@ Example response for an organization with some setup done:
     "closeTime": "18:00",
     "bookingIntervalMinutes": 30,
     "defaultLanguage": "de",
+    "currency": { "code": "EUR", "name": "Euro", "symbol": "€" },
     "salonSelection": "implicit",
     "rules": {
       "startsAtFormat": "YYYY-MM-DDTHH:mm",
@@ -56,6 +57,16 @@ Example response for an organization with some setup done:
         "id": "...service-uuid...",
         "name": "Manicure",
         "description": "Classic manicure",
+        "price": 25.5,
+        "durationMinutes": 45,
+        "salonIds": []
+      },
+      {
+        "id": "...service-uuid-2...",
+        "name": "Gel polish",
+        "description": null,
+        "price": null,
+        "durationMinutes": null,
         "salonIds": []
       }
     ],
@@ -79,6 +90,7 @@ every list empty:**
     "closeTime": "18:00",
     "bookingIntervalMinutes": 30,
     "defaultLanguage": "de",
+    "currency": { "code": "EUR", "name": "Euro", "symbol": "€" },
     "salonSelection": "none",
     "rules": {
       "startsAtFormat": "YYYY-MM-DDTHH:mm",
@@ -119,6 +131,11 @@ of these three lists having entries.
 - `defaultLanguage` — the organization's configured language (e.g. `de`), also
   advisory. The bot actually replies in whatever language the customer writes
   to it in, so do not promise the customer a reply in this language.
+- `currency` — `{ code, name, symbol }` (e.g. `{ "code": "EUR", "name": "Euro",
+"symbol": "€" }`), the unit for every `services[].price` value. It is always
+  present, even when no service currently has a price set, so your UI knows
+  the unit to use if one appears later. The organization can change this in
+  its settings; re-fetch the catalog rather than caching it.
 - `salonSelection` — tells you whether to collect a salon choice at all. See
   the table below.
 - `rules` — the exact limits `booking-intent` enforces, so your form can
@@ -131,12 +148,36 @@ of these three lists having entries.
 - `services[].id` / `.name` / `.description` — pick zero or more of these to
   send as `serviceIds`. `salonIds: []` means the service is offered at every
   salon; a non-empty list means it is offered only at those salons — filter
-  your service picker by the salon the customer chose, if any. There is no
-  duration or price field: this organization's services carry no such data,
-  so do not invent or display one.
+  your service picker by the salon the customer chose, if any.
+- `services[].price` / `.durationMinutes` — **both optional and independently
+  nullable.** An owner may set neither, either, or both for a given service.
+  `price` is a plain JSON number in the unit named by the top-level `currency`
+  (never a string); `durationMinutes` is a whole number of minutes. **`null`
+  means "not set" — it is never `0`, and `0` never means "not set".** See
+  "Handling missing price and duration" below before rendering these.
 - `technicians[].id` / `.displayName` / `.salonId` — pick zero or one of these
   to send as `technicianRef`, only for the salon the customer chose (or any,
   if no salon applies).
+
+### Handling missing price and duration
+
+`price` and `durationMinutes` are independently nullable per service — do not
+assume that if one is set the other is too. Concretely:
+
+- **Never render a null value as if it were zero.** A `null` price is not
+  "free" and a `null` duration is not "instant" — show nothing, or "price on
+  request" / similar, never `€0.00` or `0 min`.
+- **Never sum a mixed list and present a total.** If the customer selects
+  several services and any one of them has a `null` price or duration, do not
+  add up the ones that _are_ set and present that partial sum as "the total" —
+  it will read as complete when it is not. Either show a per-service list with
+  the gaps visible, or omit the total entirely.
+- **These are catalog-level facts, unrelated to `bookingIntervalMinutes`.**
+  `durationMinutes` is what a specific service is expected to take;
+  `bookingIntervalMinutes` (see above) is the organization's generic slot
+  spacing. Never use one to compute or validate the other, and never use
+  either to compute or display "availability" — there is no availability
+  lookup in this integration (see below).
 
 ### `salonSelection` decision table
 

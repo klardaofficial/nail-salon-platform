@@ -26,6 +26,10 @@ const schemas = {
     salon_ids: z.array(z.uuid()).max(100).nullable().optional(),
     name: z.string().trim().min(1).max(120),
     description: z.string().trim().max(500).nullable().optional(),
+    // Nullable, no default: null means "not set" and stays distinct from a
+    // genuinely free (0) or instant (nonsensical, so min(1)) service.
+    price: z.coerce.number().min(0).max(99999999.99).nullable().optional(),
+    duration_minutes: z.coerce.number().int().min(1).max(1440).nullable().optional(),
     active: z.boolean().default(true),
   }),
   technicians: z.object({
@@ -91,6 +95,8 @@ function serviceDatabaseValues(values: Partial<z.infer<typeof schemas.services>>
   return {
     ...(values.name !== undefined ? { name: values.name } : {}),
     ...(values.description !== undefined ? { description: values.description } : {}),
+    ...(values.price !== undefined ? { price: values.price } : {}),
+    ...(values.duration_minutes !== undefined ? { duration_minutes: values.duration_minutes } : {}),
     ...(values.active !== undefined ? { active: values.active } : {}),
   };
 }

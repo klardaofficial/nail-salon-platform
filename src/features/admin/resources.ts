@@ -12,10 +12,13 @@ export type ResourceResponse = { items: AdminResourceItem[] };
 export type ResourceField = {
   name: string;
   label: string;
-  kind?: "text" | "textarea" | "select" | "multiselect" | "switch" | "time";
+  kind?: "text" | "textarea" | "select" | "multiselect" | "switch" | "time" | "number";
   required?: boolean;
   optionSource?: "salons";
   help?: string;
+  min?: number;
+  step?: number;
+  precision?: number;
 };
 
 export type ResourceDefinition = {
@@ -62,6 +65,8 @@ export const resourceDefinitions: Record<ResourceName, ResourceDefinition> = {
       { key: "name", label: "Service" },
       { key: "salon_names", label: "Available at" },
       { key: "description", label: "Description" },
+      { key: "price", label: "Price" },
+      { key: "duration_minutes", label: "Duration (min)" },
       { key: "active", label: "Active", kind: "boolean" },
     ],
     fields: [
@@ -74,6 +79,24 @@ export const resourceDefinitions: Record<ResourceName, ResourceDefinition> = {
       },
       { name: "name", label: "Service name", required: true },
       { name: "description", label: "Description", kind: "textarea" },
+      {
+        name: "price",
+        label: "Price",
+        kind: "number",
+        min: 0,
+        step: 0.01,
+        precision: 2,
+        help: "Leave blank if this service has no set price yet.",
+      },
+      {
+        name: "duration_minutes",
+        label: "Duration (minutes)",
+        kind: "number",
+        min: 1,
+        step: 1,
+        precision: 0,
+        help: "Leave blank if this service has no set duration yet.",
+      },
       { name: "active", label: "Active", kind: "switch" },
     ],
     defaults: { active: true },

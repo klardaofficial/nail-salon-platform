@@ -16,6 +16,7 @@ import {
   updateOrganizationProfile,
 } from "@/features/organizations/profile";
 import { languageCodeSchema } from "@/lib/bot/language";
+import { currencyCodeSchema } from "@/lib/currencies";
 import { isValidTimeZone } from "@/lib/timezones";
 
 type Context = { params: Promise<{ organizationId: string }> };
@@ -39,6 +40,7 @@ const updateSchema = z.object({
   ownerWaIds: z.string().max(2000).optional(),
   platformTimezone: z.string().trim().min(1).max(80).refine(isValidTimeZone).optional(),
   botLocale: languageCodeSchema.optional(),
+  currency: currencyCodeSchema.optional(),
   simulatorEnabled: z.boolean().optional(),
   wabaId: z.string().trim().max(128).nullable().optional(),
   phoneNumberId: z.string().trim().max(128).nullable().optional(),
@@ -141,6 +143,7 @@ export async function PATCH(request: Request, { params }: Context) {
         ? { platform_timezone: values.platformTimezone }
         : {}),
       ...(values.botLocale !== undefined ? { bot_locale: values.botLocale } : {}),
+      ...(values.currency !== undefined ? { currency: values.currency } : {}),
       ...(values.simulatorEnabled !== undefined
         ? { simulator_enabled: values.simulatorEnabled }
         : {}),

@@ -455,6 +455,8 @@ export type Database = {
           idempotency_key: string
           local_time_label: string
           organization_id: string
+          refer_duration: number
+          refer_price: number
           salon_id: string | null
           simulated: boolean
           source: string
@@ -476,6 +478,8 @@ export type Database = {
           idempotency_key: string
           local_time_label: string
           organization_id: string
+          refer_duration?: number
+          refer_price?: number
           salon_id?: string | null
           simulated?: boolean
           source?: string
@@ -497,6 +501,8 @@ export type Database = {
           idempotency_key?: string
           local_time_label?: string
           organization_id?: string
+          refer_duration?: number
+          refer_price?: number
           salon_id?: string | null
           simulated?: boolean
           source?: string
@@ -1152,6 +1158,7 @@ export type Database = {
         Row: {
           bot_locale: string
           created_at: string
+          currency: string
           default_booking_interval_minutes: number
           default_close_time: string
           default_open_time: string
@@ -1166,6 +1173,7 @@ export type Database = {
         Insert: {
           bot_locale?: string
           created_at?: string
+          currency?: string
           default_booking_interval_minutes?: number
           default_close_time?: string
           default_open_time?: string
@@ -1180,6 +1188,7 @@ export type Database = {
         Update: {
           bot_locale?: string
           created_at?: string
+          currency?: string
           default_booking_interval_minutes?: number
           default_close_time?: string
           default_open_time?: string
@@ -1585,9 +1594,11 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           description: string | null
+          duration_minutes: number | null
           id: string
           name: string
           organization_id: string
+          price: number | null
           updated_at: string
         }
         Insert: {
@@ -1595,9 +1606,11 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           description?: string | null
+          duration_minutes?: number | null
           id?: string
           name: string
           organization_id: string
+          price?: number | null
           updated_at?: string
         }
         Update: {
@@ -1605,9 +1618,11 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           description?: string | null
+          duration_minutes?: number | null
           id?: string
           name?: string
           organization_id?: string
+          price?: number | null
           updated_at?: string
         }
         Relationships: [
