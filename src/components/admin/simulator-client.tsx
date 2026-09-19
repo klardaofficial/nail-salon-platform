@@ -36,7 +36,6 @@ import {
 } from "@/features/simulator/contracts";
 import { apiGet, apiMutation } from "@/lib/api/client";
 import { apiKey } from "@/lib/api/keys";
-import { PageHeading } from "./page-heading";
 import { ChatMessageBubble } from "./chat-message";
 
 const customerStorageKey = (organizationId: string) =>
@@ -323,10 +322,6 @@ export function SimulatorClient({ organizationId }: { organizationId: string }) 
 
   return (
     <>
-      <PageHeading
-        title="WhatsApp simulator"
-        description="Try customer, owner, and technician conversations side by side."
-      />
       <Alert
         className="mb-4"
         type="info"

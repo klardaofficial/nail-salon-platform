@@ -7,7 +7,10 @@ import {
 } from "@/features/booking-intents/create";
 import { resolveCurrency } from "@/lib/currencies";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { PublicCatalog } from "./contracts";
 import { buildBookingIntentUrl } from "./providers";
+
+export type { PublicCatalog };
 
 // PostgREST can surface a `numeric` column as a string; normalize explicitly
 // so a stringified number never reaches the public JSON. Never coerce null to
@@ -16,34 +19,6 @@ import { buildBookingIntentUrl } from "./providers";
 function toNumber(value: number | string | null): number | null {
   return value === null ? null : Number(value);
 }
-
-export type PublicCatalog = {
-  organization: { id: string; name: string };
-  bookingUrl: string;
-  bookingTimezone: string;
-  openTime: string;
-  closeTime: string;
-  bookingIntervalMinutes: number;
-  defaultLanguage: string;
-  currency: { code: string; name: string; symbol: string };
-  salonSelection: "none" | "implicit" | "required";
-  rules: {
-    startsAtFormat: string;
-    minLeadTimeMinutes: number;
-    maxServiceIds: number;
-    maxAdditionalRequestLength: number;
-  };
-  salons: { id: string; name: string; locationLabel: string }[];
-  services: {
-    id: string;
-    name: string;
-    description: string | null;
-    price: number | null;
-    durationMinutes: number | null;
-    salonIds: string[];
-  }[];
-  technicians: { id: string; displayName: string; salonId: string }[];
-};
 
 // Returns null when the organization does not exist or is not active; the
 // route layer folds both into the same 404 as a malformed organization ID

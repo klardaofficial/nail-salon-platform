@@ -87,4 +87,10 @@ export const apiKeys = {
       to,
       source,
     ),
+  // Deliberate exception to the admin-reads-through-/api/admin/* convention:
+  // the booking site simulator stands in for an external website and must
+  // exercise the same public contract that website sees (see
+  // docs/development/admin-ui.md).
+  publicCatalog: (organizationId: string) =>
+    apiKey("public-catalog", `/api/public/${organizationId}/catalog`, organizationId),
 } as const;

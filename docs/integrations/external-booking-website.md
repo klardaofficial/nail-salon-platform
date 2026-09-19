@@ -11,6 +11,12 @@ no callback the organization sends you: the only "callback" in this
 integration is the browser landing back on WhatsApp after step 2 below.
 Nothing here pushes booking status to your site.
 
+A working reference implementation of everything below ships in the admin
+dashboard itself, as the "Booking site" tab on each organization's Simulator
+page (`/admin/organizations/{id}/simulator`): it fetches the same catalog
+endpoint straight from the browser and builds the same hand-off URL described
+here.
+
 ## The two endpoints
 
 | Purpose                                 | Endpoint                                          |

@@ -2,9 +2,9 @@
 
 import { useParams } from "next/navigation";
 
-import { SimulatorClient } from "@/components/admin/simulator-client";
+import { SimulatorTabs } from "@/components/admin/simulator-tabs";
 
 export default function OrganizationSimulatorPage() {
   const { organizationId } = useParams<{ organizationId: string }>();
-  return <SimulatorClient organizationId={organizationId} />;
+  return <SimulatorTabs organizationId={organizationId} />;
 }
