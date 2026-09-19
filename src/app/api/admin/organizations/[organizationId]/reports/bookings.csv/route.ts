@@ -1,11 +1,8 @@
 import { bookingFiltersSchema, queryAdminBookings } from "@/features/bookings/admin-query";
 import { apiException } from "@/lib/api/response";
 import { requireOrganizationAdmin } from "@/lib/auth/api-admin";
+import { csvDocument } from "@/lib/csv";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-
-function cell(value: unknown) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
-}
 
 export async function GET(
   request: Request,
@@ -28,7 +25,7 @@ export async function GET(
       organizationId,
       settings.data.simulator_enabled ? filters : { ...filters, source: "real" },
     );
-    const csv = [
+    const csv = csvDocument([
       [
         "Reference",
         "Customer",
@@ -36,26 +33,36 @@ export async function GET(
         "Services",
         "Technician",
         "Starts at",
+        "Booked local time",
+        "Timezone",
+        "Additional request",
         "Status",
+        "Cancelled at",
+        "Cancellation reason",
+        "Source",
         "Created at",
-      ]
-        .map(cell)
-        .join(","),
-      ...rows.map((row) =>
-        [
-          row.id,
-          row.customerName,
-          row.salonName,
-          row.services,
-          row.technicianName,
-          row.startsAt,
-          row.status,
-          row.createdAt,
-        ]
-          .map(cell)
-          .join(","),
-      ),
-    ].join("\n");
+        "Updated at",
+      ],
+      ...rows.map((row) => [
+        row.id,
+        row.customerName,
+        row.salonName,
+        row.serviceDetails
+          .map((service) => (service.custom ? `${service.name} (custom)` : service.name))
+          .join("; "),
+        row.technicianName,
+        row.startsAt,
+        row.localTimeLabel,
+        row.timezone,
+        row.additionalRequest,
+        row.status,
+        row.cancelledAt,
+        row.cancellationReason,
+        row.simulated ? "Simulator" : "Real",
+        row.createdAt,
+        row.updatedAt,
+      ]),
+    ]);
     return new Response(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

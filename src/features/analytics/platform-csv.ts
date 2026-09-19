@@ -1,3 +1,5 @@
+import { csvDocument } from "@/lib/csv";
+
 import type { PlatformActivity } from "./platform-types";
 
 export function platformActivityCsv(data: PlatformActivity) {
@@ -73,18 +75,5 @@ export function platformActivityCsv(data: PlatformActivity) {
       row.unpricedCalls,
     ]),
   ];
-  return (
-    "\uFEFF" +
-    rows
-      .map((row) =>
-        row
-          .map((value) => {
-            let text = String(value ?? "");
-            if (/^[=+\-@\t\r\n]/.test(text)) text = `'${text}`;
-            return `"${text.replaceAll('"', '""')}"`;
-          })
-          .join(","),
-      )
-      .join("\r\n")
-  );
+  return csvDocument(rows);
 }

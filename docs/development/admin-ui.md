@@ -16,7 +16,9 @@ Organization Settings separates organization identity/defaults, WhatsApp account
 
 Time fields use Day.js values inside Ant Design forms. Convert both create defaults and saved API values with the explicitly registered `customParseFormat` plugin, and serialize submitted times as `HH:mm`. Opening a create form after editing restores the resource defaults.
 
-Use current component APIs: `Alert.title`, `Select.showSearch.optionFilterProp`, and Phosphor exports ending in `Icon`. Type-aware ESLint rejects APIs marked `@deprecated` by their declarations.
+Use current component APIs: `Alert.title`, `Select.showSearch.optionFilterProp`, and Phosphor exports ending in `Icon`. Type-aware ESLint rejects APIs marked `@deprecated` by their declarations — expandable table rows use `Table`'s `expandable={{ expandedRowRender }}` config object rather than the deprecated top-level prop, and detail panels use `Descriptions`' `items` prop rather than its deprecated `children`/`Descriptions.Item` form.
+
+The Bookings table keeps its narrow, scannable column set; every additional field (per-service custom/catalog detail, booked local time and timezone, additional request, cancellation detail, real-vs-simulator source, and last-updated) lives in an expandable row's `Descriptions` panel driven by the same `AdminBookingRow` shape the CSV export uses, so the table and CSV cannot drift apart. All admin CSV exports build their document through the shared, injection-safe `src/lib/csv.ts` helper (UTF-8 BOM, `\r\n` rows, and an apostrophe prefix on any cell that could be read as a spreadsheet formula) rather than each route reimplementing escaping.
 
 Overview adds platform activity below booking reporting, using the same calendar dates plus an independent source selector. It includes accessible tables, matching CSV export, and a paginated AI request log. The separate WhatsApp inbox uses responsive list/detail panes and the same `ChatMessageBubble` as the Simulator, with no reply callback or composer. See [observability](../architecture/platform-observability.md).
 
