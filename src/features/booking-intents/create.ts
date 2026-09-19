@@ -9,6 +9,11 @@ import { normalizeServiceSelections } from "@/features/conversation/tools";
 import { formatIntentTag, generateIntentCode } from "./code";
 import { fingerprintBookingIntent } from "./fingerprint";
 
+// Exported so the public catalog endpoint's published `rules` cannot drift
+// from what this schema actually enforces (see public-catalog.ts).
+export const MAX_SERVICE_IDS = 20;
+export const MAX_ADDITIONAL_REQUEST_LENGTH = 1000;
+
 export const bookingIntentInputSchema = z.object({
   // Optional: omit when the organization has zero active salons (no salon to
   // record) or exactly one (selected implicitly). Required only to disambiguate
@@ -18,9 +23,16 @@ export const bookingIntentInputSchema = z.object({
   startsAt: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "startsAt must be YYYY-MM-DDTHH:mm"),
-  serviceIds: z.array(z.uuid()).max(20).optional().default([]),
+  serviceIds: z.array(z.uuid()).max(MAX_SERVICE_IDS).optional().default([]),
   technicianRef: z.uuid().nullable().optional().default(null),
-  additionalRequest: z.string().trim().min(1).max(1000).nullable().optional().default(null),
+  additionalRequest: z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_ADDITIONAL_REQUEST_LENGTH)
+    .nullable()
+    .optional()
+    .default(null),
 });
 export type BookingIntentInput = z.infer<typeof bookingIntentInputSchema>;
 
@@ -30,7 +42,9 @@ export type BookingIntentInput = z.infer<typeof bookingIntentInputSchema>;
 export const AI_MESSAGE_CAP_PER_HOUR = 20;
 const AI_CAP_WINDOW_MS = 60 * 60 * 1000;
 const INTENT_TTL_MS = 4 * 60 * 60 * 1000;
-const MIN_LEAD_TIME_MS = 15 * 60 * 1000;
+// Exported so the public catalog endpoint's published `rules` cannot drift
+// from what createBookingIntent actually enforces (see public-catalog.ts).
+export const MIN_LEAD_TIME_MS = 15 * 60 * 1000;
 
 export class BookingIntentError extends Error {
   constructor(

@@ -66,6 +66,7 @@ type SettingsResponse = {
     displayPhoneNumber: string | null;
     clickToChatUrl: string | null;
     bookingIntentUrl: string;
+    catalogUrl: string;
   };
 };
 
@@ -407,6 +408,22 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
             >
               {data.provider.bookingIntentUrl}
             </Typography.Text>
+            <Typography.Paragraph className="mt-4 mb-1">
+              <Typography.Text type="secondary">
+                Catalog endpoint (salon/service/technician UUIDs, timezone, hours)
+              </Typography.Text>
+            </Typography.Paragraph>
+            <Typography.Text
+              code
+              copyable={{ text: data.provider.catalogUrl }}
+              className="[overflow-wrap:anywhere]"
+            >
+              {data.provider.catalogUrl}
+            </Typography.Text>
+            <Typography.Paragraph className="mt-2 mb-0" type="secondary">
+              This one is public and always available (no readiness gate) so the booking website can
+              be built and tested before WhatsApp validation completes.
+            </Typography.Paragraph>
             <Typography.Paragraph className="mt-4 mb-2">
               <Typography.Text strong>Query parameters</Typography.Text>
             </Typography.Paragraph>
@@ -483,11 +500,13 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
               organization has more than one active salon.
             </Typography.Paragraph>
             <Typography.Paragraph className="mt-4 mb-0" type="secondary">
-              All catalog IDs (salons, services, technicians) come from this organization&apos;s own
-              admin data&mdash;see the Salons, Services, and Technicians pages for the exact UUIDs
-              to use. If anything about the booking intent fails (an invalid ID, a time in the past,
-              and so on), the customer is still redirected to WhatsApp with a plain greeting instead
-              of seeing an error page.
+              Fetch the catalog endpoint above to discover the exact salon, service, and technician
+              UUIDs to use&mdash;service descriptions returned there are public, so keep internal
+              notes out of them. If anything about the booking intent fails (an invalid ID, a time
+              in the past, and so on), the customer is still redirected to WhatsApp with a plain
+              greeting instead of seeing an error page. See{" "}
+              <Typography.Text code>docs/integrations/external-booking-website.md</Typography.Text>{" "}
+              for the full integration guide.
             </Typography.Paragraph>
           </Card>
 
