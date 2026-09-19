@@ -13,7 +13,7 @@ Ingress persists organization scope through inbox, job outbox, Inngest event, co
 
 ## Provider readiness and QR
 
-Provider configuration is Incomplete, Unvalidated, Invalid, Ready/disabled for an archived organization, or Enabled. WABA, phone, credential-source, access-token, or root-credential changes invalidate validation. Validation checks phone access and WABA ownership through Meta, then stores only sanitized status plus the returned display/E.164 number. A successful validation enables an active organization automatically. Customer click-to-chat is exactly `https://wa.me/{digits}`; QR SVG is generated locally and is shown only for a current enabled mapping.
+Provider configuration is Incomplete, Unvalidated, Invalid, Ready/disabled for an archived organization, or Enabled. WABA, phone, credential-source, access-token, or root-credential changes invalidate validation. Validation reads the configured phone node for its ID and display number, then reads the configured WABA's `phone_numbers` edge and requires that list to contain the configured phone ID. It stores only sanitized status plus the returned display/E.164 number. A successful validation enables an active organization automatically. Customer click-to-chat is exactly `https://wa.me/{digits}`; QR SVG is generated locally and is shown only for a current enabled mapping.
 
 ## Booking-intent prefill entry point
 

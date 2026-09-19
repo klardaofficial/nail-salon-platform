@@ -364,38 +364,40 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                   <Input />
                 </Form.Item>
               </Col>
-            </Row>
-            {data.provider.clickToChatUrl ? (
-              <Space align="start" wrap size="large">
-                <Image
-                  unoptimized
-                  src={`/api/admin/organizations/${organizationId}/qr`}
-                  width={180}
-                  height={180}
-                  alt="WhatsApp click-to-chat QR code"
-                />
-                <Space orientation="vertical">
-                  <Typography.Text strong>Customer click-to-chat</Typography.Text>
-                  <Typography.Text>{data.provider.displayPhoneNumber}</Typography.Text>
-                  <Typography.Link
-                    href={data.provider.clickToChatUrl}
-                    target="_blank"
-                    copyable={{ text: data.provider.clickToChatUrl }}
-                  >
-                    {data.provider.clickToChatUrl}
-                  </Typography.Link>
-                  <Space wrap>
-                    <Button
-                      href={`/api/admin/organizations/${organizationId}/qr`}
-                      download="whatsapp-qr.svg"
-                    >
-                      Download QR
-                    </Button>
-                    <Button onClick={() => window.print()}>Print</Button>
+              {data.provider.clickToChatUrl ? (
+                <Col span={24}>
+                  <Space align="start" wrap size="large">
+                    <Image
+                      unoptimized
+                      src={`/api/admin/organizations/${organizationId}/qr`}
+                      width={180}
+                      height={180}
+                      alt="WhatsApp click-to-chat QR code"
+                    />
+                    <Space orientation="vertical">
+                      <Typography.Text strong>Customer click-to-chat</Typography.Text>
+                      <Typography.Text>{data.provider.displayPhoneNumber}</Typography.Text>
+                      <Typography.Link
+                        href={data.provider.clickToChatUrl}
+                        target="_blank"
+                        copyable={{text: data.provider.clickToChatUrl}}
+                      >
+                        {data.provider.clickToChatUrl}
+                      </Typography.Link>
+                      <Space wrap>
+                        <Button
+                          href={`/api/admin/organizations/${organizationId}/qr`}
+                          download="whatsapp-qr.svg"
+                        >
+                          Download QR
+                        </Button>
+                        <Button onClick={() => window.print()}>Print</Button>
+                      </Space>
+                    </Space>
                   </Space>
-                </Space>
-              </Space>
-            ) : null}
+                </Col>
+              ) : null}
+            </Row>
           </SettingsSection>
 
           <Card

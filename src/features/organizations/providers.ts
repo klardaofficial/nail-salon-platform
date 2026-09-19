@@ -206,29 +206,37 @@ export async function validateOrganizationProviderConfiguration(organizationId: 
   let e164Digits: string | null = null;
   try {
     const response = await fetch(
-      `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${encodeURIComponent(configuration.phoneNumberId)}?fields=id,display_phone_number,whatsapp_business_account`,
+      `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${encodeURIComponent(configuration.phoneNumberId)}?fields=id,display_phone_number`,
       { headers: { Authorization: `Bearer ${configuration.credentials.accessToken}` } },
     );
     const result = (await response.json()) as {
       id?: string;
       display_phone_number?: string;
-      whatsapp_business_account?: { id?: string } | string;
       error?: { code?: number };
     };
-    const returnedWaba =
-      typeof result.whatsapp_business_account === "string"
-        ? result.whatsapp_business_account
-        : result.whatsapp_business_account?.id;
     if (!response.ok || result.error) failureCode = `meta_${result.error?.code ?? response.status}`;
-    else if (result.id !== configuration.phoneNumberId || returnedWaba !== configuration.wabaId)
-      failureCode = "provider_mapping_mismatch";
+    else if (result.id !== configuration.phoneNumberId) failureCode = "provider_mapping_mismatch";
     else {
-      displayPhoneNumber = result.display_phone_number ?? null;
-      e164Digits = displayPhoneNumber ? normalizeE164Digits(displayPhoneNumber) : null;
-      if (!e164Digits) failureCode = "invalid_display_phone_number";
+      const wabaResponse = await fetch(
+        `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${encodeURIComponent(configuration.wabaId)}/phone_numbers?fields=id`,
+        { headers: { Authorization: `Bearer ${configuration.credentials.accessToken}` } },
+      );
+      const wabaResult = (await wabaResponse.json()) as {
+        data?: Array<{ id?: string }>;
+        error?: { code?: number };
+      };
+      if (!wabaResponse.ok || wabaResult.error)
+        failureCode = `meta_${wabaResult.error?.code ?? wabaResponse.status}`;
+      else if (!wabaResult.data?.some((phone) => phone.id === configuration.phoneNumberId))
+        failureCode = "provider_mapping_mismatch";
       else {
-        status = "succeeded";
-        failureCode = null;
+        displayPhoneNumber = result.display_phone_number ?? null;
+        e164Digits = displayPhoneNumber ? normalizeE164Digits(displayPhoneNumber) : null;
+        if (!e164Digits) failureCode = "invalid_display_phone_number";
+        else {
+          status = "succeeded";
+          failureCode = null;
+        }
       }
     }
   } catch {
