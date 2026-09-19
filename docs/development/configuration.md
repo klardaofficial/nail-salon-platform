@@ -4,23 +4,20 @@ Server secrets belong in `.env.local` or encrypted deployment variables. Never p
 
 ## Runtime environment
 
-| Variable                               | Secret    | Purpose                                                                 |
-| -------------------------------------- | --------- | ----------------------------------------------------------------------- |
-| `APP_ENV`                              | No        | `local`, `dev`, or `prod`                                               |
-| `APP_URL`                              | No        | Public application base URL used for callbacks                          |
-| `VERCEL_AUTOMATION_BYPASS_SECRET`      | Sensitive | Server-only protection bypass appended to authorized Meta callback URLs |
-| `NEXT_PUBLIC_SUPABASE_URL`             | No        | Environment-specific Supabase URL                                       |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | No        | Browser publishable key                                                 |
-| `SUPABASE_SERVICE_ROLE_KEY`            | Yes       | Server routes/jobs only; never exposed to the browser                   |
-| `INNGEST_DEV`                          | No        | `1` for the local dev server                                            |
-| `INNGEST_EVENT_KEY`                    | Yes       | Hosted event submission                                                 |
-| `INNGEST_SIGNING_KEY`                  | Yes       | Hosted invocation verification                                          |
+| Variable                               | Secret | Purpose                                               |
+| -------------------------------------- | ------ | ----------------------------------------------------- |
+| `APP_ENV`                              | No     | `local`, `dev`, or `prod`                             |
+| `APP_URL`                              | No     | Public application base URL used for callbacks        |
+| `NEXT_PUBLIC_SUPABASE_URL`             | No     | Environment-specific Supabase URL                     |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | No     | Browser publishable key                               |
+| `SUPABASE_SERVICE_ROLE_KEY`            | Yes    | Server routes/jobs only; never exposed to the browser |
+| `INNGEST_DEV`                          | No     | `1` for the local dev server                          |
+| `INNGEST_EVENT_KEY`                    | Yes    | Hosted event submission                               |
+| `INNGEST_SIGNING_KEY`                  | Yes    | Hosted invocation verification                        |
 
 Organization timezone, hours, interval, locale, preview limits, simulator enablement, Meta identifiers/overrides, technician templates, and OpenAI key/models/pricing overrides are database settings edited through organization-scoped admin APIs. Root Meta credentials/default templates and the root OpenAI key/models/pricing are root system settings, edited at `/admin/system/settings` by a system admin. Runtime provider code has no legacy Meta/OpenAI/simulator environment fallback; an organization with no override inherits the root configuration.
 
 Meta overrides require access token, app secret, and verify token together, or all three left blank to fall back to the root credentials. Organization editors receive only that organization's saved override; inherited root secrets are never returned. Likewise, an organization's OpenAI override requires an API key (submitted or already saved), a chat model, an image model, and pricing covering both models together — an organization can never pair its own model choice with the root's billing key, and can never enable an override missing any of those fields. Clearing either override reverts the organization to the root configuration. Changing routing or credentials invalidates provider validation; an active mapping accepts real traffic automatically after it validates successfully.
-
-`VERCEL_AUTOMATION_BYPASS_SECRET` is never sent to the browser except as part of a system/organization-authorized callback URL display. It is not stored in QR codes, jobs, provider settings, or logs.
 
 ## Organization bootstrap
 

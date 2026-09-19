@@ -48,13 +48,10 @@ function bundle(row: {
 }
 
 export function buildWebhookCallbackUrl(organizationId?: string) {
-  const url = new URL(
+  return new URL(
     organizationId ? `/api/whatsapp/webhook/${organizationId}` : "/api/whatsapp/webhook",
     getServerEnv().APP_URL,
-  );
-  const bypass = getServerEnv().VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
-  if (bypass) url.searchParams.set("x-vercel-protection-bypass", bypass);
-  return url.toString();
+  ).toString();
 }
 
 // Base URL for the public, unauthenticated booking-intent hand-off endpoint

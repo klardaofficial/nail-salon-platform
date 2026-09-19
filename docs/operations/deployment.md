@@ -93,7 +93,6 @@ Add these variables to Vercel's **Production** environment:
 ```text
 APP_ENV=prod
 APP_URL=https://YOUR_DOMAIN
-VERCEL_AUTOMATION_BYPASS_SECRET=...
 
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
@@ -105,7 +104,7 @@ INNGEST_DEV=0
 
 ```
 
-Use the current values from `.env.example` and [configuration reference](../development/configuration.md). Vercel must keep service-role, bypass, and Inngest keys server-only. Provider/runtime settings are stored per organization through the dashboard; legacy provider environment variables are used only by the one-time bootstrap command during upgrade.
+Use the current values from `.env.example` and [configuration reference](../development/configuration.md). Vercel must keep service-role and Inngest keys server-only. Provider/runtime settings are stored per organization through the dashboard; legacy provider environment variables are used only by the one-time bootstrap command during upgrade.
 
 For hosted simulation, enable Simulator on that organization and open its scoped Simulator page. Configure its OpenAI key for natural conversations. Meta credentials remain optional for simulation alone.
 

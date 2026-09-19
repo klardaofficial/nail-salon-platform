@@ -3,7 +3,6 @@ import { z } from "zod";
 const serverEnvSchema = z.object({
   APP_ENV: z.enum(["local", "dev", "prod"]).default("local"),
   APP_URL: z.url().default("http://localhost:3000"),
-  VERCEL_AUTOMATION_BYPASS_SECRET: z.string().optional(),
   NEXT_PUBLIC_SUPABASE_URL: z.url().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
