@@ -9,6 +9,7 @@ Use this page by task:
 - Work on the dashboard: [admin UI conventions](development/admin-ui.md) and [analytics definitions](product/analytics.md).
 - Inspect platform activity or chats: [platform observability](architecture/platform-observability.md).
 - Debug a message: [WhatsApp integration](integrations/whatsapp.md), [conversation state](architecture/conversation-state.md), and [OpenAI integration](integrations/openai.md).
+- Integrate an external booking website: [external booking website integration](integrations/external-booking-website.md).
 - Deploy or operate: [deployment](operations/deployment.md) and [runbooks](operations/runbooks.md).
 
 Read only the documents relevant to the task. Current behavior is defined by the requirements, code, and tests.

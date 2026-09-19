@@ -62,6 +62,16 @@ export function buildBookingIntentUrl(organizationId: string) {
   return new URL(`/api/public/${organizationId}/booking-intent`, getServerEnv().APP_URL).toString();
 }
 
+// Base URL for the public, unauthenticated catalog endpoint (see
+// docs/architecture/authorization.md "Public endpoints" and BOOK-08 in
+// docs/product/requirements.md). Publishes this organization's salon/
+// service/technician UUIDs, timezone, and hours so an external booking
+// website can discover the identifiers buildBookingIntentUrl's query
+// parameters accept.
+export function buildPublicCatalogUrl(organizationId: string) {
+  return new URL(`/api/public/${organizationId}/catalog`, getServerEnv().APP_URL).toString();
+}
+
 function template(
   organizationValue: string | null,
   rootValue: string | null,
