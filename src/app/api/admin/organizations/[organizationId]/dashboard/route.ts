@@ -15,11 +15,13 @@ const schema = z
   .object({ ...reportingFields, source: z.enum(["real", "simulator", "both"]).default("real") })
   .refine(validReportingRange, { message: reportingRangeMessage });
 
-function relatedName(value: unknown, fallback: string) {
-  if (value && typeof value === "object" && "name" in value)
-    return String((value as { name: unknown }).name);
-  if (Array.isArray(value) && value[0] && typeof value[0] === "object" && "name" in value[0])
-    return String((value[0] as { name: unknown }).name);
+function related(value: unknown, key: string, fallback = "") {
+  if (Array.isArray(value)) {
+    return String((value[0] as Record<string, unknown> | undefined)?.[key] ?? fallback);
+  }
+  if (value && typeof value === "object") {
+    return String((value as Record<string, unknown>)[key] ?? fallback);
+  }
   return fallback;
 }
 
@@ -46,7 +48,7 @@ export async function GET(
     let cohortQuery = supabase
       .from("bookings")
       .select(
-        "id,contact_id,created_at,starts_at,status,simulated,salon:salons!bookings_organization_salon_fkey(name),customer:contacts!bookings_organization_contact_fkey(display_name,wa_id)",
+        "id,contact_id,created_at,starts_at,status,simulated,customer:contacts!bookings_organization_contact_fkey(display_name,wa_id)",
       )
       .eq("organization_id", organizationId)
       .gte("created_at", start)
@@ -107,8 +109,10 @@ export async function GET(
       ...analytics,
       recentBookings: (cohortResult.data ?? []).slice(0, 8).map((booking) => ({
         id: booking.id,
-        customerName: relatedName(booking.customer, "WhatsApp customer"),
-        salonName: relatedName(booking.salon, "[N/A]"),
+        customerName:
+          related(booking.customer, "display_name") ||
+          related(booking.customer, "wa_id", "WhatsApp customer"),
+        customerWhatsapp: related(booking.customer, "wa_id", "[N/A]"),
         startsAt: booking.starts_at,
         status: booking.status,
       })),

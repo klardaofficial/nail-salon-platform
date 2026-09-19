@@ -31,7 +31,7 @@ export async function queryAdminBookings(
   let query = supabase
     .from("bookings")
     .select(
-      "id,status,starts_at,local_time_label,timezone_snapshot,additional_request,cancelled_at,cancellation_reason,simulated,created_at,updated_at,technician_name_snapshot,business_id,salon:salons!bookings_organization_salon_fkey(name),customer:contacts!bookings_organization_contact_fkey(display_name,wa_id),booking_services!booking_services_organization_booking_fkey(service_name_snapshot,position,service_id)",
+      "id,status,starts_at,local_time_label,timezone_snapshot,additional_request,cancelled_at,cancellation_reason,simulated,created_at,updated_at,technician_name_snapshot,business_id,salon:salons!bookings_organization_salon_fkey(name,location_label),customer:contacts!bookings_organization_contact_fkey(display_name,wa_id),booking_services!booking_services_organization_booking_fkey(service_name_snapshot,position,service_id)",
     )
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
@@ -62,7 +62,9 @@ export async function queryAdminBookings(
       customerName:
         related(booking.customer, "display_name") ||
         related(booking.customer, "wa_id", "WhatsApp customer"),
+      customerWhatsapp: related(booking.customer, "wa_id", "[N/A]"),
       salonName: related(booking.salon, "name", "[N/A]"),
+      salonLocation: related(booking.salon, "location_label", "[N/A]"),
       services: serviceDetails.map((service) => service.name).join(", ") || "[N/A]",
       serviceDetails,
       technicianName: booking.technician_name_snapshot,

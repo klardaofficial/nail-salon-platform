@@ -19,7 +19,7 @@ export type DashboardData = {
   recentBookings: {
     id: string;
     customerName: string;
-    salonName: string;
+    customerWhatsapp: string;
     startsAt: string;
     status: "confirmed" | "cancelled";
   }[];

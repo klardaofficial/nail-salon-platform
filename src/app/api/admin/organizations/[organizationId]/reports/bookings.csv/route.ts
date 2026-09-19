@@ -29,7 +29,9 @@ export async function GET(
       [
         "Reference",
         "Customer",
+        "Customer WhatsApp",
         "Salon",
+        "Salon location",
         "Services",
         "Technician",
         "Starts at",
@@ -46,7 +48,9 @@ export async function GET(
       ...rows.map((row) => [
         row.id,
         row.customerName,
+        row.customerWhatsapp,
         row.salonName,
+        row.salonLocation,
         row.serviceDetails
           .map((service) => (service.custom ? `${service.name} (custom)` : service.name))
           .join("; "),

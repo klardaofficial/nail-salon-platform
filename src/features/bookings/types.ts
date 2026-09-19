@@ -3,7 +3,9 @@ export type AdminBookingService = { name: string; position: number; custom: bool
 export type AdminBookingRow = {
   id: string;
   customerName: string;
+  customerWhatsapp: string;
   salonName: string;
+  salonLocation: string;
   services: string;
   serviceDetails: AdminBookingService[];
   technicianName: string | null;

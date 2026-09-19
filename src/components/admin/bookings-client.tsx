@@ -30,6 +30,8 @@ function BookingDetail({ row }: { row: AdminBookingRow }) {
             </Tag>
           ),
         },
+        { key: "customerWhatsapp", label: "Customer WhatsApp", children: row.customerWhatsapp },
+        { key: "salonLocation", label: "Salon location", children: row.salonLocation },
         {
           key: "localTime",
           label: "Booked local time",

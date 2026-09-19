@@ -40,6 +40,7 @@ describe("queryAdminBookings", () => {
     expect(selection).toContain("simulated");
     expect(selection).toContain("updated_at");
     expect(selection).toContain("service_id");
+    expect(selection).toContain("location_label");
     expect(selection).toContain("salons!bookings_organization_salon_fkey");
     expect(selection).toContain("contacts!bookings_organization_contact_fkey");
     expect(selection).toContain("booking_services!booking_services_organization_booking_fkey");
@@ -60,7 +61,7 @@ describe("queryAdminBookings", () => {
         created_at: "2026-09-19T00:00:00Z",
         updated_at: "2026-09-19T00:00:00Z",
         technician_name_snapshot: null,
-        salon: { name: "Downtown" },
+        salon: { name: "Downtown", location_label: "Downtown mall, 2nd floor" },
         customer: { display_name: "Alex", wa_id: "1234567890" },
         booking_services: [
           { service_name_snapshot: "Gel polish", position: 1, service_id: "svc-1" },
@@ -76,6 +77,8 @@ describe("queryAdminBookings", () => {
       { name: "Gel polish", position: 1, custom: false },
     ]);
     expect(row.services).toBe("Nail art, Gel polish");
+    expect(row.customerWhatsapp).toBe("1234567890");
+    expect(row.salonLocation).toBe("Downtown mall, 2nd floor");
   });
 
   it("falls back to [N/A] when the salon or services are missing", async () => {
@@ -102,6 +105,7 @@ describe("queryAdminBookings", () => {
     const [row] = await queryAdminBookings("org-1", {});
 
     expect(row.salonName).toBe("[N/A]");
+    expect(row.salonLocation).toBe("[N/A]");
     expect(row.services).toBe("[N/A]");
     expect(row.serviceDetails).toEqual([]);
     expect(row.customerName).toBe("1234567890");

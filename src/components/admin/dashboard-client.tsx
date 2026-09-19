@@ -234,7 +234,7 @@ export function DashboardClient({
                   dataSource={data.recentBookings}
                   columns={[
                     { title: "Customer", dataIndex: "customerName" },
-                    { title: "Salon", dataIndex: "salonName" },
+                    { title: "Phone", dataIndex: "customerWhatsapp" },
                     {
                       title: "Starts",
                       dataIndex: "startsAt",

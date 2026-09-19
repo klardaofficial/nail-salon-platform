@@ -42,7 +42,7 @@ function request(query = "") {
 const params = Promise.resolve({ organizationId: "00000000-0000-4000-8000-000000000101" });
 
 describe("bookings CSV export route", () => {
-  it("emits the 15-column header in the documented order", async () => {
+  it("emits the 17-column header in the documented order", async () => {
     const response = await GET(request(), { params });
     const text = await response.text();
     const [header] = withoutBom(text).split("\r\n");
@@ -51,7 +51,9 @@ describe("bookings CSV export route", () => {
       [
         "Reference",
         "Customer",
+        "Customer WhatsApp",
         "Salon",
+        "Salon location",
         "Services",
         "Technician",
         "Starts at",
@@ -85,7 +87,7 @@ describe("bookings CSV export route", () => {
         created_at: "2026-09-19T00:00:00Z",
         updated_at: "2026-09-19T00:00:00Z",
         technician_name_snapshot: "Jamie",
-        salon: { name: "Downtown" },
+        salon: { name: "Downtown", location_label: "Downtown mall, 2nd floor" },
         customer: { display_name: "Alex", wa_id: "1234567890" },
         booking_services: [{ service_name_snapshot: "Gel polish", position: 0, service_id: null }],
       },
@@ -102,7 +104,7 @@ describe("bookings CSV export route", () => {
         created_at: "2026-09-19T00:00:00Z",
         updated_at: "2026-09-19T00:00:00Z",
         technician_name_snapshot: null,
-        salon: { name: "Uptown" },
+        salon: { name: "Uptown", location_label: "Uptown plaza" },
         customer: { display_name: "Sam", wa_id: "1234567891" },
         booking_services: [],
       },
@@ -115,7 +117,10 @@ describe("bookings CSV export route", () => {
     expect(lines).toHaveLength(3);
     expect(lines[1]).toContain(`"'=SUM(A1)"`);
     expect(lines[1]).toContain(`"Gel polish (custom)"`);
+    expect(lines[1]).toContain(`"1234567890"`);
+    expect(lines[1]).toContain(`"Downtown mall, 2nd floor"`);
     expect(lines[2]).toContain(`"Simulator"`);
     expect(lines[2]).toContain(`"Customer requested"`);
+    expect(lines[2]).toContain(`"Uptown plaza"`);
   });
 });
