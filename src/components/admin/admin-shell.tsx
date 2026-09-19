@@ -2,7 +2,6 @@
 
 import {
   CalendarDotsIcon,
-  ChartLineUpIcon,
   ChatCircleDotsIcon,
   GearSixIcon,
   HouseLineIcon,
@@ -99,11 +98,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
           label: (
             <Link href={`/admin/organizations/${organizationId}/technicians`}>Technicians</Link>
           ),
-        },
-        {
-          key: `/admin/organizations/${organizationId}/analytics`,
-          icon: <ChartLineUpIcon size={18} />,
-          label: <Link href={`/admin/organizations/${organizationId}/analytics`}>Analytics</Link>,
         },
         {
           key: `/admin/organizations/${organizationId}/inbox`,
