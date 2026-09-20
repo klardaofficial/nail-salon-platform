@@ -1,6 +1,6 @@
 # Production deployment guide
 
-This guide deploys the application without custom Vercel or Supabase deploy workflows. Vercel and Supabase each watch GitHub directly. The repository `Quality` Action remains a required validation check.
+This guide deploys the application without custom Vercel or Supabase deploy workflows. Vercel and Supabase each watch GitHub directly.
 
 ## 1. Production accounts and values
 
@@ -21,9 +21,8 @@ In **GitHub | Settings | Branches | Branch protection rules**, protect `main` an
 
 1. Require a pull request before merging.
 2. Require status checks to pass.
-3. Select the repository `Quality / application` and `Quality / database` checks.
-4. After Supabase is connected, add its preview/migration check as required.
-5. Require branches to be up to date before merging.
+3. After Supabase is connected, add its preview/migration check as required.
+4. Require branches to be up to date before merging.
 
 Do not commit `.env.local`, service-role keys, WhatsApp tokens, customer exports, or image data.
 
@@ -112,7 +111,7 @@ For hosted simulation, enable Simulator on that organization and open its scoped
 
 Vercel and Supabase respond independently to a Git push. Follow this order for the initial release:
 
-1. Merge a pull request only after GitHub Quality and Supabase checks pass.
+1. Merge a pull request only after the configured Supabase checks pass.
 2. Watch the Supabase production branch until the migration is applied.
 3. Watch the Vercel production deployment until the build is Ready.
 4. Verify `https://YOUR_DOMAIN/api/health` returns `status: ok`, `environment: prod`, the intended bot locale, and `databaseConfigured: true`.
