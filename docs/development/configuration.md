@@ -15,7 +15,7 @@ Server secrets belong in `.env.local` or encrypted deployment variables. Never p
 | `INNGEST_EVENT_KEY`                    | Yes    | Hosted event submission                               |
 | `INNGEST_SIGNING_KEY`                  | Yes    | Hosted invocation verification                        |
 
-`APP_URL` also doubles as the fallback for an organization's optional External Website setting (see BOT-01 in `docs/product/requirements.md`): a scripted-mode reply names that organization's own booking site when set, or `APP_URL` when it is null. No separate environment variable exists for this.
+`APP_URL` also doubles as the fallback for an organization's optional External Website setting (see BOT-01 in `docs/product/requirements.md`): a deterministic reply (a scripted-mode greeting, or a Cancel-tap confirmation in either mode) names that organization's own booking site when set, or `APP_URL` when it is null. No separate environment variable exists for this.
 
 Organization timezone, hours, interval, locale, preview limits, simulator enablement, AI bot enablement, External Website URL, Meta identifiers/overrides, technician templates, and OpenAI key/models/pricing overrides are database settings edited through organization-scoped admin APIs. Root Meta credentials/default templates and the root OpenAI key/models/pricing are root system settings, edited at `/admin/system/settings` by a system admin. Runtime provider code has no legacy Meta/OpenAI/simulator environment fallback; an organization with no override inherits the root configuration.
 

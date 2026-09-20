@@ -2,9 +2,20 @@
 
 ## Shared entry
 
-Everything below describes conversations while an organization's AI bot setting is **enabled** (the default). See [Scripted mode](#scripted-mode-ai-bot-disabled) for what happens with the bot turned off.
+Everything below describes conversations while an organization's AI bot setting is **enabled** (the default) — except for two fast paths that are deterministic in **both** modes, described in [Deterministic fast paths](#deterministic-fast-paths) below. See [Scripted mode](#scripted-mode-ai-bot-disabled) for what happens to every other message with the bot turned off.
 
-Each opening message, greeting, question, image, or interactive tap goes through the same AI conversation path. The bot produces one contextual reply, asking at most one focused question. Date and time may be requested together. All text, option titles/descriptions, list headings, and list button labels are generated in the person's language, with no language allowlist. The organization's selected default language is only the initial reference when language is unclear; clear language switches take effect immediately.
+Each opening message, greeting, question, image, or interactive tap other than the two fast paths goes through the same AI conversation path. The bot produces one contextual reply, asking at most one focused question. Date and time may be requested together. All text, option titles/descriptions, list headings, and list button labels are generated in the person's language, with no language allowlist. The organization's selected default language is only the initial reference when language is unclear; clear language switches take effect immediately.
+
+## Deterministic fast paths
+
+Two kinds of inbound message need no judgment, so they are handled by pure program code before the AI is ever consulted — in **both** AI-enabled and scripted mode, ahead of everything else described in this document:
+
+1. **Cancel tap.** A tap on a booking confirmation's interactive Cancel button cancels that exact booking immediately, with no follow-up question, no OpenAI call, and no owner/technician command processing. See [Scripted mode](#scripted-mode-ai-bot-disabled) for the reply text.
+2. **Booking-intent prefill.** A `[BK-…]` code (BOOK-07) that successfully claims is booked and auto-confirmed on the spot — the customer already made every choice on the external website, so there is nothing left to decide. The reply carries the booking reference and the same one-tap Cancel option. A claim that cannot be booked (its slot has since passed, or the business has since gone inactive) books nothing, leaves the draft `collecting`, and falls through: to the normal AI conversation when the bot is on, or to a static "not available" message when the bot is off. An unknown, expired, or already-consumed code falls through the same way.
+
+Both fast paths reuse the conversation's already-detected language (`conversations.reply_locale`) when one exists, falling back to the organization's configured bot language (`organization_settings.bot_locale`) otherwise — this is true only while the bot is **on**; with the bot off, both always use `bot_locale` (see [Scripted mode](#scripted-mode-ai-bot-disabled)). Neither fast path writes an `ai_usage` row, since no OpenAI call is made.
+
+The AI is not blind to a booking created this way: it is written to conversation history the same as any other reply, and the customer's own bookings (however they were created) are always visible to the `list_my_bookings` tool. A later "move it to 4pm" or "cancel it" request in chat still works normally.
 
 Stored owner/technician mappings select staff assistance. A customer cannot gain staff access by claiming a role in text. Greetings explain relevant capabilities and offer useful actions. Specific opening requests go straight to the requested task instead of receiving an unrelated welcome or location questionnaire.
 
@@ -72,15 +83,15 @@ A customer may change the date/time, salon, services, technician, or additional 
 
 ## Scripted mode (AI bot disabled)
 
-Turning an organization's AI bot off (BOT-01) replaces the entire path above with deterministic, non-AI handling — no OpenAI call is made for any inbound message, and owner/technician command processing is skipped entirely (there is no model available to interpret staff commands). Every reply is built from the static, localized copy dictionary keyed by the organization's configured bot language, never AI-detected.
+Turning an organization's AI bot off (BOT-01) replaces the AI conversation path above with deterministic, non-AI handling for everything that isn't already one of the [deterministic fast paths](#deterministic-fast-paths) — no OpenAI call is made for any inbound message, and owner/technician command processing is skipped entirely (there is no model available to interpret staff commands). Every reply is built from the static, localized copy dictionary keyed by the organization's configured bot language, never AI-detected.
 
 For each inbound message, in priority order:
 
-1. **Cancel tap.** Handled first, exactly as in AI-enabled mode: cancel that booking immediately, no follow-up question, reply contains the External Website URL.
-2. **Booking-intent prefill.** A `[BK-…]` code (BOOK-07) is claimed, and — unlike AI-enabled mode, where claiming only seeds a draft that the model still has to confirm — the booking is created and auto-confirmed on the spot. The reply carries the booking reference and the same one-tap Cancel option described above. An expired, unknown, or already-consumed code falls through to the greeting below instead of erroring.
+1. **Cancel tap.** Handled first, identically in both modes: cancel that booking immediately, no follow-up question, reply contains the External Website URL. See [Deterministic fast paths](#deterministic-fast-paths).
+2. **Booking-intent prefill.** A `[BK-…]` code (BOOK-07) is claimed and, identically in both modes, booked and auto-confirmed on the spot. The reply carries the booking reference and the same one-tap Cancel option described above. An expired, unknown, already-consumed, or not-currently-bookable code falls through to the greeting below instead of erroring.
 3. **Everything else.** A static greeting naming the organization's External Website URL (or the deployment's own root URL, if the organization has not set one), inviting the customer to book there.
 
-Scripted replies do not infer or persist a conversation language (`conversations.reply_locale`) the way AI replies do, since there is no detection step; they always use the organization's configured bot language. A scripted turn writes no `ai_usage` row.
+With the bot off, scripted replies do not infer or persist a conversation language (`conversations.reply_locale`) the way AI replies do, since there is no detection step; they always use the organization's configured bot language. A scripted turn writes no `ai_usage` row.
 
 ## Technician notification templates
 

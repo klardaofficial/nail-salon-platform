@@ -340,7 +340,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                 <Form.Item
                   name="externalWebsiteUrl"
                   label="External website"
-                  extra="This organization's own booking website. Shown to customers in scripted replies when the AI bot is disabled; falls back to the app's own URL when left blank."
+                  extra="This organization's own booking website. Shown to customers in Cancel and booking-intent confirmations, and in scripted replies when the AI bot is disabled; falls back to the app's own URL when left blank."
                 >
                   <Input placeholder="https://example.com" />
                 </Form.Item>
@@ -350,7 +350,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                   name="aiBotEnabled"
                   label="Enable AI bot"
                   valuePropName="checked"
-                  extra="When disabled, WhatsApp replies use fixed, per-language scripted text instead of AI, and owner/technician commands are not processed. Booking-intent hand-offs and technician confirm/cancel notifications keep working."
+                  extra="A tap on the Cancel button and a completed booking-website hand-off are always handled instantly without AI, in either position of this switch. When disabled, every other WhatsApp reply uses fixed, per-language scripted text instead of AI, and owner/technician commands are not processed. Technician confirm/cancel notifications keep working."
                 >
                   <Switch />
                 </Form.Item>
@@ -435,11 +435,12 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
               chosen. Have the website redirect the customer&apos;s browser to the URL below (as a
               plain link, not an API call) once they&apos;ve made their selections. The app records
               those choices, opens WhatsApp with a prefilled message in this organization&apos;s
-              language, and the bot books the appointment as soon as the customer sends that
-              message&mdash;no extra typing required. Enter that website&apos;s URL as the{" "}
+              language, and the appointment is booked and confirmed as soon as the customer sends
+              that message&mdash;instantly and without AI, no extra typing required, whether the AI
+              bot below is enabled or not. Enter that website&apos;s URL as the{" "}
               <Typography.Text strong>External website</Typography.Text> field above the WhatsApp
-              Account section&mdash;customers are pointed back to it in every scripted reply when
-              the AI bot is disabled.
+              Account section&mdash;customers are pointed back to it in that confirmation, and in
+              every scripted reply when the AI bot is disabled.
             </Typography.Paragraph>
             {data.provider.readiness !== "enabled" ? (
               <Alert

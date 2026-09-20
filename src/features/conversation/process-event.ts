@@ -127,6 +127,12 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     deduplicationKey: `conversation:${conversationId}:reply:${event.providerEventId}`,
   } as const;
   const locale = conversationResult.data.reply_locale ?? messageSettings!.bot_locale;
+  // Deterministic replies reuse a detected conversation language when the AI
+  // is in play (cheap, and keeps a switched-language chat consistent); with
+  // the bot off there is no detection step, so they follow the organization
+  // setting strictly, ignoring any reply_locale left over from before the
+  // bot was turned off.
+  const scriptedLocale = messageSettings!.ai_bot_enabled ? locale : messageSettings!.bot_locale;
   const rawMessageText = normalizedMessageText(event);
   // Extracted here (before history is stored) so the code never lands in
   // conversation_messages or the admin inbox; actually claimed further below,
@@ -185,7 +191,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
       bookingId: cancelId,
       transport,
     });
-    const messages = resolveStaticMessages(messageSettings!.bot_locale);
+    const messages = resolveStaticMessages(scriptedLocale);
     await queueWhatsAppMessage({
       ...replyTarget,
       payload: {
@@ -208,59 +214,66 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   let claim: ClaimedBookingIntent | null = null;
   if (intentCode) claim = await claimBookingIntentByCode(organizationId, conversationId, intentCode);
 
-  if (!messageSettings!.ai_bot_enabled) {
-    const messages = resolveStaticMessages(messageSettings!.bot_locale);
-    const website = resolveExternalWebsiteUrl(messageSettings!.external_website_url);
-
-    if (claim) {
-      const businessResult = await supabase
-        .from("businesses")
-        .select("id")
-        .eq("organization_id", organizationId)
-        .single();
-      if (businessResult.error) throw businessResult.error;
-      const outcome = await confirmBookingFromIntent({
-        organizationId,
-        businessId: businessResult.data.id,
-        contactId,
-        conversationId,
-        transport,
-        claim,
+  // Priority #2, in both modes: a successfully claimed hand-off needs no
+  // judgment, so it is booked deterministically whether the bot is on or
+  // off. A claim that cannot be booked (slot has passed, business inactive)
+  // books nothing and falls through -- to the AI when the bot is on (it can
+  // help pick a new time from the already-seeded draft), or to the static
+  // "unavailable" message when the bot is off.
+  let intentAttempted = false;
+  if (claim) {
+    intentAttempted = true;
+    const businessResult = await supabase
+      .from("businesses")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .single();
+    if (businessResult.error) throw businessResult.error;
+    const outcome = await confirmBookingFromIntent({
+      organizationId,
+      businessId: businessResult.data.id,
+      contactId,
+      conversationId,
+      transport,
+      claim,
+    });
+    if (outcome.outcome === "confirmed") {
+      const messages = resolveStaticMessages(scriptedLocale);
+      const details = formatStaticDetails(messages.fields, {
+        appointment: outcome.startsAt,
+        salon: outcome.salon ?? null,
+        services: outcome.services ?? null,
+        technician: outcome.technician ?? null,
+        customer: contactResult.data.display_name || "[N/A]",
+        phone: contactResult.data.wa_id,
       });
-      if (outcome.outcome === "unavailable") {
-        await queueWhatsAppMessage({
-          ...replyTarget,
-          payload: {
-            kind: "text",
-            text: formatStaticMessage(messages.bookingUnavailable, { website }),
-          },
-        });
-      } else {
-        const details = formatStaticDetails(messages.fields, {
-          appointment: outcome.startsAt,
-          salon: outcome.salon ?? null,
-          services: outcome.services ?? null,
-          technician: outcome.technician ?? null,
-          customer: contactResult.data.display_name || "[N/A]",
-          phone: contactResult.data.wa_id,
-        });
-        await queueInteractiveChoices({
-          ...replyTarget,
-          body: formatStaticMessage(messages.bookingConfirmed, {
-            details,
-            reference: outcome.bookingId,
-          }),
-          buttonLabel: messages.cancelAction,
-          sectionTitle: messages.cancelAction,
-          options: [{ id: formatCancelAction(outcome.bookingId), title: messages.cancelAction }],
-        });
-      }
-    } else {
-      await queueWhatsAppMessage({
+      await queueInteractiveChoices({
         ...replyTarget,
-        payload: { kind: "text", text: formatStaticMessage(messages.greeting, { website }) },
+        body: formatStaticMessage(messages.bookingConfirmed, {
+          details,
+          reference: outcome.bookingId,
+        }),
+        buttonLabel: messages.cancelAction,
+        sectionTitle: messages.cancelAction,
+        options: [{ id: formatCancelAction(outcome.bookingId), title: messages.cancelAction }],
       });
+      await markProcessed();
+      return { processed: "message" };
     }
+  }
+
+  if (!messageSettings!.ai_bot_enabled) {
+    const messages = resolveStaticMessages(scriptedLocale);
+    const website = resolveExternalWebsiteUrl(messageSettings!.external_website_url);
+    await queueWhatsAppMessage({
+      ...replyTarget,
+      payload: {
+        kind: "text",
+        text: intentAttempted
+          ? formatStaticMessage(messages.bookingUnavailable, { website })
+          : formatStaticMessage(messages.greeting, { website }),
+      },
+    });
     await markProcessed();
     return { processed: "message" };
   }

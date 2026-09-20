@@ -213,9 +213,10 @@ not match an active salon, the request fails outright.
 
 **The only required field is `startsAt`. Everything else — salon, services,
 technician, additional request — is optional, and your UI must let the
-customer skip all of them.** The salon's bot will ask about anything left
-unfilled once the customer starts chatting, so there is no need to force a
-complete form before the customer can proceed.
+customer skip all of them.** Sending the message books the appointment
+immediately with exactly what you sent; anything left unfilled is simply
+left blank on the booking rather than being asked about afterward, so there
+is no need to force a complete form before the customer can proceed.
 
 ```
 GET {bookingUrl}?startsAt=2026-09-20T15:00&serviceIds=<uuid>,<uuid>&technicianRef=<uuid>&additionalRequest=<text>
@@ -258,9 +259,12 @@ selections you sent were actually accepted. Practical implications:
 
 - Don't hardcode UUIDs you fetched once, long ago — re-fetch the catalog on
   each visit so you're always sending IDs that currently exist.
-- If something is rejected (e.g. a stale service ID), the customer still ends
-  up in a working chat with the bot, which will ask them directly for
-  whatever is missing. Nothing is lost; the fallback is graceful by design.
+- If something is rejected (e.g. a stale service ID), no intent is created,
+  so the plain-wave message carries no `[BK-…]` code — the customer still
+  ends up in a working chat, just without the immediate booking: a normal
+  free-text conversation if the organization's bot is on, or a scripted
+  greeting pointing at the External Website if it is off. Nothing is lost;
+  the fallback is graceful by design.
 
 ### Errors
 
@@ -289,13 +293,11 @@ the customer or retry.
 - **Repeated identical requests are safe.** Submitting the exact same
   selections twice in a row (e.g. a double-click) reuses the same underlying
   intent rather than creating a duplicate.
-- **What happens after the hand-off depends on the organization's AI bot
-  setting**, which this integration has no visibility into and no control
-  over. If the organization's bot is enabled (the default), sending the
-  prefilled message starts a normal conversation: the bot treats your
-  selections as already agreed and asks about anything you left blank before
-  confirming. If the organization has turned its bot **off**, there is no
-  conversation — the message is booked and confirmed immediately, in the same
-  turn, with no follow-up questions for anything you left blank. Either way,
-  the customer ends up with a confirmed booking or a bot ready to fill the
-  gaps; your integration does not need to know which mode is active.
+- **The hand-off is booked and confirmed immediately**, in the same turn,
+  regardless of the organization's AI bot setting — which this integration
+  has no visibility into and no control over. Sending the prefilled message
+  books the appointment straight away with exactly the selections you sent;
+  anything you left blank (salon, services, technician, additional request)
+  is simply left blank on the resulting booking, with no follow-up questions.
+  The customer gets an immediate confirmation reply with their booking
+  reference and a one-tap Cancel option.
