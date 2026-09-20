@@ -3,8 +3,14 @@
 This guide is for building an external booking website (or an AI agent
 building one) that hands a customer off to WhatsApp with their appointment
 selections already made. It is self-contained: no access to this repository
-is required to follow it. The only input you need is the **organization ID**
-(a UUID), supplied by the salon operator.
+is required to follow it. The only inputs you need, both supplied by the salon
+operator, are:
+
+- The **booking system endpoint** — the base URL of this deployment (e.g.
+  `https://booking.nail-system.com`). Every endpoint path below is relative to
+  it.
+- The **organization ID** (a UUID) — identifies this salon operator's
+  organization within that deployment.
 
 There is no API key, no authentication, and no availability lookup. There is
 no callback the organization sends you: the only "callback" in this
@@ -19,10 +25,16 @@ here.
 
 ## The two endpoints
 
-| Purpose                                 | Endpoint                                          |
-| --------------------------------------- | ------------------------------------------------- |
-| 1. Discover this organization's catalog | `GET /api/public/{organizationId}/catalog`        |
-| 2. Hand the customer to WhatsApp        | `GET /api/public/{organizationId}/booking-intent` |
+| Purpose                                 | Endpoint                                                          |
+| ---------------------------------------- | ------------------------------------------------------------------ |
+| 1. Discover this organization's catalog | `GET {bookingSystemEndpoint}/api/public/{organizationId}/catalog`        |
+| 2. Hand the customer to WhatsApp        | `GET {bookingSystemEndpoint}/api/public/{organizationId}/booking-intent` |
+
+`{bookingSystemEndpoint}` is the base URL your salon operator gave you (e.g.
+`https://booking.nail-system.com`) — every path in this guide is relative to
+it. In practice you don't need to build endpoint 2's URL yourself at all: the
+catalog response's `bookingUrl` field already gives you the full URL,
+endpoint included (see below).
 
 Both are public GET endpoints, CORS-enabled (`Access-Control-Allow-Origin: *`),
 so you can call the catalog endpoint with `fetch()` from your own frontend. The
@@ -32,7 +44,7 @@ rather than hardcoding a previous response's IDs.
 ## Step 1: fetch the catalog
 
 ```
-GET /api/public/00000000-0000-4000-8000-000000000101/catalog
+GET https://booking.nail-system.com/api/public/00000000-0000-4000-8000-000000000101/catalog
 ```
 
 Example response for an organization with some setup done:
