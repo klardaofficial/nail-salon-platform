@@ -9,9 +9,9 @@ pnpm typecheck
 pnpm test:run
 ```
 
-`pnpm check` runs these in order. Application tests cover WhatsApp signature verification/normalization, analytics cohorts/timezone grouping, simulator routing/authorization, and UI behavior. They do not execute or inspect Supabase migration SQL. Do not add or maintain automated migration tests; the quality workflow runs application checks only.
+`pnpm check` runs these in order. Application tests cover WhatsApp signature verification/normalization, analytics cohorts/timezone grouping, simulator routing/authorization, and UI behavior. They do not execute or inspect Supabase migration SQL. Do not add or maintain automated migration tests.
 
-`pnpm lint` enables type-aware `@typescript-eslint/no-deprecated` as an error for TypeScript source and tests. This makes `pnpm check` and the quality workflow reject deprecated APIs identified by dependency declarations; TypeScript compilation alone does not reject these editor diagnostics. Runtime-only deprecations without type annotations still require runtime verification.
+`pnpm lint` enables type-aware `@typescript-eslint/no-deprecated` as an error for TypeScript source and tests. This makes `pnpm check` reject deprecated APIs identified by dependency declarations; TypeScript compilation alone does not reject these editor diagnostics. Runtime-only deprecations without type annotations still require runtime verification.
 
 Vitest uses typed configuration and `fileParallelism: false` to run files serially. This is the current equivalent of the former, ignored `singleThread` setting and prevents concurrent Ant Design/Phosphor UI imports from exhausting Windows file handles.
 

@@ -44,6 +44,6 @@ Run all repository checks with:
 pnpm check
 ```
 
-Application deployment uses Vercel's GitHub integration. Supabase Branching's GitHub integration validates and applies migrations. GitHub Actions only runs repository quality checks.
+Application deployment uses Vercel's GitHub integration. Supabase Branching's GitHub integration validates and applies migrations.
 
 Start with [the documentation index](docs/index.md) and [coding-agent guide](AGENTS.md). Product scope lives in [the requirements](docs/product/requirements.md); code and tests describe the current implementation.
