@@ -21,4 +21,12 @@ Provider configuration is Incomplete, Unvalidated, Invalid, Ready/disabled for a
 
 Technician template selection is resolved before queueing. The immutable outbox payload retains template name, language, five parameters, and source so retries do not change meaning. Blank organization templates under an override mean ordinary localized messages; root templates are inherited only with root Meta credentials.
 
+## Cancel button
+
+Every booking confirmation — AI-written or scripted (see BOT-01 in `docs/product/requirements.md`) — carries a single interactive option whose id is `booking:cancel:<uuid>`, the booking's own id, rather than an opaque token the server has to look up. The normalizer already captures `button_reply.id`/`list_reply.id` verbatim as `message.interactiveId`, and a button/list id may be up to 256 characters, so the full UUID fits with room to spare. A tap is recognized by parsing that prefix before anything else runs — ahead of AI dispatch and ahead of the scripted priority chain — so cancellation never depends on conversation history or the model. The button's title text (the localized `cancelAction` string in `src/lib/bot/static-messages.ts`, reused for the AI-enabled path too) must stay at or under WhatsApp's 20-character button-title cap in every supported language; list rows get 24.
+
+## Ordinary technician notification without a template
+
+When no Meta template is configured, the notification body is normally AI-written in the technician's stored conversation language. With `ai_bot_enabled = false`, there is no AI call available, so the same body is instead built from the static `technicianConfirmed`/`technicianCancelled` templates in `src/lib/bot/static-messages.ts`, keyed by the organization's `bot_locale`. The Meta template path itself, and the notification's dedup keys, are unaffected by this toggle.
+
 The authenticated organization simulator uses the same normalized event/domain path with a simulated marker supplied by trusted server code. Its captured outbound messages never invoke Meta and cannot be enabled by public webhook content.

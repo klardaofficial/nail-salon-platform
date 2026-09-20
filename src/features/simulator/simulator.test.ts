@@ -34,6 +34,7 @@ vi.mock("@/inngest/client", () => ({ inngest: { send: mocks.dispatch } }));
 vi.mock("@/integrations/whatsapp/client", () => ({ sendWhatsAppMessage: mocks.graphSend }));
 vi.mock("@/features/conversation/respond", () => ({ createNaturalReply: mocks.reply }));
 vi.mock("@/features/organizations/providers", () => ({
+  resolveExternalWebsiteUrl: (stored: string | null | undefined) => stored?.trim() || "https://app.test",
   resolveEffectiveMetaConfiguration: async () => ({
     organizationId: "00000000-0000-4000-8000-000000000101",
     organizationStatus: "active",
@@ -365,7 +366,12 @@ describe("coexisting real and simulated conversations", () => {
     });
     setTable("conversation_messages", { id: "history" });
     setTable("booking_drafts", null);
-    setTable("organization_settings", { bot_locale: "en", simulator_enabled: true });
+    setTable("organization_settings", {
+      bot_locale: "en",
+      simulator_enabled: true,
+      ai_bot_enabled: true,
+      external_website_url: null,
+    });
     setTable("message_outbox", { id: "outbox", state: "pending" });
   }
   it.each([false, true])(
@@ -390,7 +396,12 @@ describe("coexisting real and simulated conversations", () => {
   );
   it("pauses simulated inbound work when the flag is disabled", async () => {
     conversationFixture(true);
-    setTable("organization_settings", { bot_locale: "en", simulator_enabled: false });
+    setTable("organization_settings", {
+      bot_locale: "en",
+      simulator_enabled: false,
+      ai_bot_enabled: true,
+      external_website_url: null,
+    });
     await expect(processWhatsAppInboxEvent("inbox")).rejects.toThrow("simulator_disabled");
     expect(writes("contacts")).toEqual([]);
   });

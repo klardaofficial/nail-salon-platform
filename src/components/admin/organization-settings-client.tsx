@@ -44,6 +44,8 @@ type SettingsResponse = {
     bot_locale: string;
     currency: string;
     simulator_enabled: boolean;
+    ai_bot_enabled: boolean;
+    external_website_url: string | null;
   };
   provider: {
     wabaId: string | null;
@@ -82,6 +84,8 @@ type OrganizationFormValues = {
   platformTimezone: string;
   botLocale: string;
   currency: string;
+  aiBotEnabled: boolean;
+  externalWebsiteUrl: string | null;
 };
 
 type WhatsAppAccountFormValues = {
@@ -150,6 +154,8 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       platformTimezone: data.settings.platform_timezone,
       botLocale: data.settings.bot_locale,
       currency: data.settings.currency,
+      aiBotEnabled: data.settings.ai_bot_enabled,
+      externalWebsiteUrl: data.settings.external_website_url,
     });
     waAccountForm.setFieldsValue({
       wabaId: data.provider.wabaId,
@@ -330,6 +336,25 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                   />
                 </Form.Item>
               </Col>
+              <Col xs={24} lg={12}>
+                <Form.Item
+                  name="externalWebsiteUrl"
+                  label="External website"
+                  extra="This organization's own booking website. Shown to customers in scripted replies when the AI bot is disabled; falls back to the app's own URL when left blank."
+                >
+                  <Input placeholder="https://example.com" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} lg={12}>
+                <Form.Item
+                  name="aiBotEnabled"
+                  label="Enable AI bot"
+                  valuePropName="checked"
+                  extra="When disabled, WhatsApp replies use fixed, per-language scripted text instead of AI, and owner/technician commands are not processed. Booking-intent hand-offs and technician confirm/cancel notifications keep working."
+                >
+                  <Switch />
+                </Form.Item>
+              </Col>
             </Row>
           </SettingsSection>
 
@@ -411,7 +436,10 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
               plain link, not an API call) once they&apos;ve made their selections. The app records
               those choices, opens WhatsApp with a prefilled message in this organization&apos;s
               language, and the bot books the appointment as soon as the customer sends that
-              message&mdash;no extra typing required.
+              message&mdash;no extra typing required. Enter that website&apos;s URL as the{" "}
+              <Typography.Text strong>External website</Typography.Text> field above the WhatsApp
+              Account section&mdash;customers are pointed back to it in every scripted reply when
+              the AI bot is disabled.
             </Typography.Paragraph>
             {data.provider.readiness !== "enabled" ? (
               <Alert

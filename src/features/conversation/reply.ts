@@ -20,6 +20,12 @@ export const naturalReplySchema = z.object({
 
 export type NaturalReply = z.infer<typeof naturalReplySchema>;
 
+// Widened by respond.ts when a create_booking tool call succeeds in the same
+// turn, so process-event.ts can append the one-tap Cancel option without
+// putting booking-outcome plumbing into the model's structured-output
+// contract (naturalReplySchema). Omitted entirely when there is no booking.
+export type ConversationReply = NaturalReply & { confirmedBookingId?: string };
+
 export function parseNaturalReply(text: string): NaturalReply | null {
   try {
     const parsed = naturalReplySchema.safeParse(JSON.parse(text));

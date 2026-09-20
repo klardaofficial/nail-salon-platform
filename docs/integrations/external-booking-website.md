@@ -277,3 +277,13 @@ the customer or retry.
 - **Repeated identical requests are safe.** Submitting the exact same
   selections twice in a row (e.g. a double-click) reuses the same underlying
   intent rather than creating a duplicate.
+- **What happens after the hand-off depends on the organization's AI bot
+  setting**, which this integration has no visibility into and no control
+  over. If the organization's bot is enabled (the default), sending the
+  prefilled message starts a normal conversation: the bot treats your
+  selections as already agreed and asks about anything you left blank before
+  confirming. If the organization has turned its bot **off**, there is no
+  conversation — the message is booked and confirmed immediately, in the same
+  turn, with no follow-up questions for anything you left blank. Either way,
+  the customer ends up with a confirmed booking or a bot ready to fill the
+  gaps; your integration does not need to know which mode is active.

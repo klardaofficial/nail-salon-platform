@@ -8,8 +8,21 @@ import { getConversationTimezone } from "@/features/conversation/datetime";
 // before conversation history is saved, while claiming has to happen after
 // the duplicate/replay check, so the two steps cannot be one call here.
 
+// The claimed, re-validated values seedDraftFromIntent already computes --
+// exactly what scripted-flow.ts:confirmBookingFromIntent needs to call the
+// create_organization_booking RPC without re-deriving anything.
+export type ClaimedBookingIntent = {
+  code: string;
+  salonId: string | null;
+  technicianRef: string | null;
+  startsAt: string;
+  serviceSelections: unknown;
+  additionalRequest: string | null;
+  timezone: string;
+};
+
 // Attempts the exactly-once claim for a code already extracted from an
-// inbound message, then seeds booking_drafts on success. Returns false for
+// inbound message, then seeds booking_drafts on success. Returns null for
 // any code with no matching, unconsumed, unexpired intent (unknown, already
 // used, or expired) -- the message then falls through to today's normal
 // free-text handling.
@@ -17,7 +30,7 @@ export async function claimBookingIntentByCode(
   organizationId: string,
   conversationId: string,
   code: string,
-): Promise<boolean> {
+): Promise<ClaimedBookingIntent | null> {
   const supabase = createSupabaseAdminClient();
   const nowIso = new Date().toISOString();
 
@@ -36,9 +49,9 @@ export async function claimBookingIntentByCode(
     .maybeSingle();
   if (claim.error) throw claim.error;
   const intent = claim.data;
-  if (!intent) return false;
+  if (!intent) return null;
 
-  await seedDraftFromIntent(supabase, organizationId, conversationId, {
+  const seeded = await seedDraftFromIntent(supabase, organizationId, conversationId, {
     salonId: intent.salon_id,
     startsAt: intent.starts_at,
     serviceSelections: intent.service_selections,
@@ -46,7 +59,7 @@ export async function claimBookingIntentByCode(
     additionalRequest: intent.additional_request,
   });
 
-  return true;
+  return { code, ...seeded };
 }
 
 async function seedDraftFromIntent(
@@ -60,7 +73,7 @@ async function seedDraftFromIntent(
     technicianRef: string | null;
     additionalRequest: string | null;
   },
-) {
+): Promise<Omit<ClaimedBookingIntent, "code">> {
   // Dropped rather than rejected: the intent may be minutes or hours old by
   // the time the customer sends the prefill, and a stale reference here would
   // otherwise only surface as a create_booking error later (tools.ts). A null
@@ -112,4 +125,13 @@ async function seedDraftFromIntent(
     { onConflict: "conversation_id" },
   );
   if (error) throw error;
+
+  return {
+    salonId,
+    technicianRef,
+    startsAt: intent.startsAt,
+    serviceSelections: intent.serviceSelections,
+    additionalRequest: intent.additionalRequest,
+    timezone,
+  };
 }

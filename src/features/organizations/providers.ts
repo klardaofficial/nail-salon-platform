@@ -72,6 +72,14 @@ export function buildPublicCatalogUrl(organizationId: string) {
   return new URL(`/api/public/${organizationId}/catalog`, getServerEnv().APP_URL).toString();
 }
 
+// The organization's own booking site, shown to customers in scripted-mode
+// replies (src/lib/bot/static-messages.ts) so they can book again without
+// the AI bot. Falls back to the deployment root when the organization has
+// not set one.
+export function resolveExternalWebsiteUrl(stored: string | null | undefined): string {
+  return stored?.trim() || getServerEnv().APP_URL;
+}
+
 function template(
   organizationValue: string | null,
   rootValue: string | null,

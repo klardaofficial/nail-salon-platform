@@ -1156,12 +1156,14 @@ export type Database = {
       }
       organization_settings: {
         Row: {
+          ai_bot_enabled: boolean
           bot_locale: string
           created_at: string
           currency: string
           default_booking_interval_minutes: number
           default_close_time: string
           default_open_time: string
+          external_website_url: string | null
           legacy_environment_imported_at: string | null
           organization_id: string
           platform_timezone: string
@@ -1171,12 +1173,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_bot_enabled?: boolean
           bot_locale?: string
           created_at?: string
           currency?: string
           default_booking_interval_minutes?: number
           default_close_time?: string
           default_open_time?: string
+          external_website_url?: string | null
           legacy_environment_imported_at?: string | null
           organization_id: string
           platform_timezone?: string
@@ -1186,12 +1190,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_bot_enabled?: boolean
           bot_locale?: string
           created_at?: string
           currency?: string
           default_booking_interval_minutes?: number
           default_close_time?: string
           default_open_time?: string
+          external_website_url?: string | null
           legacy_environment_imported_at?: string | null
           organization_id?: string
           platform_timezone?: string

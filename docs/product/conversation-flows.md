@@ -2,6 +2,8 @@
 
 ## Shared entry
 
+Everything below describes conversations while an organization's AI bot setting is **enabled** (the default). See [Scripted mode](#scripted-mode-ai-bot-disabled) for what happens with the bot turned off.
+
 Each opening message, greeting, question, image, or interactive tap goes through the same AI conversation path. The bot produces one contextual reply, asking at most one focused question. Date and time may be requested together. All text, option titles/descriptions, list headings, and list button labels are generated in the person's language, with no language allowlist. The organization's selected default language is only the initial reference when language is unclear; clear language switches take effect immediately.
 
 Stored owner/technician mappings select staff assistance. A customer cannot gain staff access by claiming a role in text. Greetings explain relevant capabilities and offer useful actions. Specific opening requests go straight to the requested task instead of receiving an unrelated welcome or location questionnaire.
@@ -62,13 +64,27 @@ A verified technician's greeting explains upcoming assigned bookings/customer de
 
 Only the same customer may cancel a confirmed booking before its start time. The transactional function checks ownership and time. The response includes the booking reference; a resolvable technician receives a deduplicated cancellation notification. Missing salon relations are displayed as [N/A]. Cancelled records remain in reports.
 
+Every booking confirmation — AI-written or scripted — also carries a single interactive Cancel option encoding that booking's ID (`booking:cancel:<uuid>`) in the button itself. Tapping it cancels that exact booking immediately, in either mode, without asking a follow-up question or reaching the model: the tap is recognized and handled before any other processing. In AI-enabled mode, a `booking:cancel:<id>` selection appearing in conversation history tells the model that cancellation already happened deterministically, so it never re-asks or re-cancels.
+
 ## Rescheduling
 
 A customer may change the date/time, salon, services, technician, or additional request of their own confirmed booking before it starts. The assistant identifies the intended future booking (asking only when more than one could apply), then updates it in place. The immutable booking reference and reporting identity remain unchanged. The database records a `booking.rescheduled` event with prior/new time, salon, and technician values plus an idempotency key; it neither creates a cancellation nor a replacement booking. If the technician changes, the former technician receives the normal cancellation notification for their former assignment and the new technician receives the normal confirmation notification with the updated details. A past, cancelled, foreign, inactive-salon, or otherwise non-updatable booking fails safely.
 
+## Scripted mode (AI bot disabled)
+
+Turning an organization's AI bot off (BOT-01) replaces the entire path above with deterministic, non-AI handling — no OpenAI call is made for any inbound message, and owner/technician command processing is skipped entirely (there is no model available to interpret staff commands). Every reply is built from the static, localized copy dictionary keyed by the organization's configured bot language, never AI-detected.
+
+For each inbound message, in priority order:
+
+1. **Cancel tap.** Handled first, exactly as in AI-enabled mode: cancel that booking immediately, no follow-up question, reply contains the External Website URL.
+2. **Booking-intent prefill.** A `[BK-…]` code (BOOK-07) is claimed, and — unlike AI-enabled mode, where claiming only seeds a draft that the model still has to confirm — the booking is created and auto-confirmed on the spot. The reply carries the booking reference and the same one-tap Cancel option described above. An expired, unknown, or already-consumed code falls through to the greeting below instead of erroring.
+3. **Everything else.** A static greeting naming the organization's External Website URL (or the deployment's own root URL, if the organization has not set one), inviting the customer to book there.
+
+Scripted replies do not infer or persist a conversation language (`conversations.reply_locale`) the way AI replies do, since there is no detection step; they always use the organization's configured bot language. A scripted turn writes no `ai_usage` row.
+
 ## Technician notification templates
 
-Approved Meta templates retain their provider-defined content. The app uses the saved confirmed/cancelled template names and configured language code. For both, body parameters are: {{1}} salon name, {{2}} customer name, {{3}} customer WhatsApp number, {{4}} appointment date and clock time in the platform timezone without a timezone label, {{5}} booking reference. Missing required display details use [N/A]. When a booking update reassigns a technician, the former technician receives the cancelled template/ordinary cancellation notification for the former assignment, and the new technician receives the confirmed template/ordinary confirmation notification containing the updated details. Without a template, AI writes the ordinary notification in the recipient technician's stored conversation language, falling back to the organization's selected default language. Ordinary messages still require that technician's own open Meta service window. Cancellation notifications and booking lists reformat stored appointment instants using current platform settings, so historical labels containing a timezone are not reused. Neutral fallback receipts and notification text use the same date/time format.
+Approved Meta templates retain their provider-defined content. The app uses the saved confirmed/cancelled template names and configured language code. For both, body parameters are: {{1}} salon name, {{2}} customer name, {{3}} customer WhatsApp number, {{4}} appointment date and clock time in the platform timezone without a timezone label, {{5}} booking reference. Missing required display details use [N/A]. When a booking update reassigns a technician, the former technician receives the cancelled template/ordinary cancellation notification for the former assignment, and the new technician receives the confirmed template/ordinary confirmation notification containing the updated details. Without a template, AI writes the ordinary notification in the recipient technician's stored conversation language, falling back to the organization's selected default language — unless the organization's AI bot is disabled (BOT-01), in which case the ordinary notification instead uses static localized text from the same copy dictionary scripted mode uses, keyed by the organization's configured bot language. Ordinary messages still require that technician's own open Meta service window. Cancellation notifications and booking lists reformat stored appointment instants using current platform settings, so historical labels containing a timezone are not reused. Neutral fallback receipts and notification text use the same date/time format.
 
 ## Image preview
 

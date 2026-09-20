@@ -35,6 +35,7 @@ const openaiOverrideSchema = z.discriminatedUnion("enabled", [
     pricing: aiPricingSchema,
   }),
 ]);
+const httpUrlPattern = /^https?:\/\/\S+$/i;
 const updateSchema = z.object({
   organizationName: z.string().trim().min(1).max(120).optional(),
   ownerWaIds: z.string().max(2000).optional(),
@@ -42,6 +43,16 @@ const updateSchema = z.object({
   botLocale: languageCodeSchema.optional(),
   currency: currencyCodeSchema.optional(),
   simulatorEnabled: z.boolean().optional(),
+  aiBotEnabled: z.boolean().optional(),
+  externalWebsiteUrl: z
+    .string()
+    .trim()
+    .max(2048)
+    .refine((value) => value.length === 0 || httpUrlPattern.test(value), {
+      message: "Enter a valid http(s) URL, or leave it blank.",
+    })
+    .nullable()
+    .optional(),
   wabaId: z.string().trim().max(128).nullable().optional(),
   phoneNumberId: z.string().trim().max(128).nullable().optional(),
   meta: metaFields.optional(),
@@ -146,6 +157,10 @@ export async function PATCH(request: Request, { params }: Context) {
       ...(values.currency !== undefined ? { currency: values.currency } : {}),
       ...(values.simulatorEnabled !== undefined
         ? { simulator_enabled: values.simulatorEnabled }
+        : {}),
+      ...(values.aiBotEnabled !== undefined ? { ai_bot_enabled: values.aiBotEnabled } : {}),
+      ...(values.externalWebsiteUrl !== undefined
+        ? { external_website_url: values.externalWebsiteUrl?.trim() || null }
         : {}),
     };
     if (Object.keys(settingsValues).length) {

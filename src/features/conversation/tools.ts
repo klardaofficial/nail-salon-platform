@@ -3,14 +3,12 @@ import "server-only";
 import { formatInTimeZone } from "date-fns-tz";
 import type { FunctionTool, ResponseFunctionToolCall } from "openai/resources/responses/responses";
 import { z } from "zod";
-import { recipientLocale, technicianNotificationText, templateLanguageCode } from "./notifications";
+import { queueTechnicianBookingNotification } from "./notifications";
 import { formatConversationTime, getConversationTimezone, withConversationTimes } from "./datetime";
 
-import { queueWhatsAppMessage } from "@/features/messaging/outbox";
 import { inngest } from "@/inngest/client";
 import type { BotLocale } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { resolveEffectiveMetaConfiguration } from "@/features/organizations/providers";
 
 export type ConversationActor = {
   organizationId: string;
@@ -516,52 +514,25 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     .eq("conversation_id", actor.conversationId);
 
   if (technicianWaId) {
-    const [settings, contact, provider] = await Promise.all([
-      supabase
-        .from("organization_settings")
-        .select("bot_locale")
-        .eq("organization_id", actor.organizationId)
-        .single(),
-      supabase
-        .from("contacts")
-        .select("display_name,wa_id")
-        .eq("id", actor.contactId)
-        .eq("organization_id", actor.organizationId)
-        .single(),
-      resolveEffectiveMetaConfiguration(actor.organizationId),
-    ]);
-    if (settings.error) throw settings.error;
+    const contact = await supabase
+      .from("contacts")
+      .select("display_name,wa_id")
+      .eq("id", actor.contactId)
+      .eq("organization_id", actor.organizationId)
+      .single();
     if (contact.error) throw contact.error;
-    const bodyParameters = [
-      salonName ?? "[N/A]",
-      contact.data.display_name || "[N/A]",
-      contact.data.wa_id,
-      localLabel,
-      String(bookingId),
-    ];
-    const selectedTemplate = provider?.templates.confirmed;
-    const notification = selectedTemplate?.name
-      ? {
-          kind: "template" as const,
-          name: selectedTemplate.name,
-          languageCode: templateLanguageCode(settings.data.bot_locale),
-          bodyParameters,
-        }
-      : {
-          kind: "text" as const,
-          text: await technicianNotificationText(
-            actor.organizationId,
-            "confirmed",
-            bodyParameters,
-            await recipientLocale(technicianWaId, actor.transport, actor.organizationId),
-            actor.transport,
-          ),
-        };
-    await queueWhatsAppMessage({
+    await queueTechnicianBookingNotification({
       organizationId: actor.organizationId,
       transport: actor.transport,
-      recipientWaId: technicianWaId,
-      payload: notification,
+      status: "confirmed",
+      technicianWaId,
+      bodyParameters: [
+        salonName ?? "[N/A]",
+        contact.data.display_name || "[N/A]",
+        contact.data.wa_id,
+        localLabel,
+        String(bookingId),
+      ],
       deduplicationKey: `booking:${bookingId}:technician:confirmed`,
     });
   }
@@ -619,10 +590,10 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
       .eq("organization_id", actor.organizationId)
       .maybeSingle();
     if (technician.data?.wa_id) {
-      const [settings, contact, provider] = await Promise.all([
+      const [settings, contact] = await Promise.all([
         supabase
           .from("organization_settings")
-          .select("bot_locale,platform_timezone")
+          .select("platform_timezone")
           .eq("organization_id", actor.organizationId)
           .single(),
         supabase
@@ -631,7 +602,6 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
           .eq("id", actor.contactId)
           .eq("organization_id", actor.organizationId)
           .single(),
-        resolveEffectiveMetaConfiguration(actor.organizationId),
       ]);
       if (settings.error) throw settings.error;
       if (contact.error) throw contact.error;
@@ -639,36 +609,18 @@ async function cancelBooking(actor: ConversationActor, raw: unknown) {
         { name?: string } | { name?: string }[] | null;
       const salonName =
         (Array.isArray(salonRelation) ? salonRelation[0]?.name : salonRelation?.name) ?? "[N/A]";
-      const bodyParameters = [
-        salonName,
-        contact.data.display_name || "[N/A]",
-        contact.data.wa_id,
-        formatConversationTime(before.data.starts_at, settings.data.platform_timezone),
-        values.bookingId,
-      ];
-      const selectedTemplate = provider?.templates.cancelled;
-      const notification = selectedTemplate?.name
-        ? {
-            kind: "template" as const,
-            name: selectedTemplate.name,
-            languageCode: templateLanguageCode(settings.data.bot_locale),
-            bodyParameters,
-          }
-        : {
-            kind: "text" as const,
-            text: await technicianNotificationText(
-              actor.organizationId,
-              "cancelled",
-              bodyParameters,
-              await recipientLocale(technician.data.wa_id, actor.transport, actor.organizationId),
-              actor.transport,
-            ),
-          };
-      await queueWhatsAppMessage({
+      await queueTechnicianBookingNotification({
         organizationId: actor.organizationId,
         transport: actor.transport,
-        recipientWaId: technician.data.wa_id,
-        payload: notification,
+        status: "cancelled",
+        technicianWaId: technician.data.wa_id,
+        bodyParameters: [
+          salonName,
+          contact.data.display_name || "[N/A]",
+          contact.data.wa_id,
+          formatConversationTime(before.data.starts_at, settings.data.platform_timezone),
+          values.bookingId,
+        ],
         deduplicationKey: `booking:${values.bookingId}:technician:cancelled`,
       });
     }
@@ -703,7 +655,7 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
       .maybeSingle(),
     supabase
       .from("organization_settings")
-      .select("platform_timezone,bot_locale")
+      .select("platform_timezone")
       .eq("organization_id", actor.organizationId)
       .single(),
     supabase
@@ -777,21 +729,12 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
         ).data?.wa_id
       : null;
   if (oldTechnicianWaId || technicianWaId) {
-    const [notificationSettings, contact, provider] = await Promise.all([
-      supabase
-        .from("organization_settings")
-        .select("bot_locale")
-        .eq("organization_id", actor.organizationId)
-        .single(),
-      supabase
-        .from("contacts")
-        .select("display_name,wa_id")
-        .eq("id", actor.contactId)
-        .eq("organization_id", actor.organizationId)
-        .single(),
-      resolveEffectiveMetaConfiguration(actor.organizationId),
-    ]);
-    if (notificationSettings.error) throw notificationSettings.error;
+    const contact = await supabase
+      .from("contacts")
+      .select("display_name,wa_id")
+      .eq("id", actor.contactId)
+      .eq("organization_id", actor.organizationId)
+      .single();
     if (contact.error) throw contact.error;
     const oldSalonRelation = existingBooking.salon as unknown as
       { name?: string } | { name?: string }[] | null;
@@ -800,70 +743,28 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
       "[N/A]";
     const customer = contact.data.display_name || "[N/A]";
     if (oldTechnicianWaId) {
-      const bodyParameters = [
-        oldSalonName,
-        customer,
-        contact.data.wa_id,
-        formatConversationTime(existingBooking.starts_at, settings.data.platform_timezone),
-        values.bookingId,
-      ];
-      const cancelledTemplate = provider?.templates.cancelled.name;
-      const payload = cancelledTemplate
-        ? {
-            kind: "template" as const,
-            name: cancelledTemplate,
-            languageCode: templateLanguageCode(notificationSettings.data.bot_locale),
-            bodyParameters,
-          }
-        : {
-            kind: "text" as const,
-            text: await technicianNotificationText(
-              actor.organizationId,
-              "cancelled",
-              bodyParameters,
-              await recipientLocale(oldTechnicianWaId, actor.transport, actor.organizationId),
-              actor.transport,
-            ),
-          };
-      await queueWhatsAppMessage({
+      await queueTechnicianBookingNotification({
         organizationId: actor.organizationId,
         transport: actor.transport,
-        recipientWaId: oldTechnicianWaId,
-        payload,
+        status: "cancelled",
+        technicianWaId: oldTechnicianWaId,
+        bodyParameters: [
+          oldSalonName,
+          customer,
+          contact.data.wa_id,
+          formatConversationTime(existingBooking.starts_at, settings.data.platform_timezone),
+          values.bookingId,
+        ],
         deduplicationKey: `booking:${values.bookingId}:technician:cancelled:update:${callId}`,
       });
     }
     if (technicianWaId) {
-      const bodyParameters = [
-        salon?.name ?? "[N/A]",
-        customer,
-        contact.data.wa_id,
-        startsAt,
-        values.bookingId,
-      ];
-      const confirmedTemplate = provider?.templates.confirmed.name;
-      const payload = confirmedTemplate
-        ? {
-            kind: "template" as const,
-            name: confirmedTemplate,
-            languageCode: templateLanguageCode(notificationSettings.data.bot_locale),
-            bodyParameters,
-          }
-        : {
-            kind: "text" as const,
-            text: await technicianNotificationText(
-              actor.organizationId,
-              "confirmed",
-              bodyParameters,
-              await recipientLocale(technicianWaId, actor.transport, actor.organizationId),
-              actor.transport,
-            ),
-          };
-      await queueWhatsAppMessage({
+      await queueTechnicianBookingNotification({
         organizationId: actor.organizationId,
         transport: actor.transport,
-        recipientWaId: technicianWaId,
-        payload,
+        status: "confirmed",
+        technicianWaId,
+        bodyParameters: [salon?.name ?? "[N/A]", customer, contact.data.wa_id, startsAt, values.bookingId],
         deduplicationKey: `booking:${values.bookingId}:technician:confirmed:update:${callId}`,
       });
     }

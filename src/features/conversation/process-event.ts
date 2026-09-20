@@ -2,14 +2,22 @@ import "server-only";
 
 import { createNaturalReply } from "./respond";
 import type { ConversationActor } from "./tools";
-import { claimBookingIntentByCode } from "@/features/booking-intents/claim";
+import {
+  cancelBookingForContact,
+  confirmBookingFromIntent,
+  formatCancelAction,
+  parseCancelAction,
+} from "./scripted-flow";
+import { claimBookingIntentByCode, type ClaimedBookingIntent } from "@/features/booking-intents/claim";
 import { extractIntentCode, stripIntentCode } from "@/features/booking-intents/code";
 import { queueInteractiveChoices, queueWhatsAppMessage } from "@/features/messaging/outbox";
+import { resolveExternalWebsiteUrl } from "@/features/organizations/providers";
 import type {
   NormalizedWhatsAppEvent,
   OutboundWhatsAppPayload,
 } from "@/integrations/whatsapp/types";
 import { unavailableFallback } from "@/lib/bot/language";
+import { formatStaticDetails, formatStaticMessage, resolveStaticMessages } from "@/lib/bot/static-messages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function normalizedMessageText(event: Extract<NormalizedWhatsAppEvent, { kind: "message" }>) {
@@ -51,11 +59,16 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     if (result.error) throw result.error;
   }
   const event = inboxResult.data.payload as NormalizedWhatsAppEvent;
-  let messageSettings: { simulator_enabled: boolean; bot_locale: string } | null = null;
+  let messageSettings: {
+    simulator_enabled: boolean;
+    bot_locale: string;
+    ai_bot_enabled: boolean;
+    external_website_url: string | null;
+  } | null = null;
   if (event.kind === "message") {
     const { data, error } = await supabase
       .from("organization_settings")
-      .select("simulator_enabled,bot_locale")
+      .select("simulator_enabled,bot_locale,ai_bot_enabled,external_website_url")
       .eq("organization_id", organizationId)
       .single();
     if (error) throw error;
@@ -85,7 +98,7 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   const contactResult = await supabase
     .from("contacts")
     .upsert(contactValues, { onConflict: "organization_id,wa_id" })
-    .select("id")
+    .select("id,display_name,wa_id")
     .single();
   if (contactResult.error) throw contactResult.error;
   const contactId = contactResult.data.id;
@@ -162,7 +175,95 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     }
   }
 
-  if (intentCode) await claimBookingIntentByCode(organizationId, conversationId, intentCode);
+  // Priority #1, in both modes: a Cancel tap must never reach the model and
+  // must never trigger a follow-up question.
+  const cancelId = parseCancelAction(event.message.interactiveId);
+  if (cancelId) {
+    const outcome = await cancelBookingForContact({
+      organizationId,
+      contactId,
+      bookingId: cancelId,
+      transport,
+    });
+    const messages = resolveStaticMessages(messageSettings!.bot_locale);
+    await queueWhatsAppMessage({
+      ...replyTarget,
+      payload: {
+        kind: "text",
+        text:
+          outcome.outcome === "cancelled"
+            ? formatStaticMessage(messages.bookingCancelled, {
+                reference: outcome.bookingId,
+                website: resolveExternalWebsiteUrl(messageSettings!.external_website_url),
+              })
+            : messages.bookingNotCancellable,
+      },
+    });
+    await markProcessed();
+    return { processed: "message" };
+  }
+
+  // Claiming happens for both modes: it seeds booking_drafts, which the AI
+  // path still relies on when the bot is enabled.
+  let claim: ClaimedBookingIntent | null = null;
+  if (intentCode) claim = await claimBookingIntentByCode(organizationId, conversationId, intentCode);
+
+  if (!messageSettings!.ai_bot_enabled) {
+    const messages = resolveStaticMessages(messageSettings!.bot_locale);
+    const website = resolveExternalWebsiteUrl(messageSettings!.external_website_url);
+
+    if (claim) {
+      const businessResult = await supabase
+        .from("businesses")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .single();
+      if (businessResult.error) throw businessResult.error;
+      const outcome = await confirmBookingFromIntent({
+        organizationId,
+        businessId: businessResult.data.id,
+        contactId,
+        conversationId,
+        transport,
+        claim,
+      });
+      if (outcome.outcome === "unavailable") {
+        await queueWhatsAppMessage({
+          ...replyTarget,
+          payload: {
+            kind: "text",
+            text: formatStaticMessage(messages.bookingUnavailable, { website }),
+          },
+        });
+      } else {
+        const details = formatStaticDetails(messages.fields, {
+          appointment: outcome.startsAt,
+          salon: outcome.salon ?? null,
+          services: outcome.services ?? null,
+          technician: outcome.technician ?? null,
+          customer: contactResult.data.display_name || "[N/A]",
+          phone: contactResult.data.wa_id,
+        });
+        await queueInteractiveChoices({
+          ...replyTarget,
+          body: formatStaticMessage(messages.bookingConfirmed, {
+            details,
+            reference: outcome.bookingId,
+          }),
+          buttonLabel: messages.cancelAction,
+          sectionTitle: messages.cancelAction,
+          options: [{ id: formatCancelAction(outcome.bookingId), title: messages.cancelAction }],
+        });
+      }
+    } else {
+      await queueWhatsAppMessage({
+        ...replyTarget,
+        payload: { kind: "text", text: formatStaticMessage(messages.greeting, { website }) },
+      });
+    }
+    await markProcessed();
+    return { processed: "message" };
+  }
 
   const [owners, technicians] = await Promise.all([
     supabase
@@ -227,16 +328,29 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     })
     .eq("id", conversationId);
   if (localeResult.error) throw localeResult.error;
-  if (reply?.options.length) {
+  // A create_booking success carries confirmedBookingId (respond.ts), so the
+  // same one-tap Cancel option offered in scripted mode is added here too --
+  // the interactive button title comes from the static catalog since it must
+  // be localized and there is no AI-authored equivalent for it.
+  const cancelOption = reply?.confirmedBookingId
+    ? {
+        id: formatCancelAction(reply.confirmedBookingId),
+        title: resolveStaticMessages(reply.locale).cancelAction,
+      }
+    : null;
+  if (reply && (reply.options.length || cancelOption)) {
     await queueInteractiveChoices({
       ...replyTarget,
       body: reply.text,
       buttonLabel: reply.buttonLabel,
       sectionTitle: reply.sectionTitle,
-      options: reply.options.map((option) => ({
-        ...option,
-        description: option.description ?? undefined,
-      })),
+      options: [
+        ...reply.options.map((option) => ({
+          ...option,
+          description: option.description ?? undefined,
+        })),
+        ...(cancelOption ? [cancelOption] : []),
+      ].slice(0, 10),
     });
   } else {
     await queueWhatsAppMessage({

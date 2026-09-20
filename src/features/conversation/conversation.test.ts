@@ -97,7 +97,11 @@ beforeEach(() => {
   tables.clear();
   operations.length = 0;
   tables.set("businesses", { id: "business", name: "Nails", active: true });
-  tables.set("organization_settings", { platform_timezone: "Asia/Bangkok", bot_locale: "de" });
+  tables.set("organization_settings", {
+    platform_timezone: "Asia/Bangkok",
+    bot_locale: "de",
+    ai_bot_enabled: true,
+  });
   tables.set("salons", []);
   tables.set("booking_drafts", null);
   tables.set("tool_executions", null);
@@ -591,6 +595,30 @@ describe("staff conversations and authorization", () => {
     });
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
+  it("surfaces confirmedBookingId once create_booking succeeds, and omits it when no booking was made", async () => {
+    mocks.response
+      .mockResolvedValueOnce({
+        output: [
+          {
+            type: "function_call",
+            name: "create_booking",
+            call_id: "call",
+            arguments: JSON.stringify(booking),
+          },
+        ],
+        output_text: "",
+      })
+      .mockResolvedValueOnce({ output: [], output_text: JSON.stringify(reply) });
+
+    expect(await createNaturalReply(actor)).toEqual({
+      ...reply,
+      confirmedBookingId: "booking-id",
+    });
+
+    // No create_booking call this time -- the property must be absent, not undefined.
+    expect(await createNaturalReply(actor)).toEqual(reply);
+    expect(await createNaturalReply(actor)).not.toHaveProperty("confirmedBookingId");
+  });
   it.each(["owner", "technician"] as const)(
     "queries complete %s summaries with verified scope and explicit date basis",
     async (role) => {
@@ -663,7 +691,11 @@ describe("conversation date/time presentation", () => {
   ])(
     "formats %s booking instants across midnight and seasonal offsets",
     async (timezone, startsAt, label) => {
-      tables.set("organization_settings", { platform_timezone: timezone, bot_locale: "de" });
+      tables.set("organization_settings", {
+        platform_timezone: timezone,
+        bot_locale: "de",
+        ai_bot_enabled: true,
+      });
       expect(await create({ startsAt })).toMatchObject({ ok: true, startsAt: label });
       expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
         p_timezone_snapshot: timezone,

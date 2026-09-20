@@ -8,7 +8,12 @@ import type {
 } from "openai/resources/responses/responses";
 
 import { executeConversationTool, toolsForActor, type ConversationActor } from "./tools";
-import { naturalReplySchema, parseNaturalReply, type NaturalReply } from "./reply";
+import {
+  naturalReplySchema,
+  parseNaturalReply,
+  type ConversationReply,
+  type NaturalReply,
+} from "./reply";
 import { dateTimeDisplayInstructions } from "./datetime";
 import { unavailableFallback } from "@/lib/bot/language";
 import { resolveCurrency } from "@/lib/currencies";
@@ -145,7 +150,7 @@ Use options for a finite choice: welcome actions, salon selection, optional serv
 Option IDs must be unique and stable: salon:<catalog UUID>, salon:none, service:<catalog UUID>, technician:<catalog UUID>, intent:book, intent:style, booking:confirm, booking:change, technician:none, service:other, or reply:<clear value> for other answers. The ID and displayed title travel together in history. Catalog IDs must match real current records; never use options to grant authorization. For more than 10 possibilities show a useful subset and accept a typed alternative; do not invent catalog entries. Use options=[] for an answer that needs no selection. Do not output JSON in customer-facing text.
 Platform booking suggestions: ${JSON.stringify(settings.data)}.
 For image previews, ask what style the customer wants, then call request_style_preview. Never claim that application storage keeps image bytes.
-Only cancel a customer's own booking before its start. Never describe a booking as attended or missed.
+Only cancel a customer's own booking before its start. Never describe a booking as attended or missed. A booking:cancel:<id> option selected in history means the customer already cancelled that booking deterministically through the interactive Cancel button; never re-ask about it or call cancel_booking for it again.
 Recognized owners may use owner tools only for this business. Recognized technicians may see only their assigned bookings and record their own time off.
 If a tool returns an error, explain the recoverable next step without exposing internal details.
 Active catalog JSON: ${JSON.stringify(catalog)}
@@ -167,6 +172,12 @@ Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.
   const client = getOpenAIClient(openAI);
   const tools = toolsForActor(actor);
   let completedReply: NaturalReply | null = null;
+  let confirmedBookingId: string | undefined;
+
+  function finish(reply: NaturalReply | null): ConversationReply | null {
+    if (!reply) return null;
+    return confirmedBookingId ? { ...reply, confirmedBookingId } : reply;
+  }
 
   for (let round = 0; round < 5; round += 1) {
     const model = openAI!.chatModel;
@@ -193,9 +204,9 @@ Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.
         }),
       summarizeChatUsage,
     ).catch(() => null);
-    if (!response) return completedReply;
+    if (!response) return finish(completedReply);
     const calls = functionCalls(response.output);
-    if (!calls.length) return parseNaturalReply(response.output_text) ?? completedReply;
+    if (!calls.length) return finish(parseNaturalReply(response.output_text) ?? completedReply);
 
     input = [...input, ...(response.output as ResponseInput)];
     for (const call of calls) {
@@ -218,6 +229,7 @@ Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.
           sectionTitle: "…",
           options: [],
         };
+        if (call.name === "create_booking") confirmedBookingId = String(result.bookingId);
       }
       input.push({
         type: "function_call_output",
@@ -226,5 +238,5 @@ Current message includes a usable image: ${actor.currentMediaId ? "yes" : "no"}.
       });
     }
   }
-  return completedReply;
+  return finish(completedReply);
 }

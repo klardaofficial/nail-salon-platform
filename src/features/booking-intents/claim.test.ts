@@ -78,7 +78,7 @@ describe("claimBookingIntentByCode", () => {
 
     const claimed = await claimBookingIntentByCode(ORGANIZATION_ID, CONVERSATION_ID, CODE);
 
-    expect(claimed).toBe(false);
+    expect(claimed).toBeNull();
     expect(stub.calls.some((call) => call.table === "salons")).toBe(false);
     expect(stub.calls.some((call) => call.table === "booking_drafts")).toBe(false);
   });
@@ -90,7 +90,16 @@ describe("claimBookingIntentByCode", () => {
 
     const claimed = await claimBookingIntentByCode(ORGANIZATION_ID, CONVERSATION_ID, CODE);
 
-    expect(claimed).toBe(true);
+    expect(claimed).toBeTruthy();
+    expect(claimed).toMatchObject({
+      code: CODE,
+      salonId: SALON_ID,
+      technicianRef: null,
+      startsAt: claimedIntentRow.starts_at,
+      serviceSelections: claimedIntentRow.service_selections,
+      additionalRequest: "extra shiny",
+      timezone: "Asia/Bangkok",
+    });
     const upsertCall = stub.calls.find(
       (call) => call.table === "booking_drafts" && call.method === "upsert",
     );
@@ -120,8 +129,8 @@ describe("claimBookingIntentByCode", () => {
     const first = await claimBookingIntentByCode(ORGANIZATION_ID, CONVERSATION_ID, CODE);
     const second = await claimBookingIntentByCode(ORGANIZATION_ID, CONVERSATION_ID, CODE);
 
-    expect(first).toBe(true);
-    expect(second).toBe(false);
+    expect(first).toBeTruthy();
+    expect(second).toBeNull();
     expect(stub.calls.filter((call) => call.table === "booking_drafts").length).toBe(1);
   });
 
