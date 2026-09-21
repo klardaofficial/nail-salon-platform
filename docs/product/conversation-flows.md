@@ -112,7 +112,7 @@ For each inbound message, in priority order:
 2. **Check-in tag.** A `[CHECKIN-<uuid>]` tag from a verified owner/technician is handled identically in both modes: see [Check-in](#check-in). A non-staff sender's tag falls through to the greeting below.
 3. **Update / skip tap.** `booking:update:<uuid>` or `booking:skip` is handled identically in both modes: see [Active booking limit](#active-booking-limit).
 4. **Booking-intent prefill.** A `[BK-…]` code (BOOK-07) is claimed and, identically in both modes, booked and auto-confirmed on the spot. The reply carries the booking reference and the same one-tap Cancel option described above. A claim blocked by the active-booking limit offers the same Update/Skip reply as in AI-enabled mode. An expired, unknown, already-consumed, or not-currently-bookable code falls through to the greeting below instead of erroring.
-5. **Everything else.** A static greeting naming the organization's External Website URL (or the deployment's own root URL, if the organization has not set one), inviting the customer to book there.
+5. **Everything else.** If the customer has a future confirmed booking, offer the same deterministic Update/Skip choice as the active-booking-limit path rather than greeting them again. Otherwise, send a static greeting naming the organization's External Website URL (or the deployment's own root URL, if the organization has not set one), inviting the customer to book there.
 
 With the bot off, scripted replies do not infer or persist a conversation language (`conversations.reply_locale`) the way AI replies do, since there is no detection step; they always use the organization's configured bot language. A scripted turn writes no `ai_usage` row.
 

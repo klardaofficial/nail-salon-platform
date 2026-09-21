@@ -439,6 +439,40 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   if (!messageSettings!.ai_bot_enabled) {
     const messages = resolveStaticMessages(scriptedLocale);
     const website = resolveExternalWebsiteUrl(messageSettings!.external_website_url);
+    // Scripted mode cannot interpret free text, but it must not send a
+    // customer who already holds a future confirmed booking back to the
+    // generic booking greeting. This also covers a new website hand-off whose
+    // tag could not be claimed (for example after a client rewrites it): name
+    // the existing booking and keep the deterministic Update/Skip route.
+    if (!intentAttempted) {
+      const active = await supabase
+        .from("bookings")
+        .select("id,local_time_label")
+        .eq("organization_id", organizationId)
+        .eq("contact_id", contactId)
+        .eq("status", "confirmed")
+        .gt("starts_at", new Date().toISOString())
+        .order("starts_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (active.error) throw active.error;
+      if (active.data) {
+        await queueInteractiveChoices({
+          ...replyTarget,
+          body: formatStaticMessage(messages.activeBookingBlocked, {
+            appointment: active.data.local_time_label,
+          }),
+          buttonLabel: messages.updateAction,
+          sectionTitle: messages.updateAction,
+          options: [
+            { id: formatUpdateAction(active.data.id), title: messages.updateAction },
+            { id: SKIP_ACTION, title: messages.skipAction },
+          ],
+        });
+        await markProcessed();
+        return { processed: "message" };
+      }
+    }
     await queueWhatsAppMessage({
       ...replyTarget,
       payload: {

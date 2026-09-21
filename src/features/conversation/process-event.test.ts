@@ -259,6 +259,31 @@ function seedScriptedSettings(externalWebsiteUrl: string | null = "https://examp
 }
 
 describe("processWhatsAppInboxEvent scripted mode (AI bot disabled)", () => {
+  it("offers Update/Skip rather than the greeting when a customer with an active booking sends a new message", async () => {
+    const event = baseEvent("I'd like to book another appointment.");
+    seedInboxEvent(event);
+    seedScriptedSettings();
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    stub.push("bookings", {
+      data: { id: BOOKING_ID, local_time_label: "18 Sep, 15:00" },
+    });
+    stub.push("whatsapp_inbox_events", { data: null, error: null });
+
+    const result = await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(result).toEqual({ processed: "message" });
+    expect(mocks.createNaturalReply).not.toHaveBeenCalled();
+    expect(mocks.queueInteractiveChoices).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: [
+          { id: formatUpdateAction(BOOKING_ID), title: resolveStaticMessages("en").updateAction },
+          { id: SKIP_ACTION, title: resolveStaticMessages("en").skipAction },
+        ],
+      }),
+    );
+    expect(mocks.queueWhatsAppMessage).not.toHaveBeenCalled();
+  });
+
   it("claims a [BK-...] code, books the appointment, and queues an interactive Cancel option", async () => {
     const event = baseEvent("[BK-ABCDEFGHJKMNP] hi");
     seedInboxEvent(event);
