@@ -6,7 +6,7 @@ import type { AdminBookingRow, AdminBookingService } from "@/features/bookings/t
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const bookingFiltersSchema = z.object({
-  status: z.enum(["confirmed", "cancelled"]).optional(),
+  status: z.enum(["confirmed", "cancelled", "checked_in"]).optional(),
   from: z.iso.datetime().optional(),
   to: z.iso.datetime().optional(),
   source: z.enum(["real", "simulator", "both"]).default("real"),
@@ -31,7 +31,7 @@ export async function queryAdminBookings(
   let query = supabase
     .from("bookings")
     .select(
-      "id,status,starts_at,local_time_label,timezone_snapshot,additional_request,cancelled_at,cancellation_reason,simulated,created_at,updated_at,technician_name_snapshot,business_id,salon:salons!bookings_organization_salon_fkey(name,location_label),customer:contacts!bookings_organization_contact_fkey(display_name,wa_id),booking_services!booking_services_organization_booking_fkey(service_name_snapshot,position,service_id)",
+      "id,status,starts_at,local_time_label,timezone_snapshot,additional_request,cancelled_at,cancellation_reason,checked_in_at,simulated,created_at,updated_at,technician_name_snapshot,business_id,salon:salons!bookings_organization_salon_fkey(name,location_label),customer:contacts!bookings_organization_contact_fkey(display_name,wa_id),booking_services!booking_services_organization_booking_fkey(service_name_snapshot,position,service_id)",
     )
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
@@ -75,6 +75,7 @@ export async function queryAdminBookings(
       status: booking.status,
       cancelledAt: booking.cancelled_at,
       cancellationReason: booking.cancellation_reason,
+      checkedInAt: booking.checked_in_at,
       simulated: booking.simulated,
       createdAt: booking.created_at,
       updatedAt: booking.updated_at,

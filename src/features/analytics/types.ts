@@ -2,6 +2,7 @@ export type TrendPoint = {
   date: string;
   confirmed: number;
   cancelled: number;
+  checkedIn: number;
   total: number;
 };
 
@@ -11,6 +12,7 @@ export type DashboardData = {
     total: number;
     confirmed: number;
     cancelled: number;
+    checkedIn: number;
     uniqueCustomers: number;
     returningCustomers: number;
     repeatRate: number;
@@ -21,7 +23,7 @@ export type DashboardData = {
     customerName: string;
     customerWhatsapp: string;
     startsAt: string;
-    status: "confirmed" | "cancelled";
+    status: "confirmed" | "cancelled" | "checked_in";
   }[];
   health: {
     failedJobs: number;

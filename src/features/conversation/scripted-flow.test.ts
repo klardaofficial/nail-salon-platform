@@ -16,9 +16,13 @@ vi.mock("./notifications", () => ({
 
 import {
   cancelBookingForContact,
+  checkinBookingByStaff,
   confirmBookingFromIntent,
   formatCancelAction,
+  formatUpdateAction,
   parseCancelAction,
+  parseUpdateAction,
+  rescheduleBookingFromDraft,
 } from "./scripted-flow";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000101";
@@ -45,7 +49,7 @@ beforeEach(() => {
   tables.set("organization_settings", { platform_timezone: "Asia/Bangkok" });
   mocks.from.mockImplementation((table: string) => {
     const query: Record<string, unknown> = {};
-    for (const method of ["select", "eq", "is", "update"]) {
+    for (const method of ["select", "eq", "is", "gt", "order", "limit", "update"]) {
       query[method] = (...args: unknown[]) => {
         void args;
         return query;
@@ -91,6 +95,23 @@ describe("formatCancelAction / parseCancelAction", () => {
   });
 });
 
+describe("formatUpdateAction / parseUpdateAction", () => {
+  it("round-trips a booking id through the interactive action id", () => {
+    const actionId = formatUpdateAction(BOOKING_ID);
+    expect(actionId).toBe(`booking:update:${BOOKING_ID}`);
+    expect(parseUpdateAction(actionId)).toBe(BOOKING_ID);
+  });
+
+  it("rejects ids that are not the update-action shape or not a UUID", () => {
+    expect(parseUpdateAction(null)).toBeNull();
+    expect(parseUpdateAction(undefined)).toBeNull();
+    expect(parseUpdateAction("")).toBeNull();
+    expect(parseUpdateAction("booking:cancel:" + BOOKING_ID)).toBeNull();
+    expect(parseUpdateAction("booking:update:not-a-uuid")).toBeNull();
+    expect(parseUpdateAction("booking:skip")).toBeNull();
+  });
+});
+
 describe("confirmBookingFromIntent", () => {
   it("returns unavailable without querying the database when the slot is already in the past", async () => {
     const result = await confirmBookingFromIntent({
@@ -133,6 +154,39 @@ describe("confirmBookingFromIntent", () => {
 
   it("maps a booking_time_must_be_in_future RPC error to the unavailable outcome", async () => {
     mocks.rpc.mockRejectedValueOnce(new Error("booking_time_must_be_in_future"));
+    const result = await confirmBookingFromIntent({
+      organizationId: ORGANIZATION_ID,
+      businessId: BUSINESS_ID,
+      contactId: CONTACT_ID,
+      conversationId: CONVERSATION_ID,
+      claim: baseClaim(),
+    });
+    expect(result).toEqual({ outcome: "unavailable" });
+  });
+
+  it("maps an active_booking_exists RPC error to the active_booking outcome, naming the blocking booking", async () => {
+    tables.set("bookings", {
+      id: "6fcb66a0-d713-4bfc-a075-0e7d3864baff",
+      local_time_label: "18 Sep, 15:00",
+    });
+    mocks.rpc.mockRejectedValueOnce(new Error("active_booking_exists"));
+    const result = await confirmBookingFromIntent({
+      organizationId: ORGANIZATION_ID,
+      businessId: BUSINESS_ID,
+      contactId: CONTACT_ID,
+      conversationId: CONVERSATION_ID,
+      claim: baseClaim(),
+    });
+    expect(result).toEqual({
+      outcome: "active_booking",
+      bookingId: "6fcb66a0-d713-4bfc-a075-0e7d3864baff",
+      startsAt: "18 Sep, 15:00",
+    });
+  });
+
+  it("falls back to unavailable if active_booking_exists is raised but no active booking is found", async () => {
+    tables.set("bookings", null);
+    mocks.rpc.mockRejectedValueOnce(new Error("active_booking_exists"));
     const result = await confirmBookingFromIntent({
       organizationId: ORGANIZATION_ID,
       businessId: BUSINESS_ID,
@@ -258,5 +312,215 @@ describe("cancelBookingForContact", () => {
 
     expect(result).toEqual({ outcome: "cancelled", bookingId: BOOKING_ID });
     expect(mocks.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe("checkinBookingByStaff", () => {
+  const actorInput = {
+    organizationId: ORGANIZATION_ID,
+    actorContactId: CONTACT_ID,
+    actorWaId: "49150000001",
+    bookingId: BOOKING_ID,
+  };
+
+  it("returns checked_in with the customer name and time on success", async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: {
+        ok: true,
+        bookingId: BOOKING_ID,
+        customerName: "Jane",
+        localTimeLabel: "18 Sep, 15:00",
+      },
+      error: null,
+    });
+    const result = await checkinBookingByStaff(actorInput);
+    expect(result).toEqual({
+      outcome: "checked_in",
+      bookingId: BOOKING_ID,
+      customerName: "Jane",
+      startsAt: "18 Sep, 15:00",
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith("checkin_organization_booking", {
+      p_organization_id: ORGANIZATION_ID,
+      p_booking_id: BOOKING_ID,
+      p_actor_contact_id: CONTACT_ID,
+      p_actor_wa_id: "49150000001",
+    });
+  });
+
+  it("returns already_checked_in when the RPC reports an idempotent replay", async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: { ok: true, alreadyCheckedIn: true, bookingId: BOOKING_ID },
+      error: null,
+    });
+    const result = await checkinBookingByStaff(actorInput);
+    expect(result).toEqual({ outcome: "already_checked_in", bookingId: BOOKING_ID });
+  });
+
+  it("returns not_authorized when the sender has no stored owner/technician mapping", async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: { ok: false, reason: "not_authorized" },
+      error: null,
+    });
+    const result = await checkinBookingByStaff(actorInput);
+    expect(result).toEqual({ outcome: "not_authorized" });
+  });
+
+  it("returns not_found when the booking id does not resolve in this organization", async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: { ok: false, reason: "not_found" },
+      error: null,
+    });
+    const result = await checkinBookingByStaff(actorInput);
+    expect(result).toEqual({ outcome: "not_found" });
+  });
+
+  it("returns not_checkinable for any other failure reason, such as an already-cancelled booking", async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: { ok: false, reason: "not_checkinable" },
+      error: null,
+    });
+    const result = await checkinBookingByStaff(actorInput);
+    expect(result).toEqual({ outcome: "not_checkinable" });
+  });
+
+  it("rethrows an RPC transport error", async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: new Error("network down") });
+    await expect(checkinBookingByStaff(actorInput)).rejects.toThrow("network down");
+  });
+});
+
+describe("rescheduleBookingFromDraft", () => {
+  const input = {
+    organizationId: ORGANIZATION_ID,
+    contactId: CONTACT_ID,
+    conversationId: CONVERSATION_ID,
+    bookingId: BOOKING_ID,
+    idempotencyKey: `booking:${BOOKING_ID}:update:1`,
+  };
+
+  it("returns no_draft when there is no collecting draft for this conversation", async () => {
+    tables.set("booking_drafts", null);
+    const result = await rescheduleBookingFromDraft(input);
+    expect(result).toEqual({ outcome: "no_draft" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns no_draft when the draft exists but is already completed", async () => {
+    tables.set("booking_drafts", {
+      salon_id: null,
+      starts_at: "2099-09-18T15:00:00+07:00",
+      service_selections: [{ name: "Manicure" }],
+      technician_ref: null,
+      additional_request: null,
+      state: "completed",
+    });
+    const result = await rescheduleBookingFromDraft(input);
+    expect(result).toEqual({ outcome: "no_draft" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns not_updatable when the target booking no longer belongs to this contact", async () => {
+    tables.set("booking_drafts", {
+      salon_id: null,
+      starts_at: "2099-09-18T15:00:00+07:00",
+      service_selections: [{ name: "Manicure" }],
+      technician_ref: null,
+      additional_request: null,
+      state: "collecting",
+    });
+    tables.set("bookings", null);
+    const result = await rescheduleBookingFromDraft(input);
+    expect(result).toEqual({ outcome: "not_updatable" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns not_updatable when the draft's requested time has already passed", async () => {
+    tables.set("booking_drafts", {
+      salon_id: null,
+      starts_at: "2000-01-01T00:00:00Z",
+      service_selections: [{ name: "Manicure" }],
+      technician_ref: null,
+      additional_request: null,
+      state: "collecting",
+    });
+    tables.set("bookings", {
+      technician_ref: null,
+      starts_at: "2099-09-18T15:00:00+07:00",
+      salon: { name: "Mitte" },
+    });
+    const result = await rescheduleBookingFromDraft(input);
+    expect(result).toEqual({ outcome: "not_updatable" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("maps a salon_is_not_active RPC error to not_updatable", async () => {
+    tables.set("booking_drafts", {
+      salon_id: null,
+      starts_at: "2099-09-18T15:00:00+07:00",
+      service_selections: [{ name: "Manicure" }],
+      technician_ref: null,
+      additional_request: null,
+      state: "collecting",
+    });
+    tables.set("bookings", {
+      technician_ref: null,
+      starts_at: "2099-09-18T14:00:00+07:00",
+      salon: { name: "Mitte" },
+    });
+    mocks.rpc.mockRejectedValueOnce(new Error("salon_is_not_active"));
+    const result = await rescheduleBookingFromDraft(input);
+    expect(result).toEqual({ outcome: "not_updatable" });
+  });
+
+  it("reschedules the existing booking in place and keeps its id", async () => {
+    tables.set("booking_drafts", {
+      salon_id: null,
+      starts_at: "2099-09-18T16:00:00+07:00",
+      service_selections: [{ name: "Manicure" }],
+      technician_ref: null,
+      additional_request: null,
+      state: "collecting",
+    });
+    tables.set("bookings", {
+      technician_ref: null,
+      starts_at: "2099-09-18T15:00:00+07:00",
+      salon: { name: "Mitte" },
+    });
+    mocks.rpc.mockResolvedValueOnce({ data: true, error: null });
+
+    const result = await rescheduleBookingFromDraft(input);
+
+    expect(result).toMatchObject({ outcome: "updated", bookingId: BOOKING_ID });
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "reschedule_organization_booking",
+      expect.objectContaining({
+        p_organization_id: ORGANIZATION_ID,
+        p_booking_id: BOOKING_ID,
+        p_contact_id: CONTACT_ID,
+        p_idempotency_key: input.idempotencyKey,
+      }),
+    );
+    expect(mocks.notify).not.toHaveBeenCalled();
+  });
+
+  it("returns not_updatable when the RPC reports the booking could not be updated", async () => {
+    tables.set("booking_drafts", {
+      salon_id: null,
+      starts_at: "2099-09-18T16:00:00+07:00",
+      service_selections: [{ name: "Manicure" }],
+      technician_ref: null,
+      additional_request: null,
+      state: "collecting",
+    });
+    tables.set("bookings", {
+      technician_ref: null,
+      starts_at: "2099-09-18T15:00:00+07:00",
+      salon: { name: "Mitte" },
+    });
+    mocks.rpc.mockResolvedValueOnce({ data: false, error: null });
+
+    const result = await rescheduleBookingFromDraft(input);
+    expect(result).toEqual({ outcome: "not_updatable" });
   });
 });

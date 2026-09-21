@@ -2,6 +2,10 @@ import { subMinutes } from "date-fns";
 
 import { deliverWhatsAppOutboxMessage } from "@/features/messaging/outbox";
 import { processWhatsAppInboxEvent } from "@/features/conversation/process-event";
+import {
+  renderAndUploadCheckinQr,
+  queueCheckinQrDelivery,
+} from "@/features/bookings/checkin-delivery";
 import { processStylePreview, queueStylePreviews } from "@/features/previews/process";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -105,6 +109,38 @@ export const generateStylePreview = inngest.createFunction(
   },
 );
 
+export const generateCheckinQr = inngest.createFunction(
+  {
+    id: "generate-checkin-qr",
+    retries: 3,
+    concurrency: { limit: 3 },
+    triggers: [{ event: "booking/checkin-qr.requested" }],
+  },
+  async ({ event, step }) => {
+    const { organizationId, bookingId, conversationId, recipientWaId, locale } = event.data as {
+      organizationId: string;
+      bookingId: string;
+      conversationId: string;
+      recipientWaId: string;
+      locale: string;
+    };
+    const mediaId = await step.run("render-upload-checkin-qr", () =>
+      renderAndUploadCheckinQr(organizationId, bookingId),
+    );
+    await step.run("queue-checkin-qr-delivery", () =>
+      queueCheckinQrDelivery({
+        organizationId,
+        bookingId,
+        conversationId,
+        recipientWaId,
+        locale,
+        mediaId,
+      }),
+    );
+    return { bookingId, delivered: true };
+  },
+);
+
 export const recoverDurableOutboxes = inngest.createFunction(
   {
     id: "recover-durable-outboxes",
@@ -179,5 +215,6 @@ export const inngestFunctions = [
   processWhatsAppEvent,
   deliverWhatsAppMessage,
   generateStylePreview,
+  generateCheckinQr,
   recoverDurableOutboxes,
 ];

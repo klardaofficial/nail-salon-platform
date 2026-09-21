@@ -449,6 +449,8 @@ export type Database = {
           business_id: string
           cancellation_reason: string | null
           cancelled_at: string | null
+          checked_in_at: string | null
+          checked_in_by_contact_id: string | null
           contact_id: string
           created_at: string
           id: string
@@ -472,6 +474,8 @@ export type Database = {
           business_id: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          checked_in_at?: string | null
+          checked_in_by_contact_id?: string | null
           contact_id: string
           created_at?: string
           id?: string
@@ -495,6 +499,8 @@ export type Database = {
           business_id?: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          checked_in_at?: string | null
+          checked_in_by_contact_id?: string | null
           contact_id?: string
           created_at?: string
           id?: string
@@ -514,6 +520,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bookings_checked_in_by_contact_id_fkey"
+            columns: ["checked_in_by_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bookings_organization_business_fkey"
             columns: ["organization_id", "business_id"]
@@ -1893,6 +1906,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      checkin_organization_booking: {
+        Args: {
+          p_actor_contact_id: string
+          p_actor_wa_id: string
+          p_booking_id: string
+          p_organization_id: string
+        }
+        Returns: Json
+      }
       complete_preview_request: {
         Args: {
           p_organization_id: string
@@ -1991,7 +2013,7 @@ export type Database = {
       }
     }
     Enums: {
-      booking_status: "confirmed" | "cancelled"
+      booking_status: "confirmed" | "cancelled" | "checked_in"
       delivery_state: "pending" | "sending" | "sent" | "failed"
       job_state:
         | "pending"
@@ -2138,7 +2160,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      booking_status: ["confirmed", "cancelled"],
+      booking_status: ["confirmed", "cancelled", "checked_in"],
       delivery_state: ["pending", "sending", "sent", "failed"],
       job_state: ["pending", "dispatched", "processing", "completed", "failed"],
       message_direction: ["inbound", "outbound"],

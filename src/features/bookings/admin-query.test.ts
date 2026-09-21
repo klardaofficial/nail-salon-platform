@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const mocks = vi.hoisted(() => ({ from: vi.fn(), selects: [] as string[], data: [] as unknown[] }));
+const mocks = vi.hoisted(() => ({
+  from: vi.fn(),
+  selects: [] as string[],
+  data: [] as unknown[],
+  eqCalls: [] as unknown[][],
+}));
 
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({ from: mocks.from }),
@@ -14,13 +19,18 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.selects.length = 0;
   mocks.data = [];
+  mocks.eqCalls.length = 0;
   mocks.from.mockImplementation((table: string) => {
     const query: Record<string, unknown> = {};
     query.select = (selection: string) => {
       if (table === "bookings") mocks.selects.push(selection);
       return query;
     };
-    for (const method of ["eq", "gte", "lte", "order", "limit"]) query[method] = () => query;
+    query.eq = (...args: unknown[]) => {
+      mocks.eqCalls.push(args);
+      return query;
+    };
+    for (const method of ["gte", "lte", "order", "limit"]) query[method] = () => query;
     query.then = (resolve: (value: unknown) => unknown) =>
       Promise.resolve({ data: mocks.data, error: null }).then(resolve);
     return query;
@@ -28,6 +38,37 @@ beforeEach(() => {
 });
 
 describe("queryAdminBookings", () => {
+  it("accepts the checked_in status filter and passes it through to the query", async () => {
+    await queryAdminBookings("org-1", { status: "checked_in" });
+    expect(mocks.eqCalls).toContainEqual(["status", "checked_in"]);
+  });
+
+  it("surfaces checked_in_at on a checked-in booking row", async () => {
+    mocks.data = [
+      {
+        id: "booking-3",
+        status: "checked_in",
+        starts_at: "2026-09-20T10:00:00Z",
+        local_time_label: "5:00 PM",
+        timezone_snapshot: "Asia/Bangkok",
+        additional_request: null,
+        cancelled_at: null,
+        cancellation_reason: null,
+        checked_in_at: "2026-09-20T10:05:00Z",
+        simulated: false,
+        created_at: "2026-09-19T00:00:00Z",
+        updated_at: "2026-09-20T10:05:00Z",
+        technician_name_snapshot: null,
+        salon: null,
+        customer: { display_name: "Alex", wa_id: "1234567890" },
+        booking_services: [],
+      },
+    ];
+    const [row] = await queryAdminBookings("org-1", {});
+    expect(row.status).toBe("checked_in");
+    expect(row.checkedInAt).toBe("2026-09-20T10:05:00Z");
+  });
+
   it("requests the narrative and lifecycle columns and keeps composite-FK embed names", async () => {
     await queryAdminBookings("org-1", {});
 
@@ -37,6 +78,7 @@ describe("queryAdminBookings", () => {
     expect(selection).toContain("additional_request");
     expect(selection).toContain("cancelled_at");
     expect(selection).toContain("cancellation_reason");
+    expect(selection).toContain("checked_in_at");
     expect(selection).toContain("simulated");
     expect(selection).toContain("updated_at");
     expect(selection).toContain("service_id");

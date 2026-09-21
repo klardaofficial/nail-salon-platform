@@ -42,7 +42,7 @@ function request(query = "") {
 const params = Promise.resolve({ organizationId: "00000000-0000-4000-8000-000000000101" });
 
 describe("bookings CSV export route", () => {
-  it("emits the 17-column header in the documented order", async () => {
+  it("emits the 18-column header in the documented order", async () => {
     const response = await GET(request(), { params });
     const text = await response.text();
     const [header] = withoutBom(text).split("\r\n");
@@ -63,6 +63,7 @@ describe("bookings CSV export route", () => {
         "Status",
         "Cancelled at",
         "Cancellation reason",
+        "Checked in at",
         "Source",
         "Created at",
         "Updated at",

@@ -4,6 +4,7 @@ import {
   ArrowDownRightIcon,
   ArrowUpRightIcon,
   CalendarCheckIcon,
+  CheckCircleIcon,
   UsersIcon,
 } from "@phosphor-icons/react";
 import {
@@ -73,6 +74,7 @@ export function DashboardClient({
     () =>
       data?.trends.flatMap((point) => [
         { date: point.date, value: point.confirmed, status: "Confirmed" },
+        { date: point.date, value: point.checkedIn, status: "Checked in" },
         { date: point.date, value: point.cancelled, status: "Cancelled" },
       ]) ?? [],
     [data],
@@ -80,6 +82,7 @@ export function DashboardClient({
   const statusData = data
     ? [
         { status: "Confirmed", value: data.totals.confirmed },
+        { status: "Checked in", value: data.totals.checkedIn },
         { status: "Cancelled", value: data.totals.cancelled },
       ]
     : [];
@@ -171,6 +174,16 @@ export function DashboardClient({
             <Col xs={24} sm={12} xl={6}>
               <Card className="admin-stat-card">
                 <Statistic
+                  title="Checked in"
+                  value={data.totals.checkedIn}
+                  styles={{ content: { color: "#1668dc" } }}
+                  prefix={<CheckCircleIcon size={22} />}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <Card className="admin-stat-card">
+                <Statistic
                   title="Cancelled"
                   value={data.totals.cancelled}
                   styles={{ content: { color: "#a33a4a" } }}
@@ -199,7 +212,7 @@ export function DashboardClient({
                     xField="date"
                     yField="value"
                     colorField="status"
-                    scale={{ color: { range: ["#317159", "#a33a4a"] } }}
+                    scale={{ color: { range: ["#317159", "#1668dc", "#a33a4a"] } }}
                     axis={{ y: { labelFormatter: (value: number) => `${value}` } }}
                   />
                 ) : (
@@ -215,7 +228,7 @@ export function DashboardClient({
                     xField="status"
                     yField="value"
                     colorField="status"
-                    scale={{ color: { range: ["#317159", "#a33a4a"] } }}
+                    scale={{ color: { range: ["#317159", "#1668dc", "#a33a4a"] } }}
                   />
                 ) : (
                   <Empty description="No status data" />
@@ -244,7 +257,17 @@ export function DashboardClient({
                       title: "Status",
                       dataIndex: "status",
                       render: (value: string) => (
-                        <Tag color={value === "confirmed" ? "success" : "error"}>{value}</Tag>
+                        <Tag
+                          color={
+                            value === "confirmed"
+                              ? "success"
+                              : value === "checked_in"
+                                ? "processing"
+                                : "error"
+                          }
+                        >
+                          {value}
+                        </Tag>
                       ),
                     },
                   ]}
@@ -276,6 +299,7 @@ export function DashboardClient({
                 { title: "Date", dataIndex: "date" },
                 { title: "Total", dataIndex: "total" },
                 { title: "Confirmed", dataIndex: "confirmed" },
+                { title: "Checked in", dataIndex: "checkedIn" },
                 { title: "Cancelled", dataIndex: "cancelled" },
               ]}
             />

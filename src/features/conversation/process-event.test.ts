@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   queueInteractiveChoices: vi.fn(),
   confirmBookingFromIntent: vi.fn(),
   cancelBookingForContact: vi.fn(),
+  checkinBookingByStaff: vi.fn(),
+  rescheduleBookingFromDraft: vi.fn(),
+  inngestSend: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({
@@ -26,6 +29,9 @@ vi.mock("@/features/messaging/outbox", () => ({
   queueWhatsAppMessage: mocks.queueWhatsAppMessage,
   queueInteractiveChoices: mocks.queueInteractiveChoices,
 }));
+vi.mock("@/inngest/client", () => ({
+  inngest: { send: mocks.inngestSend },
+}));
 // formatCancelAction/parseCancelAction stay real -- they're the pure encoding
 // this suite relies on to recognize a Cancel tap; only the DB-touching
 // booking actions are stubbed (scripted-flow.test.ts covers those directly).
@@ -35,12 +41,15 @@ vi.mock("./scripted-flow", async (importOriginal) => {
     ...actual,
     confirmBookingFromIntent: mocks.confirmBookingFromIntent,
     cancelBookingForContact: mocks.cancelBookingForContact,
+    checkinBookingByStaff: mocks.checkinBookingByStaff,
+    rescheduleBookingFromDraft: mocks.rescheduleBookingFromDraft,
   };
 });
 
 import { processWhatsAppInboxEvent } from "./process-event";
-import { formatCancelAction } from "./scripted-flow";
-import { resolveStaticMessages } from "@/lib/bot/static-messages";
+import { formatCancelAction, formatUpdateAction, SKIP_ACTION } from "./scripted-flow";
+import { formatCheckinTag } from "@/features/bookings/checkin-code";
+import { formatStaticMessage, resolveStaticMessages } from "@/lib/bot/static-messages";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000101";
 const CONTACT_ID = "00000000-0000-4000-8000-000000000801";
@@ -509,6 +518,60 @@ describe("processWhatsAppInboxEvent hybrid mode (AI bot enabled)", () => {
   });
 });
 
+describe("processWhatsAppInboxEvent AI booking confirmation", () => {
+  it("does not duplicate the Cancel option when the model already offered one for the same booking", async () => {
+    const event = baseEvent("book me a manicure tomorrow at 3pm");
+    seedInboxEvent(event);
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    seedHappyPathThroughReply();
+    mocks.createNaturalReply.mockResolvedValueOnce({
+      locale: "en",
+      text: "Booked! ✅",
+      unavailableText: "Please try again shortly.",
+      buttonLabel: "Options",
+      sectionTitle: "Options",
+      options: [{ id: formatCancelAction(BOOKING_ID), title: "Cancel booking", description: null }],
+      confirmedBookingId: BOOKING_ID,
+    });
+
+    await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(mocks.queueInteractiveChoices).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: [
+          { id: formatCancelAction(BOOKING_ID), title: "Cancel booking", description: undefined },
+        ],
+      }),
+    );
+  });
+
+  it("appends the static Cancel option when the model did not offer one itself", async () => {
+    const event = baseEvent("book me a manicure tomorrow at 3pm");
+    seedInboxEvent(event);
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    seedHappyPathThroughReply();
+    mocks.createNaturalReply.mockResolvedValueOnce({
+      locale: "en",
+      text: "Booked! ✅",
+      unavailableText: "Please try again shortly.",
+      buttonLabel: "Options",
+      sectionTitle: "Options",
+      options: [],
+      confirmedBookingId: BOOKING_ID,
+    });
+
+    await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(mocks.queueInteractiveChoices).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: [
+          { id: formatCancelAction(BOOKING_ID), title: resolveStaticMessages("en").cancelAction },
+        ],
+      }),
+    );
+  });
+});
+
 function cancelTapEvent(interactiveId: string) {
   return {
     kind: "message" as const,
@@ -543,7 +606,9 @@ describe("processWhatsAppInboxEvent Cancel tap", () => {
           external_website_url: "https://example.com",
         },
       });
-      stub.push("contacts", { data: { id: CONTACT_ID, display_name: "Jane", wa_id: "49151111111" } });
+      stub.push("contacts", {
+        data: { id: CONTACT_ID, display_name: "Jane", wa_id: "49151111111" },
+      });
       stub.push("conversations", {
         data: { id: CONVERSATION_ID, reply_locale: null, reply_unavailable_text: null },
       });
@@ -602,5 +667,297 @@ describe("processWhatsAppInboxEvent Cancel tap", () => {
         payload: { kind: "text", text: resolveStaticMessages("en").bookingNotCancellable },
       }),
     );
+  });
+});
+
+function interactiveTapEvent(interactiveId: string, providerEventId = "wamid.tap") {
+  return {
+    kind: "message" as const,
+    contactWaId: "49151111111",
+    profileName: "Jane",
+    simulated: false,
+    occurredAt: "2026-09-18T10:00:00.000Z",
+    providerEventId,
+    message: {
+      type: "interactive" as const,
+      text: null,
+      interactiveTitle: "Update booking",
+      caption: null,
+      mediaId: null,
+      interactiveId,
+      mimeType: null,
+    },
+  };
+}
+
+describe("processWhatsAppInboxEvent check-in tag", () => {
+  function seedCheckinSettings() {
+    stub.push("organization_settings", {
+      data: {
+        simulator_enabled: false,
+        bot_locale: "en",
+        ai_bot_enabled: true,
+        external_website_url: null,
+      },
+    });
+    stub.push("contacts", { data: { id: CONTACT_ID, display_name: "Jane", wa_id: "49151111111" } });
+    stub.push("conversations", {
+      data: { id: CONVERSATION_ID, reply_locale: null, reply_unavailable_text: null },
+    });
+  }
+
+  it("flips the booking to checked_in for a verified owner, and strips the tag from stored history", async () => {
+    const event = baseEvent(`${formatCheckinTag(BOOKING_ID)} arrived`);
+    seedInboxEvent(event);
+    seedCheckinSettings();
+    stub.push("conversation_messages", { data: { id: "history-row" } }); // fresh history row
+    stub.push("business_owners", { data: [{ business_id: BUSINESS_ID }] });
+    stub.push("technicians", { data: [] });
+    stub.push("whatsapp_inbox_events", { data: null, error: null }); // markProcessed
+    mocks.checkinBookingByStaff.mockResolvedValueOnce({
+      outcome: "checked_in",
+      bookingId: BOOKING_ID,
+      customerName: "Jane",
+      startsAt: "18 Sep, 15:00",
+    });
+
+    const result = await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(result).toEqual({ processed: "message" });
+    expect(mocks.checkinBookingByStaff).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      actorContactId: CONTACT_ID,
+      actorWaId: "49151111111",
+      bookingId: BOOKING_ID,
+    });
+    const messages = resolveStaticMessages("en");
+    expect(mocks.queueWhatsAppMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: {
+          kind: "text",
+          text: formatStaticMessage(messages.checkinDone, {
+            customer: "Jane",
+            appointment: "18 Sep, 15:00",
+          }),
+        },
+      }),
+    );
+    const historyUpsert = stub.calls.find(
+      (call) => call.table === "conversation_messages" && call.method === "upsert",
+    );
+    expect((historyUpsert?.args[0] as Record<string, unknown>).text_content).toBe("arrived");
+  });
+
+  it("flips the booking to checked_in for a verified technician", async () => {
+    const event = baseEvent(`${formatCheckinTag(BOOKING_ID)} arrived`);
+    seedInboxEvent(event);
+    seedCheckinSettings();
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    stub.push("business_owners", { data: [] });
+    stub.push("technicians", { data: [{ id: "tech-1" }] });
+    stub.push("whatsapp_inbox_events", { data: null, error: null });
+    mocks.checkinBookingByStaff.mockResolvedValueOnce({
+      outcome: "already_checked_in",
+      bookingId: BOOKING_ID,
+    });
+
+    const result = await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(result).toEqual({ processed: "message" });
+    expect(mocks.checkinBookingByStaff).toHaveBeenCalled();
+    expect(mocks.queueWhatsAppMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { kind: "text", text: resolveStaticMessages("en").checkinAlready },
+      }),
+    );
+  });
+
+  it("silently ignores a non-staff sender's check-in tag and falls through to normal handling", async () => {
+    const event = baseEvent(`${formatCheckinTag(BOOKING_ID)} hi`);
+    seedInboxEvent(event);
+    seedScriptedSettings();
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    stub.push("business_owners", { data: [] });
+    stub.push("technicians", { data: [] });
+    stub.push("whatsapp_inbox_events", { data: null, error: null });
+
+    const result = await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(result).toEqual({ processed: "message" });
+    expect(mocks.checkinBookingByStaff).not.toHaveBeenCalled();
+    expect(mocks.queueWhatsAppMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { kind: "text", text: expect.stringContaining("https://example.com") },
+      }),
+    );
+    const historyUpsert = stub.calls.find(
+      (call) => call.table === "conversation_messages" && call.method === "upsert",
+    );
+    expect((historyUpsert?.args[0] as Record<string, unknown>).text_content).not.toContain(
+      "[CHECKIN-",
+    );
+  });
+
+  it("falls through to normal handling when the RPC reports the booking cannot be checked in", async () => {
+    const event = baseEvent(`${formatCheckinTag(BOOKING_ID)} hi`);
+    seedInboxEvent(event);
+    seedScriptedSettings();
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    stub.push("business_owners", { data: [{ business_id: BUSINESS_ID }] });
+    stub.push("technicians", { data: [] });
+    stub.push("whatsapp_inbox_events", { data: null, error: null });
+    mocks.checkinBookingByStaff.mockResolvedValueOnce({ outcome: "not_checkinable" });
+
+    const result = await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(result).toEqual({ processed: "message" });
+    expect(mocks.checkinBookingByStaff).toHaveBeenCalled();
+    expect(mocks.queueWhatsAppMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { kind: "text", text: expect.stringContaining("https://example.com") },
+      }),
+    );
+  });
+});
+
+describe("processWhatsAppInboxEvent update/skip tap", () => {
+  it.each([true, false])(
+    "reschedules the existing booking in place on an Update tap, in both modes (ai_bot_enabled=%s)",
+    async (aiBotEnabled) => {
+      const event = interactiveTapEvent(formatUpdateAction(BOOKING_ID));
+      seedInboxEvent(event);
+      stub.push("organization_settings", {
+        data: {
+          simulator_enabled: false,
+          bot_locale: "en",
+          ai_bot_enabled: aiBotEnabled,
+          external_website_url: null,
+        },
+      });
+      stub.push("contacts", {
+        data: { id: CONTACT_ID, display_name: "Jane", wa_id: "49151111111" },
+      });
+      stub.push("conversations", {
+        data: { id: CONVERSATION_ID, reply_locale: null, reply_unavailable_text: null },
+      });
+      stub.push("conversation_messages", { data: { id: "history-row" } });
+      stub.push("whatsapp_inbox_events", { data: null, error: null });
+      mocks.rescheduleBookingFromDraft.mockResolvedValueOnce({
+        outcome: "updated",
+        bookingId: BOOKING_ID,
+        startsAt: "18 Sep, 16:00",
+      });
+
+      const result = await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+      expect(result).toEqual({ processed: "message" });
+      expect(mocks.rescheduleBookingFromDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: ORGANIZATION_ID,
+          contactId: CONTACT_ID,
+          conversationId: CONVERSATION_ID,
+          bookingId: BOOKING_ID,
+          idempotencyKey: "update:wamid.tap",
+        }),
+      );
+      expect(mocks.queueWhatsAppMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: {
+            kind: "text",
+            text: formatStaticMessage(resolveStaticMessages("en").updateApplied, {
+              appointment: "18 Sep, 16:00",
+            }),
+          },
+        }),
+      );
+    },
+  );
+
+  it("replies that the booking can no longer be updated when the reschedule is not possible", async () => {
+    const event = interactiveTapEvent(formatUpdateAction(BOOKING_ID));
+    seedInboxEvent(event);
+    stub.push("organization_settings", {
+      data: {
+        simulator_enabled: false,
+        bot_locale: "en",
+        ai_bot_enabled: true,
+        external_website_url: null,
+      },
+    });
+    stub.push("contacts", { data: { id: CONTACT_ID, display_name: "Jane", wa_id: "49151111111" } });
+    stub.push("conversations", {
+      data: { id: CONVERSATION_ID, reply_locale: null, reply_unavailable_text: null },
+    });
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    stub.push("whatsapp_inbox_events", { data: null, error: null });
+    mocks.rescheduleBookingFromDraft.mockResolvedValueOnce({ outcome: "not_updatable" });
+
+    await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(mocks.queueWhatsAppMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { kind: "text", text: resolveStaticMessages("en").updateUnavailable },
+      }),
+    );
+  });
+
+  it("acknowledges a Skip tap and leaves the existing booking untouched", async () => {
+    const event = interactiveTapEvent(SKIP_ACTION);
+    seedInboxEvent(event);
+    stub.push("organization_settings", {
+      data: {
+        simulator_enabled: false,
+        bot_locale: "en",
+        ai_bot_enabled: true,
+        external_website_url: null,
+      },
+    });
+    stub.push("contacts", { data: { id: CONTACT_ID, display_name: "Jane", wa_id: "49151111111" } });
+    stub.push("conversations", {
+      data: { id: CONVERSATION_ID, reply_locale: null, reply_unavailable_text: null },
+    });
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    stub.push("whatsapp_inbox_events", { data: null, error: null });
+
+    const result = await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(result).toEqual({ processed: "message" });
+    expect(mocks.rescheduleBookingFromDraft).not.toHaveBeenCalled();
+    expect(mocks.queueWhatsAppMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { kind: "text", text: resolveStaticMessages("en").skipAcknowledged },
+      }),
+    );
+  });
+});
+
+describe("processWhatsAppInboxEvent active booking limit (booking-intent hits BOOK-10)", () => {
+  it("offers the Update/Skip choice, naming the existing booking's time, when a claimed intent hits the active-booking limit", async () => {
+    const event = baseEvent("[BK-ABCDEFGHJKMNP] hi");
+    seedInboxEvent(event);
+    seedScriptedSettings();
+    stub.push("conversation_messages", { data: { id: "history-row" } });
+    stub.push("businesses", { data: { id: BUSINESS_ID } });
+    stub.push("whatsapp_inbox_events", { data: null, error: null });
+    mocks.confirmBookingFromIntent.mockResolvedValueOnce({
+      outcome: "active_booking",
+      bookingId: BOOKING_ID,
+      startsAt: "18 Sep, 15:00",
+    });
+
+    const result = await processWhatsAppInboxEvent(INBOX_EVENT_ID);
+
+    expect(result).toEqual({ processed: "message" });
+    expect(mocks.queueInteractiveChoices).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: [
+          { id: formatUpdateAction(BOOKING_ID), title: resolveStaticMessages("en").updateAction },
+          { id: SKIP_ACTION, title: resolveStaticMessages("en").skipAction },
+        ],
+      }),
+    );
+    const body = mocks.queueInteractiveChoices.mock.calls[0][0].body as string;
+    expect(body).toContain("18 Sep, 15:00");
+    expect(mocks.rescheduleBookingFromDraft).not.toHaveBeenCalled();
   });
 });

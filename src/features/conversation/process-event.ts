@@ -4,25 +4,92 @@ import { createNaturalReply } from "./respond";
 import type { ConversationActor } from "./tools";
 import {
   cancelBookingForContact,
+  checkinBookingByStaff,
   confirmBookingFromIntent,
   formatCancelAction,
+  formatUpdateAction,
   parseCancelAction,
+  parseUpdateAction,
+  rescheduleBookingFromDraft,
+  SKIP_ACTION,
 } from "./scripted-flow";
-import { claimBookingIntentByCode, type ClaimedBookingIntent } from "@/features/booking-intents/claim";
+import {
+  claimBookingIntentByCode,
+  type ClaimedBookingIntent,
+} from "@/features/booking-intents/claim";
 import { extractIntentCode, stripIntentCode } from "@/features/booking-intents/code";
+import { extractCheckinBookingId, stripCheckinTag } from "@/features/bookings/checkin-code";
 import { queueInteractiveChoices, queueWhatsAppMessage } from "@/features/messaging/outbox";
 import { resolveExternalWebsiteUrl } from "@/features/organizations/providers";
+import { inngest } from "@/inngest/client";
 import type {
   NormalizedWhatsAppEvent,
   OutboundWhatsAppPayload,
 } from "@/integrations/whatsapp/types";
 import { unavailableFallback } from "@/lib/bot/language";
-import { formatStaticDetails, formatStaticMessage, resolveStaticMessages } from "@/lib/bot/static-messages";
+import {
+  formatStaticDetails,
+  formatStaticMessage,
+  resolveStaticMessages,
+} from "@/lib/bot/static-messages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function normalizedMessageText(event: Extract<NormalizedWhatsAppEvent, { kind: "message" }>) {
   if (event.message.text) return event.message.text;
   return event.message.interactiveTitle ?? event.message.caption ?? "";
+}
+
+// Shared by the check-in-tag fast path (both modes) and the AI actor: staff
+// scope always comes from these stored mappings, never a text claim.
+async function resolveStaffRoles(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  input: { organizationId: string; contactId: string; waId: string },
+) {
+  const [owners, technicians] = await Promise.all([
+    supabase
+      .from("business_owners")
+      .select("business_id")
+      .eq("contact_id", input.contactId)
+      .eq("organization_id", input.organizationId)
+      .limit(1),
+    supabase
+      .from("technicians")
+      .select("id")
+      .eq("wa_id", input.waId)
+      .eq("organization_id", input.organizationId)
+      .eq("active", true)
+      .is("deleted_at", null),
+  ]);
+  if (owners.error) throw owners.error;
+  if (technicians.error) throw technicians.error;
+  return {
+    isOwner: Boolean(owners.data?.length),
+    technicianIds: (technicians.data ?? []).map((technician) => technician.id),
+  };
+}
+
+async function sendCheckinQrRequested(input: {
+  organizationId: string;
+  bookingId: string;
+  conversationId: string;
+  recipientWaId: string;
+  locale: string;
+  transport: "whatsapp" | "simulator";
+}) {
+  // The simulator only exercises text/interactive messages, never photo
+  // uploads (see docs/development/configuration.md); skip the real Graph API
+  // round trip entirely rather than let it fail against a fake number.
+  if (input.transport === "simulator") return;
+  await inngest.send({
+    name: "booking/checkin-qr.requested",
+    data: {
+      organizationId: input.organizationId,
+      bookingId: input.bookingId,
+      conversationId: input.conversationId,
+      recipientWaId: input.recipientWaId,
+      locale: input.locale,
+    },
+  });
 }
 
 async function processStatus(
@@ -139,7 +206,10 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   // after the duplicate/replay early-return, so a retried event can't burn an
   // intent for nothing and a completed draft can't be resurrected.
   const intentCode = extractIntentCode(rawMessageText);
-  const messageText = intentCode ? stripIntentCode(rawMessageText) : rawMessageText;
+  const checkinTagBookingId = extractCheckinBookingId(rawMessageText);
+  const messageText = stripCheckinTag(
+    intentCode ? stripIntentCode(rawMessageText) : rawMessageText,
+  );
   const historyResult = await supabase
     .from("conversation_messages")
     .upsert(
@@ -209,10 +279,91 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     return { processed: "message" };
   }
 
+  // Priority #2, in both modes: a check-in tag must never reach the model.
+  // Staff scope is resolved first so a non-staff sender (for example a
+  // customer who forwards their own QR's decoded text) never even reaches
+  // the RPC; checkin_organization_booking is still the actual authorization
+  // choke point for a mapped sender. Silent fall-through on any outcome
+  // other than checked_in/already_checked_in -- including not_checkinable --
+  // mirrors the existing unknown-[BK-...]-code precedent below, so a stale
+  // or cancelled booking's tag doesn't leak that it means anything.
+  if (checkinTagBookingId) {
+    const staffRoles = await resolveStaffRoles(supabase, {
+      organizationId,
+      contactId,
+      waId: event.contactWaId,
+    });
+    if (staffRoles.isOwner || staffRoles.technicianIds.length) {
+      const outcome = await checkinBookingByStaff({
+        organizationId,
+        actorContactId: contactId,
+        actorWaId: event.contactWaId,
+        bookingId: checkinTagBookingId,
+      });
+      if (outcome.outcome === "checked_in" || outcome.outcome === "already_checked_in") {
+        const messages = resolveStaticMessages(scriptedLocale);
+        await queueWhatsAppMessage({
+          ...replyTarget,
+          payload: {
+            kind: "text",
+            text:
+              outcome.outcome === "checked_in"
+                ? formatStaticMessage(messages.checkinDone, {
+                    customer: outcome.customerName || "[N/A]",
+                    appointment: outcome.startsAt,
+                  })
+                : messages.checkinAlready,
+          },
+        });
+        await markProcessed();
+        return { processed: "message" };
+      }
+    }
+  }
+
+  // Priority #3, in both modes: an Update/Skip tap on the "booking still
+  // active" offer is handled the same way regardless of whether that offer
+  // came from the BOOK-07 hand-off or the AI (the reschedule itself must stay
+  // deterministic either way -- see rescheduleBookingFromDraft).
+  const updateBookingId = parseUpdateAction(event.message.interactiveId);
+  if (updateBookingId) {
+    const outcome = await rescheduleBookingFromDraft({
+      organizationId,
+      contactId,
+      conversationId,
+      bookingId: updateBookingId,
+      transport,
+      idempotencyKey: `update:${event.providerEventId}`,
+    });
+    const messages = resolveStaticMessages(scriptedLocale);
+    await queueWhatsAppMessage({
+      ...replyTarget,
+      payload: {
+        kind: "text",
+        text:
+          outcome.outcome === "updated"
+            ? formatStaticMessage(messages.updateApplied, { appointment: outcome.startsAt })
+            : messages.updateUnavailable,
+      },
+    });
+    await markProcessed();
+    return { processed: "message" };
+  }
+  if (event.message.interactiveId === SKIP_ACTION) {
+    const messages = resolveStaticMessages(scriptedLocale);
+    await queueWhatsAppMessage({
+      ...replyTarget,
+      payload: { kind: "text", text: messages.skipAcknowledged },
+    });
+    await markProcessed();
+    return { processed: "message" };
+  }
+
   // Claiming happens for both modes: it seeds booking_drafts, which the AI
   // path still relies on when the bot is enabled.
   let claim: ClaimedBookingIntent | null = null;
-  if (intentCode) claim = await claimBookingIntentByCode(organizationId, conversationId, intentCode);
+  if (intentCode)
+    claim = await claimBookingIntentByCode(organizationId, conversationId, intentCode);
 
   // Priority #2, in both modes: a successfully claimed hand-off needs no
   // judgment, so it is booked deterministically whether the bot is on or
@@ -257,6 +408,28 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
         sectionTitle: messages.cancelAction,
         options: [{ id: formatCancelAction(outcome.bookingId), title: messages.cancelAction }],
       });
+      await sendCheckinQrRequested({
+        organizationId,
+        bookingId: outcome.bookingId,
+        conversationId,
+        recipientWaId: event.contactWaId,
+        locale: scriptedLocale,
+        transport,
+      });
+      await markProcessed();
+      return { processed: "message" };
+    } else if (outcome.outcome === "active_booking") {
+      const messages = resolveStaticMessages(scriptedLocale);
+      await queueInteractiveChoices({
+        ...replyTarget,
+        body: formatStaticMessage(messages.activeBookingBlocked, { appointment: outcome.startsAt }),
+        buttonLabel: messages.updateAction,
+        sectionTitle: messages.updateAction,
+        options: [
+          { id: formatUpdateAction(outcome.bookingId), title: messages.updateAction },
+          { id: SKIP_ACTION, title: messages.skipAction },
+        ],
+      });
       await markProcessed();
       return { processed: "message" };
     }
@@ -278,23 +451,11 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     return { processed: "message" };
   }
 
-  const [owners, technicians] = await Promise.all([
-    supabase
-      .from("business_owners")
-      .select("business_id")
-      .eq("contact_id", contactId)
-      .eq("organization_id", organizationId)
-      .limit(1),
-    supabase
-      .from("technicians")
-      .select("id")
-      .eq("wa_id", event.contactWaId)
-      .eq("organization_id", organizationId)
-      .eq("active", true)
-      .is("deleted_at", null),
-  ]);
-  if (owners.error) throw owners.error;
-  if (technicians.error) throw technicians.error;
+  const staffRoles = await resolveStaffRoles(supabase, {
+    organizationId,
+    contactId,
+    waId: event.contactWaId,
+  });
   const businessResult = await supabase
     .from("businesses")
     .select("id")
@@ -320,8 +481,8 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
     conversationId,
     contactId,
     waId: event.contactWaId,
-    isOwner: Boolean(owners.data?.length),
-    technicianIds: (technicians.data ?? []).map((technician) => technician.id),
+    isOwner: staffRoles.isOwner,
+    technicianIds: staffRoles.technicianIds,
     currentMediaId: recentMedia?.media_id ?? null,
     locale,
   };
@@ -344,13 +505,25 @@ export async function processWhatsAppInboxEvent(inboxEventId: string) {
   // A create_booking success carries confirmedBookingId (respond.ts), so the
   // same one-tap Cancel option offered in scripted mode is added here too --
   // the interactive button title comes from the static catalog since it must
-  // be localized and there is no AI-authored equivalent for it.
-  const cancelOption = reply?.confirmedBookingId
-    ? {
-        id: formatCancelAction(reply.confirmedBookingId),
-        title: resolveStaticMessages(reply.locale).cancelAction,
-      }
+  // be localized. The model sometimes already offers its own Cancel option for
+  // the same booking (same id, different title): skip adding a second one.
+  const cancelOptionId = reply?.confirmedBookingId
+    ? formatCancelAction(reply.confirmedBookingId)
     : null;
+  const cancelOption =
+    reply && cancelOptionId && !reply.options.some((option) => option.id === cancelOptionId)
+      ? { id: cancelOptionId, title: resolveStaticMessages(reply.locale).cancelAction }
+      : null;
+  if (reply?.confirmedBookingId) {
+    await sendCheckinQrRequested({
+      organizationId,
+      bookingId: reply.confirmedBookingId,
+      conversationId,
+      recipientWaId: event.contactWaId,
+      locale: reply.locale,
+      transport,
+    });
+  }
   if (reply && (reply.options.length || cancelOption)) {
     await queueInteractiveChoices({
       ...replyTarget,

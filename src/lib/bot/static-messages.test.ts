@@ -14,6 +14,15 @@ const EXPECTED_KEYS = [
   "bookingNotCancellable",
   "bookingUnavailable",
   "cancelAction",
+  "checkinQrCaption",
+  "checkinDone",
+  "checkinAlready",
+  "activeBookingBlocked",
+  "updateAction",
+  "skipAction",
+  "updateApplied",
+  "updateUnavailable",
+  "skipAcknowledged",
   "technicianConfirmed",
   "technicianCancelled",
   "fields",
@@ -31,7 +40,10 @@ const EXPECTED_FIELD_KEYS = [
 describe("staticMessageCatalog", () => {
   it("has a bundle for every language option, and no extras", () => {
     const catalogCodes = Object.keys(staticMessageCatalog).sort();
-    const optionCodes = languageOptions.map((option) => option.value).slice().sort();
+    const optionCodes = languageOptions
+      .map((option) => option.value)
+      .slice()
+      .sort();
     expect(catalogCodes).toEqual(optionCodes);
   });
 
@@ -47,6 +59,14 @@ describe("staticMessageCatalog", () => {
     "%s cancelAction is at most 20 characters (WhatsApp button title cap)",
     (_code, bundle) => {
       expect(bundle.cancelAction.length).toBeLessThanOrEqual(20);
+    },
+  );
+
+  it.each(Object.entries(staticMessageCatalog))(
+    "%s updateAction and skipAction are at most 20 characters (WhatsApp button title cap)",
+    (_code, bundle) => {
+      expect(bundle.updateAction.length).toBeLessThanOrEqual(20);
+      expect(bundle.skipAction.length).toBeLessThanOrEqual(20);
     },
   );
 });

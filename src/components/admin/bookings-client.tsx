@@ -80,6 +80,17 @@ function BookingDetail({ row }: { row: AdminBookingRow }) {
               },
             ]
           : []),
+        ...(row.status === "checked_in"
+          ? [
+              {
+                key: "checkedInAt",
+                label: "Checked in at",
+                children: row.checkedInAt
+                  ? new Date(row.checkedInAt).toLocaleString("en-GB")
+                  : "[N/A]",
+              },
+            ]
+          : []),
         {
           key: "updatedAt",
           label: "Last updated",
@@ -102,7 +113,7 @@ export function BookingsClient({ organizationId }: { organizationId: string }) {
     <>
       <PageHeading
         title="Bookings"
-        description="Confirmed and cancelled booking records. Attendance is not inferred."
+        description="Confirmed, checked-in, and cancelled booking records."
       />
       <div className="mb-4 flex items-center justify-between gap-3">
         <Select
@@ -112,6 +123,7 @@ export function BookingsClient({ organizationId }: { organizationId: string }) {
           onChange={setStatus}
           options={[
             { value: "confirmed", label: "Confirmed" },
+            { value: "checked_in", label: "Checked in" },
             { value: "cancelled", label: "Cancelled" },
           ]}
           style={{ width: 180 }}
@@ -163,7 +175,17 @@ export function BookingsClient({ organizationId }: { organizationId: string }) {
               title: "Status",
               dataIndex: "status",
               render: (value: string) => (
-                <Tag color={value === "confirmed" ? "success" : "error"}>{value}</Tag>
+                <Tag
+                  color={
+                    value === "confirmed"
+                      ? "success"
+                      : value === "checked_in"
+                        ? "processing"
+                        : "error"
+                  }
+                >
+                  {value}
+                </Tag>
               ),
             },
             {

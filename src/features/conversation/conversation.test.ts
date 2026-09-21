@@ -128,6 +128,7 @@ beforeEach(() => {
       "insert",
       "single",
       "maybeSingle",
+      "gt",
       "gte",
       "lte",
       "range",
@@ -392,6 +393,22 @@ describe("minimal booking conditions", () => {
     tables.set("businesses", { id: "business", active: false });
     expect(await create()).toMatchObject({ ok: false, error: "business_is_not_active" });
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("surfaces the blocking booking's id and time when the customer already has an active booking", async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: new Error("active_booking_exists"),
+    });
+    tables.set("bookings", {
+      id: "6fcb66a0-d713-4bfc-a075-0e7d3864baff",
+      local_time_label: "18 Sep, 15:00",
+    });
+    expect(await create()).toEqual({
+      ok: false,
+      error: "active_booking_exists",
+      activeBookingId: "6fcb66a0-d713-4bfc-a075-0e7d3864baff",
+      activeStartsAt: "18 Sep, 15:00",
+    });
   });
   it("preserves custom services and clears a technician preference without a salon", async () => {
     tables.set("salons", [salon]);

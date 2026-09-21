@@ -63,6 +63,7 @@ export async function uploadWhatsAppMedia(
   bytes: Uint8Array,
   mimeType: string,
   provider: WhatsAppProviderConfig,
+  filename = "preview.jpg",
 ) {
   const form = new FormData();
   form.set("messaging_product", "whatsapp");
@@ -71,7 +72,7 @@ export async function uploadWhatsAppMedia(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength,
   ) as ArrayBuffer;
-  form.set("file", new Blob([fileBytes], { type: mimeType }), "preview.jpg");
+  form.set("file", new Blob([fileBytes], { type: mimeType }), filename);
   const result = await graphFetch(`${provider.phoneNumberId}/media`, provider, {
     method: "POST",
     body: form,

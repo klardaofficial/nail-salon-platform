@@ -175,7 +175,7 @@ const ownerTools: FunctionTool[] = [
       properties: {
         from: nullableString,
         to: nullableString,
-        status: { type: ["string", "null"], enum: ["confirmed", "cancelled", null] },
+        status: { type: ["string", "null"], enum: ["confirmed", "cancelled", "checked_in", null] },
         offset: { type: "integer", minimum: 0 },
       },
       required: ["from", "to", "status", "offset"],
@@ -186,7 +186,7 @@ const ownerTools: FunctionTool[] = [
     type: "function",
     name: "owner_booking_summary",
     description:
-      "Query complete business booking totals, confirmed/cancelled counts and distinct customers from the database. Use appointment dates for scheduled visits, created dates for bookings received. from is inclusive, to exclusive; null is unbounded.",
+      "Query complete business booking totals, confirmed/cancelled/checked-in counts and distinct customers from the database. Use appointment dates for scheduled visits, created dates for bookings received. from is inclusive, to exclusive; null is unbounded.",
     strict: true,
     parameters: summaryParameters,
   },
@@ -252,7 +252,7 @@ const technicianTools: FunctionTool[] = [
     type: "function",
     name: "technician_booking_summary",
     description:
-      "Query complete totals, confirmed/cancelled counts and distinct customers for this technician's assigned bookings only. Use appointment dates for scheduled visits, created dates for bookings received. from is inclusive, to exclusive; null is unbounded.",
+      "Query complete totals, confirmed/cancelled/checked-in counts and distinct customers for this technician's assigned bookings only. Use appointment dates for scheduled visits, created dates for bookings received. from is inclusive, to exclusive; null is unbounded.",
     strict: true,
     parameters: summaryParameters,
   },
@@ -507,7 +507,50 @@ async function createBooking(actor: ConversationActor, raw: unknown, callId: str
     p_services: services,
     p_channel: actor.transport === "simulator" ? "whatsapp_simulator" : "whatsapp",
   });
-  if (error) throw error;
+  if (error) {
+    if (error.message.includes("active_booking_exists")) {
+      const active = await supabase
+        .from("bookings")
+        .select("id,local_time_label")
+        .eq("organization_id", actor.organizationId)
+        .eq("contact_id", actor.contactId)
+        .eq("status", "confirmed")
+        .gt("starts_at", new Date().toISOString())
+        .order("starts_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (active.error) throw active.error;
+      if (active.data) {
+        // Seed the draft the customer was just describing so a later
+        // booking:update:<id> tap has something to apply -- without this the
+        // model may present the two-option reply without ever calling
+        // save_booking_details itself, leaving rescheduleBookingFromDraft
+        // with nothing to work from.
+        const { error: draftError } = await supabase.from("booking_drafts").upsert(
+          {
+            organization_id: actor.organizationId,
+            conversation_id: actor.conversationId,
+            salon_id: salon?.id ?? null,
+            starts_at: start.toISOString(),
+            timezone,
+            service_selections: services,
+            technician_ref: technicianRef,
+            additional_request: values.additionalRequest,
+            state: "collecting",
+          },
+          { onConflict: "conversation_id" },
+        );
+        if (draftError) throw draftError;
+        return {
+          ok: false,
+          error: "active_booking_exists",
+          activeBookingId: active.data.id,
+          activeStartsAt: active.data.local_time_label,
+        };
+      }
+    }
+    throw error;
+  }
   await supabase
     .from("booking_drafts")
     .update({ state: "completed" })
@@ -764,7 +807,13 @@ async function updateBooking(actor: ConversationActor, raw: unknown, callId: str
         transport: actor.transport,
         status: "confirmed",
         technicianWaId,
-        bodyParameters: [salon?.name ?? "[N/A]", customer, contact.data.wa_id, startsAt, values.bookingId],
+        bodyParameters: [
+          salon?.name ?? "[N/A]",
+          customer,
+          contact.data.wa_id,
+          startsAt,
+          values.bookingId,
+        ],
         deduplicationKey: `booking:${values.bookingId}:technician:confirmed:update:${callId}`,
       });
     }
@@ -865,7 +914,7 @@ async function ownerListBookings(actor: ConversationActor, raw: unknown) {
     .object({
       from: z.iso.datetime({ offset: true }).nullable(),
       to: z.iso.datetime({ offset: true }).nullable(),
-      status: z.enum(["confirmed", "cancelled"]).nullable(),
+      status: z.enum(["confirmed", "cancelled", "checked_in"]).nullable(),
       offset: z.number().int().min(0).max(1_000_000),
     })
     .parse(raw);
