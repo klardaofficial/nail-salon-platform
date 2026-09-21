@@ -12,6 +12,7 @@ const metaSchema = z.object({
   webhookVerifyToken: z.string().nullable(),
   confirmedTemplate: z.string().trim().max(512).nullable().optional(),
   cancelledTemplate: z.string().trim().max(512).nullable().optional(),
+  reminderTemplate: z.string().trim().max(512).nullable().optional(),
 });
 const openaiSchema = z.object({
   apiKey: z.string().nullable(),
@@ -43,6 +44,7 @@ export async function GET() {
           webhookVerifyToken: data.webhook_verify_token,
           confirmedTemplate: data.technician_booking_confirmed_template,
           cancelledTemplate: data.technician_booking_cancelled_template,
+          reminderTemplate: data.booking_reminder_template,
           callbackUrl: buildWebhookCallbackUrl(),
         },
         openai: {
@@ -83,6 +85,7 @@ export async function PATCH(request: Request) {
       }
       const confirmedTemplate = values.meta.confirmedTemplate?.trim() || null;
       const cancelledTemplate = values.meta.cancelledTemplate?.trim() || null;
+      const reminderTemplate = values.meta.reminderTemplate?.trim() || null;
       const credentialsChanged =
         credentials[0] !== current.data.access_token ||
         credentials[1] !== current.data.app_secret ||
@@ -90,7 +93,8 @@ export async function PATCH(request: Request) {
       const metaChanged =
         credentialsChanged ||
         confirmedTemplate !== current.data.technician_booking_confirmed_template ||
-        cancelledTemplate !== current.data.technician_booking_cancelled_template;
+        cancelledTemplate !== current.data.technician_booking_cancelled_template ||
+        reminderTemplate !== current.data.booking_reminder_template;
       const updated = await supabase
         .from("root_settings")
         .update({
@@ -99,6 +103,7 @@ export async function PATCH(request: Request) {
           webhook_verify_token: credentials[2],
           technician_booking_confirmed_template: confirmedTemplate,
           technician_booking_cancelled_template: cancelledTemplate,
+          booking_reminder_template: reminderTemplate,
           ...(metaChanged ? { configuration_version: current.data.configuration_version + 1 } : {}),
         })
         .eq("singleton", true);

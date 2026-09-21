@@ -44,6 +44,7 @@ vi.mock("@/features/organizations/providers", () => ({
     templates: {
       confirmed: { name: "technician_booking_confirmed", source: "organization" },
       cancelled: { name: "technician_booking_cancelled", source: "organization" },
+      reminder: { name: null, source: "none" },
     },
   }),
   resolveOpenAIConfiguration: async () => ({
@@ -98,6 +99,7 @@ const webhookConfiguration = {
   templates: {
     confirmed: { name: null, source: "none" as const },
     cancelled: { name: null, source: "none" as const },
+    reminder: { name: null, source: "none" as const },
   },
 };
 const naturalReply = {

@@ -99,6 +99,7 @@ export async function sendSimulatorMessage(organizationId: string, input: unknow
     templates: {
       confirmed: { name: null, source: "none" },
       cancelled: { name: null, source: "none" },
+      reminder: { name: null, source: "none" },
     },
   };
   await registerOrganizationEvents(simulatedConfiguration, events, true);

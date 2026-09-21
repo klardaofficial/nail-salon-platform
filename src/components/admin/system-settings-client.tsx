@@ -15,6 +15,7 @@ import {
 import { OpenAIPricingEditor } from "./openai-pricing-editor";
 import { PageHeading } from "./page-heading";
 import { SettingsSection } from "./settings-section";
+import { TemplateHelpLabel, reminderTemplateHelp, technicianTemplateHelp } from "./template-help";
 
 type RootSettings = {
   meta: {
@@ -23,6 +24,7 @@ type RootSettings = {
     webhookVerifyToken: string | null;
     confirmedTemplate: string | null;
     cancelledTemplate: string | null;
+    reminderTemplate: string | null;
     callbackUrl: string;
   };
   openai: {
@@ -39,6 +41,7 @@ type MetaFormValues = {
   webhookVerifyToken: string | null;
   confirmedTemplate: string | null;
   cancelledTemplate: string | null;
+  reminderTemplate: string | null;
 };
 
 type OpenAIFormValues = {
@@ -113,10 +116,44 @@ export function SystemSettingsClient() {
             <Form.Item name="webhookVerifyToken" label="Webhook verify token">
               <Input.Password />
             </Form.Item>
-            <Form.Item name="confirmedTemplate" label="Default technician confirmation template">
+            <Form.Item
+              name="confirmedTemplate"
+              label={
+                <TemplateHelpLabel
+                  label="Default technician confirmation template"
+                  title="Default technician confirmation template"
+                >
+                  {technicianTemplateHelp}
+                </TemplateHelpLabel>
+              }
+            >
               <Input />
             </Form.Item>
-            <Form.Item name="cancelledTemplate" label="Default technician cancellation template">
+            <Form.Item
+              name="cancelledTemplate"
+              label={
+                <TemplateHelpLabel
+                  label="Default technician cancellation template"
+                  title="Default technician cancellation template"
+                >
+                  {technicianTemplateHelp}
+                </TemplateHelpLabel>
+              }
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="reminderTemplate"
+              label={
+                <TemplateHelpLabel
+                  label="Default booking reminder template"
+                  title="Default booking reminder template"
+                >
+                  {reminderTemplateHelp}
+                </TemplateHelpLabel>
+              }
+              extra="Used by organizations that do not configure their own booking reminder template."
+            >
               <Input />
             </Form.Item>
             <Form.Item label="Root callback">

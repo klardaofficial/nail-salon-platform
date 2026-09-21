@@ -58,6 +58,14 @@ const updateSchema = z.object({
   meta: metaFields.optional(),
   confirmedTemplate: z.string().trim().max(512).nullable().optional(),
   cancelledTemplate: z.string().trim().max(512).nullable().optional(),
+  reminderTemplate: z.string().trim().max(512).nullable().optional(),
+  // Whole-list replace, matching the "Booking reminders" Card's single Save
+  // button: every rule present here survives, every other rule for this
+  // organization is deleted.
+  reminders: z
+    .array(z.object({ offsetMinutes: z.number().int().min(60).max(43200) }))
+    .max(10)
+    .optional(),
   openai: openaiOverrideSchema.optional(),
 });
 
@@ -72,6 +80,7 @@ export async function GET(_request: Request, { params }: Context) {
     const [
       { data: settings, error: settingsError },
       { data: provider, error: providerError },
+      { data: reminderRules, error: reminderRulesError },
       effective,
       openAI,
       profile,
@@ -86,11 +95,17 @@ export async function GET(_request: Request, { params }: Context) {
         .select("*")
         .eq("organization_id", organizationId)
         .single(),
+      supabase
+        .from("booking_reminder_rules")
+        .select("id,offset_minutes")
+        .eq("organization_id", organizationId)
+        .order("offset_minutes", { ascending: true }),
       resolveEffectiveMetaConfiguration(organizationId),
       resolveOpenAIConfiguration(organizationId),
       readOrganizationProfile(organizationId),
     ]);
-    if (settingsError ?? providerError) throw settingsError ?? providerError;
+    if (settingsError ?? providerError ?? reminderRulesError)
+      throw settingsError ?? providerError ?? reminderRulesError;
     const qrAvailable = effective?.readiness === "enabled" && Boolean(effective.e164Digits);
     return apiSuccess(
       {
@@ -111,6 +126,7 @@ export async function GET(_request: Request, { params }: Context) {
           },
           confirmedTemplate: provider.technician_booking_confirmed_template,
           cancelledTemplate: provider.technician_booking_cancelled_template,
+          reminderTemplate: provider.booking_reminder_template,
           openai: {
             overrideConfigured: Boolean(provider.openai_api_key?.trim()),
             chatModel: provider.openai_chat_model,
@@ -131,6 +147,12 @@ export async function GET(_request: Request, { params }: Context) {
           catalogUrl: buildPublicCatalogUrl(organizationId),
           templates: effective?.templates,
         },
+        // Organization-only: no root default list. Rendered as the
+        // "Booking reminders" Card's Form.List, keyed by offset_minutes.
+        reminders: (reminderRules ?? []).map((rule) => ({
+          id: rule.id,
+          offsetMinutes: rule.offset_minutes,
+        })),
       },
       noStore,
     );
@@ -202,6 +224,8 @@ export async function PATCH(request: Request, { params }: Context) {
       providerValues.technician_booking_confirmed_template = values.confirmedTemplate || null;
     if (values.cancelledTemplate !== undefined)
       providerValues.technician_booking_cancelled_template = values.cancelledTemplate || null;
+    if (values.reminderTemplate !== undefined)
+      providerValues.booking_reminder_template = values.reminderTemplate || null;
 
     let openAIChanged = false;
     if (values.openai) {
@@ -271,6 +295,33 @@ export async function PATCH(request: Request, { params }: Context) {
         .eq("organization_id", organizationId);
       if (result.error) throw result.error;
     }
+
+    if (values.reminders !== undefined) {
+      const desiredOffsets = Array.from(new Set(values.reminders.map((rule) => rule.offsetMinutes)));
+      const existingRules = await supabase
+        .from("booking_reminder_rules")
+        .select("id,offset_minutes")
+        .eq("organization_id", organizationId);
+      if (existingRules.error) throw existingRules.error;
+      const staleIds = (existingRules.data ?? [])
+        .filter((rule) => !desiredOffsets.includes(rule.offset_minutes))
+        .map((rule) => rule.id);
+      if (staleIds.length) {
+        const deleted = await supabase.from("booking_reminder_rules").delete().in("id", staleIds);
+        if (deleted.error) throw deleted.error;
+      }
+      if (desiredOffsets.length) {
+        const upserted = await supabase.from("booking_reminder_rules").upsert(
+          desiredOffsets.map((offsetMinutes) => ({
+            organization_id: organizationId,
+            offset_minutes: offsetMinutes,
+          })),
+          { onConflict: "organization_id,offset_minutes" },
+        );
+        if (upserted.error) throw upserted.error;
+      }
+    }
+
     return GET(request, { params: Promise.resolve({ organizationId }) });
   } catch (error) {
     return apiException(error);

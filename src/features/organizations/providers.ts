@@ -26,6 +26,7 @@ export type EffectiveMetaConfiguration = {
   templates: {
     confirmed: { name: string | null; source: "root" | "organization" | "none" };
     cancelled: { name: string | null; source: "root" | "organization" | "none" };
+    reminder: { name: string | null; source: "root" | "organization" | "none" };
   };
 };
 
@@ -158,6 +159,11 @@ export async function resolveEffectiveMetaConfiguration(
       cancelled: template(
         provider.technician_booking_cancelled_template,
         root?.technician_booking_cancelled_template ?? null,
+        source,
+      ),
+      reminder: template(
+        provider.booking_reminder_template,
+        root?.booking_reminder_template ?? null,
         source,
       ),
     },

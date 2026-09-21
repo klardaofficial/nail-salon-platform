@@ -391,6 +391,38 @@ export type Database = {
           },
         ]
       }
+      booking_reminder_rules: {
+        Row: {
+          created_at: string
+          id: string
+          offset_minutes: number
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          offset_minutes: number
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          offset_minutes?: number
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_reminder_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_services: {
         Row: {
           booking_id: string
@@ -1097,6 +1129,7 @@ export type Database = {
         Row: {
           access_token: string | null
           app_secret: string | null
+          booking_reminder_template: string | null
           configuration_version: number
           created_at: string
           display_phone_number: string | null
@@ -1118,6 +1151,7 @@ export type Database = {
         Insert: {
           access_token?: string | null
           app_secret?: string | null
+          booking_reminder_template?: string | null
           configuration_version?: number
           created_at?: string
           display_phone_number?: string | null
@@ -1139,6 +1173,7 @@ export type Database = {
         Update: {
           access_token?: string | null
           app_secret?: string | null
+          booking_reminder_template?: string | null
           configuration_version?: number
           created_at?: string
           display_phone_number?: string | null
@@ -1454,6 +1489,7 @@ export type Database = {
         Row: {
           access_token: string | null
           app_secret: string | null
+          booking_reminder_template: string | null
           configuration_version: number
           created_at: string
           openai_api_key: string | null
@@ -1470,6 +1506,7 @@ export type Database = {
         Insert: {
           access_token?: string | null
           app_secret?: string | null
+          booking_reminder_template?: string | null
           configuration_version?: number
           created_at?: string
           openai_api_key?: string | null
@@ -1486,6 +1523,7 @@ export type Database = {
         Update: {
           access_token?: string | null
           app_secret?: string | null
+          booking_reminder_template?: string | null
           configuration_version?: number
           created_at?: string
           openai_api_key?: string | null

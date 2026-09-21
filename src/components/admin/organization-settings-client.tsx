@@ -8,6 +8,7 @@ import {
   Col,
   Form,
   Input,
+  InputNumber,
   Popconfirm,
   Row,
   Select,
@@ -17,6 +18,7 @@ import {
   Tag,
   Typography,
 } from "antd";
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
@@ -36,6 +38,7 @@ import {
 import { OpenAIPricingEditor } from "./openai-pricing-editor";
 import { PageHeading } from "./page-heading";
 import { SettingsSection } from "./settings-section";
+import { TemplateHelpLabel, reminderTemplateHelp, technicianTemplateHelp } from "./template-help";
 
 type SettingsResponse = {
   organization: { name: string; status: string; ownerWaIds: string };
@@ -57,6 +60,7 @@ type SettingsResponse = {
     };
     confirmedTemplate: string | null;
     cancelledTemplate: string | null;
+    reminderTemplate: string | null;
     openai: {
       overrideConfigured: boolean;
       chatModel: string | null;
@@ -75,7 +79,12 @@ type SettingsResponse = {
     clickToChatUrl: string | null;
     bookingIntentUrl: string;
     catalogUrl: string;
+    templates?: {
+      reminder: { name: string | null; source: "root" | "organization" | "none" };
+    };
   };
+  // Organization-only: no root default list.
+  reminders: Array<{ id: string; offsetMinutes: number }>;
 };
 
 type OrganizationFormValues = {
@@ -99,11 +108,27 @@ type WhatsAppCredentialsFormValues = {
   webhookVerifyToken: string | null;
   confirmedTemplate: string | null;
   cancelledTemplate: string | null;
+  reminderTemplate: string | null;
 };
 
 type SimulatorFormValues = {
   simulatorEnabled: boolean;
 };
+
+type ReminderRow = { value: number; unit: "hours" | "days" };
+type RemindersFormValues = {
+  reminders: ReminderRow[];
+};
+
+function offsetToRow(offsetMinutes: number): ReminderRow {
+  return offsetMinutes % 1440 === 0
+    ? { value: offsetMinutes / 1440, unit: "days" }
+    : { value: offsetMinutes / 60, unit: "hours" };
+}
+
+function rowToOffset(row: ReminderRow): number {
+  return row.unit === "days" ? row.value * 1440 : row.value * 60;
+}
 
 type OpenAIFormValues = {
   apiKey: string | null;
@@ -127,6 +152,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
   const [waCredentialsForm] = Form.useForm<WhatsAppCredentialsFormValues>();
   const [simulatorForm] = Form.useForm<SimulatorFormValues>();
   const [openaiForm] = Form.useForm<OpenAIFormValues>();
+  const [remindersForm] = Form.useForm<RemindersFormValues>();
 
   const [showWhatsAppOverride, setShowWhatsAppOverride] = useState<boolean | null>(null);
   const [showOpenAIOverride, setShowOpenAIOverride] = useState<boolean | null>(null);
@@ -167,6 +193,7 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       webhookVerifyToken: data.provider.savedMetaOverride.webhookVerifyToken,
       confirmedTemplate: data.provider.confirmedTemplate,
       cancelledTemplate: data.provider.cancelledTemplate,
+      reminderTemplate: data.provider.reminderTemplate,
     });
     simulatorForm.setFieldsValue({ simulatorEnabled: data.settings.simulator_enabled });
     openaiForm.setFieldsValue({
@@ -175,7 +202,10 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
       imageModel: data.provider.openai.imageModel ?? "",
       pricing: pricingToRows(data.provider.openai.pricing),
     });
-  }, [data, orgForm, waAccountForm, waCredentialsForm, simulatorForm, openaiForm]);
+    remindersForm.setFieldsValue({
+      reminders: data.reminders.map((rule) => offsetToRow(rule.offsetMinutes)),
+    });
+  }, [data, orgForm, waAccountForm, waCredentialsForm, simulatorForm, openaiForm, remindersForm]);
 
   async function patch(body: Record<string, unknown>) {
     const updated = await apiMutation<SettingsResponse>(settingsKey, {
@@ -195,10 +225,11 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
   }
 
   async function saveWhatsAppCredentials(values: WhatsAppCredentialsFormValues) {
-    const { confirmedTemplate, cancelledTemplate, ...meta } = values;
+    const { confirmedTemplate, cancelledTemplate, reminderTemplate, ...meta } = values;
     await patch({
       confirmedTemplate,
       cancelledTemplate,
+      reminderTemplate,
       meta: showWhatsAppSettings
         ? meta
         : { accessToken: null, appSecret: null, webhookVerifyToken: null },
@@ -222,6 +253,15 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
           }
         : { enabled: false },
     });
+  }
+
+  async function saveReminders(values: RemindersFormValues) {
+    const rows = values.reminders ?? [];
+    const offsets = rows.map(rowToOffset);
+    if (new Set(offsets).size !== offsets.length) {
+      throw new Error("Each reminder must use a different amount of time before the appointment.");
+    }
+    await patch({ reminders: offsets.map((offsetMinutes) => ({ offsetMinutes })) });
   }
 
   async function clearMetaOverride() {
@@ -626,12 +666,48 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
 
                 <Row gutter={[24, 0]}>
                   <Col xs={24} lg={12}>
-                    <Form.Item name="confirmedTemplate" label="Technician confirmation template">
+                    <Form.Item
+                      name="confirmedTemplate"
+                      label={
+                        <TemplateHelpLabel
+                          label="Technician confirmation template"
+                          title="Technician confirmation template"
+                        >
+                          {technicianTemplateHelp}
+                        </TemplateHelpLabel>
+                      }
+                    >
                       <Input />
                     </Form.Item>
                   </Col>
                   <Col xs={24} lg={12}>
-                    <Form.Item name="cancelledTemplate" label="Technician cancellation template">
+                    <Form.Item
+                      name="cancelledTemplate"
+                      label={
+                        <TemplateHelpLabel
+                          label="Technician cancellation template"
+                          title="Technician cancellation template"
+                        >
+                          {technicianTemplateHelp}
+                        </TemplateHelpLabel>
+                      }
+                    >
+                      <Input />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} lg={12}>
+                    <Form.Item
+                      name="reminderTemplate"
+                      label={
+                        <TemplateHelpLabel
+                          label="Booking reminder template"
+                          title="Booking reminder template"
+                        >
+                          {reminderTemplateHelp}
+                        </TemplateHelpLabel>
+                      }
+                      extra="Falls back to the system default template when left blank."
+                    >
                       <Input />
                     </Form.Item>
                   </Col>
@@ -662,6 +738,86 @@ export function OrganizationSettingsClient({ organizationId }: { organizationId:
                 Shared root Meta credentials are used for this organization.
               </Typography.Text>
             )}
+          </SettingsSection>
+
+          <SettingsSection
+            form={remindersForm}
+            title="Booking reminders"
+            extra={
+              <Typography.Text type="secondary">
+                Nudge customers before their appointment
+              </Typography.Text>
+            }
+            saveLabel="Save booking reminders"
+            onSave={saveReminders}
+          >
+            {data.reminders.length > 0 && !data.provider.templates?.reminder?.name ? (
+              <Alert
+                type="warning"
+                showIcon
+                className="mb-4"
+                title="No booking reminder template configured"
+                description="Reminder times are set below, but no booking reminder template is configured for this organization or the system default. No reminders will be sent until one is set above or by a system administrator."
+              />
+            ) : null}
+            <Form.List name="reminders">
+              {(fields, { add, remove }) => (
+                <Space orientation="vertical" size="middle" className="w-full">
+                  {fields.length === 0 ? (
+                    <Typography.Text type="secondary">
+                      No reminders configured. Add one below.
+                    </Typography.Text>
+                  ) : null}
+                  {fields.map((field) => (
+                    <Row key={field.key} gutter={[16, 0]} align="middle">
+                      <Col flex="none">
+                        <Form.Item
+                          {...field}
+                          name={[field.name, "value"]}
+                          rules={[{ required: true, message: "Required" }]}
+                          className="mb-0"
+                        >
+                          <InputNumber min={1} max={999} />
+                        </Form.Item>
+                      </Col>
+                      <Col flex="none">
+                        <Form.Item
+                          {...field}
+                          name={[field.name, "unit"]}
+                          rules={[{ required: true, message: "Required" }]}
+                          className="mb-0"
+                        >
+                          <Select
+                            options={[
+                              { value: "hours", label: "hours before" },
+                              { value: "days", label: "days before" },
+                            ]}
+                            className="w-36"
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col flex="none">
+                        <Button
+                          type="text"
+                          danger
+                          icon={<TrashIcon size={16} />}
+                          aria-label="Remove reminder"
+                          onClick={() => remove(field.name)}
+                        />
+                      </Col>
+                    </Row>
+                  ))}
+                  <Button
+                    type="dashed"
+                    icon={<PlusIcon size={16} />}
+                    onClick={() => add({ value: 1, unit: "hours" })}
+                    disabled={fields.length >= 10}
+                  >
+                    Add reminder
+                  </Button>
+                </Space>
+              )}
+            </Form.List>
           </SettingsSection>
 
           <SettingsSection

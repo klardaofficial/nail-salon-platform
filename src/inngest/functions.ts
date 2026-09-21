@@ -7,6 +7,7 @@ import {
   queueCheckinQrDelivery,
 } from "@/features/bookings/checkin-delivery";
 import { processStylePreview, queueStylePreviews } from "@/features/previews/process";
+import { queueDueBookingReminders } from "@/features/bookings/reminder-delivery";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { inngest } from "./client";
@@ -141,6 +142,11 @@ export const generateCheckinQr = inngest.createFunction(
   },
 );
 
+// The shared five-minute maintenance tick: outbox/job recovery plus the
+// booking-reminder scan (queueDueBookingReminders) both run here as separate
+// memoized steps rather than as a second Inngest function, because Inngest
+// bills per function run and this cron schedule already covers what the
+// reminder scan needs.
 export const recoverDurableOutboxes = inngest.createFunction(
   {
     id: "recover-durable-outboxes",
@@ -148,7 +154,7 @@ export const recoverDurableOutboxes = inngest.createFunction(
     triggers: [{ cron: "*/5 * * * *" }],
   },
   async ({ step }) => {
-    return step.run("redispatch", async () => {
+    const redispatch = await step.run("redispatch", async () => {
       const supabase = createSupabaseAdminClient();
       const [jobs, messages, stalePreviews] = await Promise.all([
         supabase
@@ -208,6 +214,12 @@ export const recoverDurableOutboxes = inngest.createFunction(
         stalePreviews: stalePreviews.data.length,
       };
     });
+    // A separate step (rather than inlining this in "redispatch") is
+    // deliberate: step results are memoized, so a reminder failure retries
+    // only this step on the next attempt and never re-runs outbox
+    // redispatch.
+    const reminders = await step.run("queue-booking-reminders", () => queueDueBookingReminders());
+    return { ...redispatch, reminders };
   },
 );
 
