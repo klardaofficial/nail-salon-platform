@@ -8,6 +8,7 @@ export type ChatMessage = {
   text: string;
   mediaId?: string | null;
   imageUrl?: string | null;
+  imageAlt?: string;
   payload?: OutboundWhatsAppPayload;
 };
 export type ChatReply = {

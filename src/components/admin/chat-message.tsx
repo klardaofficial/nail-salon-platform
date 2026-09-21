@@ -51,7 +51,7 @@ export function ChatMessageBubble({
         <img
           className="mt-2 max-h-64 max-w-full rounded-md border border-[#dde3e0] bg-white"
           src={message.imageUrl}
-          alt="Check-in QR code"
+          alt={message.imageAlt ?? "Image attachment"}
         />
       ) : null}
       {message.mediaId ? (

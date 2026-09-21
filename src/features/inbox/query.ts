@@ -33,7 +33,7 @@ export async function queryInboxMessages(
 ): Promise<InboxMessages> {
   let request = createSupabaseAdminClient()
     .from("admin_organization_whatsapp_messages")
-    .select("id,direction,created_at,state,text_content,media_id,payload")
+    .select("id,direction,created_at,state,text_content,message_type,media_id,payload")
     .eq("organization_id", organizationId)
     .eq("wa_id", query.waId)
     .eq("channel", query.channel)
@@ -53,17 +53,31 @@ export async function queryInboxMessages(
       result.data.length > 50 && oldest
         ? JSON.stringify({ at: oldest.created_at, id: oldest.id })
         : null,
-    messages: page.reverse().map((item) => ({
-      id: item.id,
-      direction: item.direction as "inbound" | "outbound",
-      createdAt: item.created_at,
-      state: item.state,
-      text: item.text_content ?? "",
-      mediaId: item.media_id,
-      // Only interactive fields are needed by the browser. No raw provider payload.
-      ...(interactivePayload(item.payload) ? { payload: interactivePayload(item.payload)! } : {}),
-    })),
+    messages: page.reverse().map((item) => {
+      const image =
+        item.message_type === "image" && (item.media_id || simulatorImage(item.payload));
+      return {
+        id: item.id,
+        direction: item.direction as "inbound" | "outbound",
+        createdAt: item.created_at,
+        state: item.state,
+        text: item.text_content ?? "",
+        mediaId: item.media_id,
+        ...(image
+          ? {
+              imageUrl: `/api/admin/organizations/${organizationId}/inbox/images/${encodeURIComponent(item.id!)}`,
+            }
+          : {}),
+        // Only interactive fields are needed by the browser. No raw provider payload.
+        ...(interactivePayload(item.payload) ? { payload: interactivePayload(item.payload)! } : {}),
+      };
+    }),
   };
+}
+
+function simulatorImage(value: unknown) {
+  if (!value || typeof value !== "object" || !("simulatorImage" in value)) return false;
+  return (value as { simulatorImage?: { kind?: unknown } }).simulatorImage?.kind === "checkin_qr";
 }
 
 function interactivePayload(value: unknown): OutboundWhatsAppPayload | undefined {

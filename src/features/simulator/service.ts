@@ -182,6 +182,13 @@ export async function listSimulatorMessages(organizationId: string, inputWaId: u
         payload.simulatorImage
           ? `/api/admin/organizations/${organizationId}/simulator/images/${item.id}`
           : null,
+      imageAlt:
+        payload.kind === "image" &&
+        !payload.mediaId &&
+        "simulatorImage" in payload &&
+        payload.simulatorImage
+          ? "Check-in QR code"
+          : undefined,
     });
   }
   messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));

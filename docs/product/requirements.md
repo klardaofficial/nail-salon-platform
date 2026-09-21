@@ -57,7 +57,7 @@ METRIC-02 acceptance: active users sent at least one inbound message in the peri
 
 AI-03 acceptance: recording begins at deployment; historical tokens are unavailable. Failed/unfinished calls and missing prices/usage cannot imply free usage. Known cost subtotals show incomplete pricing coverage. Image usage is logged before upload, including generated images whose uploads fail. Simulator AI calls incur normal usage. No prompts, message text, image bytes, or raw provider responses enter usage logs.
 
-ADMIN-03 acceptance: show original received text, interactive selections/options, saved template names/parameters, timestamps, and processing/send state. Images show captions and media-ID placeholders without retrieving pixels. Both history sources remain inspectable without enabling simulator sends.
+ADMIN-03 acceptance: show original received text, interactive selections/options, saved template names/parameters, timestamps, and processing/send state. Images show captions and are retrieved on demand only through authenticated, organization-scoped routes; no image bytes are persisted. Both history sources remain inspectable without enabling simulator sends.
 
 Deferred: owner/technician web dashboards (the simulator is an admin testing tool), payment collection, deposits, strict scheduling, attendance/no-show tracking, arbitrary WhatsApp avatar lookup, persistent customer image galleries, and simulator image uploads.
 
