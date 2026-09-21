@@ -327,7 +327,7 @@ export function SimulatorClient({ organizationId }: { organizationId: string }) 
         type="info"
         showIcon
         title="Simulated chats run alongside real WhatsApp"
-        description="Replies and notifications from these chats stay in the simulator. Conversations use the configured database: bookings and business changes are real. Text and interactive replies are supported; image upload is unavailable."
+        description="Replies and notifications from these chats stay in the simulator. Conversations use the configured database: bookings and business changes are real. Text, interactive replies, and generated check-in QR codes are supported; image upload is unavailable."
       />
       {data && !data.aiConfigured ? (
         <Alert

@@ -22,6 +22,7 @@ import { extractCheckinBookingId, stripCheckinTag } from "@/features/bookings/ch
 import { queueInteractiveChoices, queueWhatsAppMessage } from "@/features/messaging/outbox";
 import { resolveExternalWebsiteUrl } from "@/features/organizations/providers";
 import { inngest } from "@/inngest/client";
+import { queueSimulatedCheckinQrDelivery } from "@/features/bookings/checkin-delivery";
 import type {
   NormalizedWhatsAppEvent,
   OutboundWhatsAppPayload,
@@ -76,10 +77,10 @@ async function sendCheckinQrRequested(input: {
   locale: string;
   transport: "whatsapp" | "simulator";
 }) {
-  // The simulator only exercises text/interactive messages, never photo
-  // uploads (see docs/development/configuration.md); skip the real Graph API
-  // round trip entirely rather than let it fail against a fake number.
-  if (input.transport === "simulator") return;
+  if (input.transport === "simulator") {
+    await queueSimulatedCheckinQrDelivery(input);
+    return;
+  }
   await inngest.send({
     name: "booking/checkin-qr.requested",
     data: {

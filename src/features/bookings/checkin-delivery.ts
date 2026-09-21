@@ -52,3 +52,27 @@ export async function queueCheckinQrDelivery(input: {
     deduplicationKey: `booking:${input.bookingId}:checkin-qr`,
   });
 }
+
+// The simulator records only the booking reference. Its authenticated route
+// regenerates the QR when viewed; neither Meta nor persistent image storage is used.
+export async function queueSimulatedCheckinQrDelivery(input: {
+  organizationId: string;
+  bookingId: string;
+  conversationId: string;
+  recipientWaId: string;
+  locale: string;
+}): Promise<void> {
+  await queueWhatsAppMessage({
+    organizationId: input.organizationId,
+    conversationId: input.conversationId,
+    recipientWaId: input.recipientWaId,
+    payload: {
+      kind: "image",
+      mediaId: null,
+      caption: resolveStaticMessages(input.locale).checkinQrCaption,
+      simulatorImage: { kind: "checkin_qr", bookingId: input.bookingId },
+    },
+    deduplicationKey: `booking:${input.bookingId}:checkin-qr`,
+    transport: "simulator",
+  });
+}

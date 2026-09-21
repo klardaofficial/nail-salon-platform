@@ -45,6 +45,15 @@ export function ChatMessageBubble({
         {message.direction === "inbound" ? contactName : "Salon assistant"}
       </span>
       <div className="text-sm leading-[1.55] whitespace-pre-wrap">{message.text}</div>
+      {message.imageUrl ? (
+        // This authenticated, no-store route cannot go through Next's server-side image optimizer.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className="mt-2 max-h-64 max-w-full rounded-md border border-[#dde3e0] bg-white"
+          src={message.imageUrl}
+          alt="Check-in QR code"
+        />
+      ) : null}
       {message.mediaId ? (
         <div className="text-admin-muted mt-[6px] text-xs">
           Image attachment · WhatsApp media ID: {message.mediaId}

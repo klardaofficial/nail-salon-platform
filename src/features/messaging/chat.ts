@@ -7,6 +7,7 @@ export type ChatMessage = {
   state: string;
   text: string;
   mediaId?: string | null;
+  imageUrl?: string | null;
   payload?: OutboundWhatsAppPayload;
 };
 export type ChatReply = {

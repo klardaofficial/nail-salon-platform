@@ -6,6 +6,7 @@ export function buildWhatsAppMessageBody(to: string, payload: OutboundWhatsAppPa
   if (payload.kind === "text") {
     message = { type: "text", text: { preview_url: false, body: payload.text } };
   } else if (payload.kind === "image") {
+    if (!payload.mediaId) throw new Error("simulator_image_cannot_be_sent_to_whatsapp");
     message = {
       type: "image",
       image: { id: payload.mediaId, ...(payload.caption ? { caption: payload.caption } : {}) },

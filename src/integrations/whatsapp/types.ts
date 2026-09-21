@@ -34,9 +34,13 @@ export type NormalizedWhatsAppEvent =
 
 export type WhatsAppInteractiveOption = { id: string; title: string; description?: string };
 
+// Simulator-only descriptors contain domain data, never image bytes.
+export type SimulatorImage = { kind: "checkin_qr"; bookingId: string };
+
 export type OutboundWhatsAppPayload =
   | { kind: "text"; text: string }
   | { kind: "image"; mediaId: string; caption?: string }
+  | { kind: "image"; mediaId: null; caption?: string; simulatorImage: SimulatorImage }
   | {
       kind: "template";
       name: string;

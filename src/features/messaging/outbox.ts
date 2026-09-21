@@ -102,7 +102,8 @@ export async function deliverWhatsAppOutboxMessage(outboxId: string) {
   try {
     const payload = outbox.payload as OutboundWhatsAppPayload;
     // Exercise the same provider formatting/validation before capturing delivery.
-    if (simulated) buildWhatsAppMessageBody(outbox.recipient_wa_id, payload);
+    if (simulated && !(payload.kind === "image" && !payload.mediaId))
+      buildWhatsAppMessageBody(outbox.recipient_wa_id, payload);
     const configuration = simulated
       ? null
       : await resolveEffectiveMetaConfiguration(outbox.organization_id);

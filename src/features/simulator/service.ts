@@ -174,6 +174,14 @@ export async function listSimulatorMessages(organizationId: string, inputWaId: u
           : item.state,
       text: outboundMessageText(payload),
       payload,
+      mediaId: payload.kind === "image" ? payload.mediaId : null,
+      imageUrl:
+        payload.kind === "image" &&
+        !payload.mediaId &&
+        "simulatorImage" in payload &&
+        payload.simulatorImage
+          ? `/api/admin/organizations/${organizationId}/simulator/images/${item.id}`
+          : null,
     });
   }
   messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));

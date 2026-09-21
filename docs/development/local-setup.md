@@ -62,7 +62,7 @@ Run `pnpm inngest:dev` in a second terminal and sign in at `http://localhost:300
 - Send text or click a delivered reply button/list option. Conversation windows poll every two seconds and display queued, processing, failed, and simulated-delivery states. A queued message that stays queued usually means Inngest is not running or synced; inspect `http://localhost:8288`.
 - Create an active salon to test bookings. Services and technicians remain optional. A simulated booking assigned to a technician produces its notification in that technician's simulator window, even before they have sent a message.
 
-Simulated and real WhatsApp use separate conversation histories/drafts and booking-source flags inside the selected organization. Simulated actions still execute domain changes, but replies and notifications never go to Meta. Image upload/preview generation and Meta-specific delivery behavior are outside this text/interactive simulator.
+Simulated and real WhatsApp use separate conversation histories/drafts and booking-source flags inside the selected organization. Simulated actions still execute domain changes, but replies and notifications never go to Meta. The simulator renders generated check-in QR codes on demand when a salon number is configured; it stores no image bytes. Image upload/preview generation and Meta-specific delivery behavior remain outside the simulator.
 
 Disable Simulator in Organization settings to hide its source controls and reject new simulated ingress for that organization. Historical simulated records remain scoped and preserved. Hosted development uses the same setting with cloud Inngest; no redeploy is needed.
 
