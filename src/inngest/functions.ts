@@ -162,12 +162,14 @@ export const recoverDurableOutboxes = inngest.createFunction(
           .select("id,inbox_event_id,payload,organization_id")
           .in("state", ["pending", "failed"])
           .lte("available_at", new Date().toISOString())
+          .gt("created_at", subMinutes(new Date(), 30).toISOString())
           .limit(50),
         supabase
           .from("message_outbox")
           .select("id,organization_id")
           .in("state", ["pending", "failed"])
           .lte("available_at", new Date().toISOString())
+          .gt("created_at", subMinutes(new Date(), 30).toISOString())
           .limit(50),
         supabase
           .from("preview_requests")
