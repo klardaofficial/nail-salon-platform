@@ -58,6 +58,10 @@ export const reminderTemplateHelp = (
       at {"{{2}}"}. See you soon!&quot;</Text>
     </Paragraph>
     <Paragraph>
+      With sample values: <Text italic>&quot;Hi <b>Maria Schmidt</b>, this is a reminder for your
+      appointment at <b>Sep 20, 2026, 3:00 PM</b>. See you soon!&quot;</Text>
+    </Paragraph>
+    <Paragraph>
       Once Meta approves the template, enter its exact template name here. The template
       must be approved in the same language as this organization&apos;s bot language.
     </Paragraph>
@@ -86,6 +90,22 @@ export const technicianTemplateHelp = (
       <Text code>{"{{4}}"}</Text> — appointment time
       <br />
       <Text code>{"{{5}}"}</Text> — booking reference
+    </Paragraph>
+    <Paragraph>
+      Example confirmation body: <Text italic>&quot;New booking at {"{{1}}"}: {"{{2}}"}
+      ({"{{3}}"}) at {"{{4}}"}. Ref {"{{5}}"}.&quot;</Text>
+      <br/>
+      Example cancellation body: <Text italic>&quot;Booking cancelled at {"{{1}}"}:
+      {"{{2}}"} ({"{{3}}"}) at {"{{4}}"} was cancelled. Ref {"{{5}}"}.&quot;</Text>
+    </Paragraph>
+    <Paragraph>
+      With sample values (confirmation): <Text italic>&quot;New booking at <b>Glow Nails
+      Berlin</b>: <b>Maria Schmidt</b> (<b>+49 151 23456789</b>) at <b>Sep 20, 2026, 3:00 PM</b>.
+      Ref <b>8f3c1a</b>.&quot;</Text>
+      <br/>
+      With sample values (cancellation): <Text italic>&quot;Booking cancelled at <b>Glow
+      Nails Berlin</b>: <b>Maria Schmidt</b> (<b>+49 151 23456789</b>) at <b>Sep 20, 2026, 3:00 PM</b> was
+      cancelled. Ref <b>8f3c1a</b>.&quot;</Text>
     </Paragraph>
     <Paragraph>
       Once Meta approves the template, enter its exact template name here. The template
